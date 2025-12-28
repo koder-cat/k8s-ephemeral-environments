@@ -1,0 +1,147 @@
+name: Sync User Stories
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Sync direction'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - to-github
+          - from-github
+      dry_run:
+        description: 'Dry run (no changes)'
+        required: false
+        default: false
+        type: boolean
+
+  # Trigger on changes to user stories
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/user-stories/**/*.md'
+
+  # Trigger on issue changes (for syncing back to docs)
+  issues:
+    types: [labeled, unlabeled, edited, closed]
+
+# Prevent concurrent runs that could cause race conditions
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    # Skip if triggered by the bot's own commits
+    if: github.actor != 'github-actions[bot]'
+
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Determine sync parameters
+        id: params
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DIRECTION: ${{ inputs.direction }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          # Default values
+          DIRECTION="both"
+          DRY_RUN=""
+
+          # If triggered by workflow_dispatch, use inputs
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            DIRECTION="${INPUT_DIRECTION:-both}"
+            if [ "$INPUT_DRY_RUN" = "true" ]; then
+              DRY_RUN="--dry-run"
+            fi
+          fi
+
+          # If triggered by push to docs, sync to GitHub
+          if [ "$EVENT_NAME" = "push" ]; then
+            DIRECTION="to-github"
+          fi
+
+          # If triggered by issue event, sync from GitHub
+          if [ "$EVENT_NAME" = "issues" ]; then
+            # Only sync if the issue has user-story label
+            DIRECTION="from-github"
+          fi
+
+          echo "direction=$DIRECTION" >> $GITHUB_OUTPUT
+          echo "dry_run=$DRY_RUN" >> $GITHUB_OUTPUT
+          echo "Sync direction: $DIRECTION"
+          echo "Dry run: $DRY_RUN"
+
+      - name: Check if issue is a user story
+        id: check_issue
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Check if the issue has the user-story label
+          LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name')
+          if echo "$LABELS" | grep -q "user-story"; then
+            echo "is_user_story=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_user_story=false" >> $GITHUB_OUTPUT
+            echo "Skipping: Issue #$ISSUE_NUMBER is not a user story"
+          fi
+
+      - name: Sync user stories
+        if: github.event_name != 'issues' || steps.check_issue.outputs.is_user_story == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SYNC_DIRECTION: ${{ steps.params.outputs.direction }}
+          DRY_RUN_FLAG: ${{ steps.params.outputs.dry_run }}
+        run: |
+          python3 scripts/sync-stories.py \
+            --direction "$SYNC_DIRECTION" \
+            ${DRY_RUN_FLAG:+"$DRY_RUN_FLAG"}
+
+      - name: Check for changes
+        id: git_status
+        if: |
+          (steps.params.outputs.direction == 'from-github' || steps.params.outputs.direction == 'both')
+          && steps.params.outputs.dry_run == ''
+        run: |
+          if git diff --quiet docs/user-stories/; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in docs/user-stories/"
+            git diff --stat docs/user-stories/
+          fi
+
+      - name: Commit changes
+        if: steps.git_status.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add docs/user-stories/
+          git commit -m "chore: sync user stories from GitHub issues"
+          git push
