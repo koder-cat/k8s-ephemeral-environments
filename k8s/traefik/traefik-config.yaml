@@ -1,0 +1,41 @@
+# HelmChartConfig to customize Traefik in k3s
+# This enables ACME (Let's Encrypt) with DNS-01 challenge via Cloudflare
+# Note: Traefik Helm chart v33+ requires additionalArguments for ACME config
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    # Environment variables for Cloudflare API token
+    env:
+      - name: CF_DNS_API_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: cloudflare-api-token
+            key: api-token
+
+    # Persist ACME certificates
+    persistence:
+      enabled: true
+      size: 128Mi
+      path: /data
+
+    # Configure ACME certificate resolvers via CLI arguments
+    additionalArguments:
+      - "--log.level=INFO"
+      # Let's Encrypt Staging (for testing)
+      - "--certificatesresolvers.letsencrypt-staging.acme.email=genesluna@gmail.com"
+      - "--certificatesresolvers.letsencrypt-staging.acme.storage=/data/acme-staging.json"
+      - "--certificatesresolvers.letsencrypt-staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
+      # Let's Encrypt Production
+      - "--certificatesresolvers.letsencrypt-prod.acme.email=genesluna@gmail.com"
+      - "--certificatesresolvers.letsencrypt-prod.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.letsencrypt-prod.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53"

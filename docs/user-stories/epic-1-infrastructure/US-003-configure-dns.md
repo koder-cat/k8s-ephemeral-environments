@@ -1,5 +1,7 @@
 # US-003: Configure Wildcard DNS
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
@@ -8,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] Wildcard A record created: `*.preview.domain.com` → VPS IP
-- [ ] DNS propagation verified
-- [ ] Test subdomain resolves correctly (e.g., test.preview.domain.com)
-- [ ] TLS certificate strategy defined (Let's Encrypt wildcard or per-ingress)
+- [x] Wildcard A record created: `*.k8s-ee.genesluna.dev` → `168.138.151.63`
+- [x] DNS propagation verified
+- [x] Test subdomain resolves correctly (e.g., test.k8s-ee.genesluna.dev)
+- [x] TLS certificate strategy defined (Traefik ACME with DNS-01 via Cloudflare)
 
 ## Priority
 
@@ -24,9 +26,47 @@
 ## Dependencies
 
 - US-001: Provision VPS Server
+- US-002: Install k3s (for Traefik)
+
+## Implementation Details
+
+### DNS Configuration
+
+| Record | Type | Value | Proxy |
+|--------|------|-------|-------|
+| `*.k8s-ee` | A | `168.138.151.63` | OFF |
+| `k8s-ee` | A | `168.138.151.63` | OFF |
+
+**DNS Provider:** Cloudflare
+
+### TLS Configuration
+
+- **Strategy:** Traefik built-in ACME with DNS-01 challenge
+- **Provider:** Cloudflare (API token stored in `cloudflare-api-token` secret)
+- **Issuers:**
+  - `letsencrypt-staging` - For testing (avoids rate limits)
+  - `letsencrypt-prod` - For production certificates
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `k8s/traefik/traefik-config.yaml` | HelmChartConfig for Traefik ACME |
+
+### Usage
+
+To enable TLS on an IngressRoute, add:
+
+```yaml
+spec:
+  tls:
+    certResolver: letsencrypt-prod
+    domains:
+      - main: "*.k8s-ee.genesluna.dev"
+```
 
 ## Notes
 
-- Wildcard DNS avoids creating individual records per PR
-- Consider using cert-manager for automated TLS
-- Alternative: use nip.io for zero-config DNS (e.g., app-pr-123.192.168.1.1.nip.io)
+- Cloudflare proxy must be OFF for DNS-01 challenges to work
+- Wildcard certificate covers all PR subdomains automatically
+- Certificates are stored in Traefik's persistent volume at `/data/acme.json`
