@@ -1,0 +1,42 @@
+# Helm values for ARC Runner Scale Set (gha-runner-scale-set)
+# Install with: helm install arc-runner-set -n arc-runners -f values-runner-set.yaml oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+
+# GitHub repository URL
+githubConfigUrl: "https://github.com/genesluna/k8s-ephemeral-environments"
+
+# Secret containing GitHub App credentials
+# Must have: github_app_id, github_app_installation_id, github_app_private_key
+githubConfigSecret: github-app-secret
+
+# Runner scaling configuration
+minRunners: 0
+maxRunners: 3
+
+# Runner pod template
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+        # Mount the service account for kubectl access
+        volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+    volumes:
+      - name: work
+        emptyDir: {}
+    # Service account with cluster access
+    serviceAccountName: arc-runner-sa
+
+# Controller service account (for communication with controller)
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-controller

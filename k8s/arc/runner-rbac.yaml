@@ -1,0 +1,59 @@
+# ServiceAccount and RBAC for ARC runners
+# This gives runners the ability to manage PR namespaces
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: arc-runner-sa
+  namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arc-runner-role
+rules:
+  # Namespace management for PR environments
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "create", "delete", "patch"]
+  # ResourceQuota and LimitRange management
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
+  # Pod and service management within namespaces
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # Deployment management
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # Ingress management for preview URLs
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
+  # Traefik IngressRoute (if using Traefik CRDs)
+  - apiGroups: ["traefik.io", "traefik.containo.us"]
+    resources: ["ingressroutes", "middlewares"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
+  # CloudNativePG for database management (future US-009)
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters", "poolers", "scheduledbackups"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # Jobs for database migrations
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arc-runner-binding
+subjects:
+  - kind: ServiceAccount
+    name: arc-runner-sa
+    namespace: arc-runners
+roleRef:
+  kind: ClusterRole
+  name: arc-runner-role
+  apiGroup: rbac.authorization.k8s.io

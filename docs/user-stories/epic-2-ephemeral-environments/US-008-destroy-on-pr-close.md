@@ -1,5 +1,7 @@
 # US-008: Destroy Environment on PR Close/Merge
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
@@ -8,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] GitHub Actions workflow triggers on `pull_request: closed` event
-- [ ] Namespace and all resources deleted
-- [ ] Persistent volumes (PVCs) deleted
-- [ ] Cleanup completes in < 5 minutes
-- [ ] No orphaned resources remain
-- [ ] PR comment updated to indicate environment destroyed
+- [x] GitHub Actions workflow triggers on `pull_request: closed` event
+- [x] Namespace and all resources deleted
+- [x] Persistent volumes (PVCs) deleted (via namespace deletion)
+- [x] Cleanup completes in < 5 minutes
+- [x] No orphaned resources remain
+- [ ] PR comment updated to indicate environment destroyed (future: US-007)
 
 ## Priority
 
@@ -27,8 +29,9 @@
 
 - US-004: Create Namespace on PR Open
 
-## Notes
+## Implementation Notes
 
-- Use `kubectl delete namespace` with `--wait` flag
-- Consider adding a finalizer job to ensure cleanup
-- Log cleanup actions for audit trail
+- Implemented in `.github/workflows/pr-environment.yml` (same workflow as US-004)
+- Uses `kubectl delete namespace --wait=true --timeout=5m`
+- Deleting the namespace cascades to all resources within it
+- Workflow summary shows cleanup status

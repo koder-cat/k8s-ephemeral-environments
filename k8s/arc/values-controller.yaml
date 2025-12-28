@@ -1,0 +1,29 @@
+# Helm values for ARC Controller (gha-runner-scale-set-controller)
+# Install with: helm install arc -n arc-systems -f values-controller.yaml oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+
+# Controller replica count
+replicaCount: 1
+
+# Resource limits for the controller
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+# Logging configuration
+flags:
+  logLevel: info
+  logFormat: text
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: arc-controller
+
+# Controller metrics (optional, for Prometheus)
+metrics:
+  controllerManagerAddr: ":8080"
+  listenerAddr: ":8080"

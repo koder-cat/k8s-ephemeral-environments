@@ -1,0 +1,35 @@
+# RBAC for ARC Controller to manage resources in arc-runners namespace
+# The controller needs access to secrets and RBAC resources to set up runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: arc-controller-manager
+  namespace: arc-runners
+rules:
+  # Access to secrets (GitHub App credentials)
+  - apiGroups: [""]
+    resources: ["secrets", "pods", "serviceaccounts", "configmaps"]
+    verbs: ["*"]
+  # Create roles and rolebindings for listener
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["*"]
+  # Manage ARC custom resources
+  - apiGroups: ["actions.github.com"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: arc-controller-manager
+  namespace: arc-runners
+subjects:
+  - kind: ServiceAccount
+    name: arc-gha-rs-controller
+    namespace: arc-systems
+roleRef:
+  kind: Role
+  name: arc-controller-manager
+  apiGroup: rbac.authorization.k8s.io

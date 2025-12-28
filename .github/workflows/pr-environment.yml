@@ -1,0 +1,140 @@
+name: PR Environment
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+# Prevent concurrent runs for the same PR
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  create-namespace:
+    name: Create PR Namespace
+    if: github.event.action != 'closed'
+    runs-on: arc-runner-set
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install kubectl and tools
+        run: |
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+          # Install gettext for envsubst
+          sudo apt-get update && sudo apt-get install -y gettext-base
+
+          # Verify installations
+          kubectl version --client
+          envsubst --version
+
+      - name: Set environment variables
+        run: |
+          # Sanitize branch name for K8s labels (replace / with -, truncate to 63 chars)
+          BRANCH_RAW="${{ github.head_ref }}"
+          BRANCH_SANITIZED=$(echo "$BRANCH_RAW" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-63)
+
+          echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_SANITIZED" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+          echo "CREATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+          echo "NAMESPACE=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+
+      - name: Create namespace
+        run: |
+          # Check if namespace already exists
+          if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+            echo "Namespace $NAMESPACE already exists, updating labels..."
+            kubectl label namespace "$NAMESPACE" \
+              k8s-ee/commit-sha="$COMMIT_SHA" \
+              --overwrite
+            kubectl annotate namespace "$NAMESPACE" \
+              k8s-ee/last-updated="$CREATED_AT" \
+              --overwrite
+          else
+            echo "Creating namespace $NAMESPACE..."
+            envsubst < k8s/ephemeral/namespace-template.yaml | kubectl apply -f -
+          fi
+
+      - name: Apply ResourceQuota
+        run: |
+          echo "Applying ResourceQuota to $NAMESPACE..."
+          envsubst < k8s/ephemeral/resource-quota.yaml | kubectl apply -f -
+
+      - name: Apply LimitRange
+        run: |
+          echo "Applying LimitRange to $NAMESPACE..."
+          envsubst < k8s/ephemeral/limit-range.yaml | kubectl apply -f -
+
+      - name: Verify namespace setup
+        run: |
+          echo "=== Namespace Details ==="
+          kubectl get namespace "$NAMESPACE" -o yaml
+
+          echo ""
+          echo "=== ResourceQuota ==="
+          kubectl get resourcequota -n "$NAMESPACE"
+
+          echo ""
+          echo "=== LimitRange ==="
+          kubectl get limitrange -n "$NAMESPACE"
+
+      - name: Summary
+        run: |
+          echo "## PR Environment Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Namespace | \`$NAMESPACE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR Number | #$PR_NUMBER |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${COMMIT_SHA:0:7}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ResourceQuota and LimitRange have been applied." >> $GITHUB_STEP_SUMMARY
+
+  destroy-namespace:
+    name: Destroy PR Namespace
+    if: github.event.action == 'closed'
+    runs-on: arc-runner-set
+    timeout-minutes: 5
+
+    steps:
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
+      - name: Set namespace
+        run: |
+          echo "NAMESPACE=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+
+      - name: Delete namespace
+        run: |
+          if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+            echo "Deleting namespace $NAMESPACE..."
+            kubectl delete namespace "$NAMESPACE" --wait=true --timeout=5m
+            echo "Namespace $NAMESPACE deleted successfully"
+          else
+            echo "Namespace $NAMESPACE does not exist, nothing to delete"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## PR Environment Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Namespace | \`$NAMESPACE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR Number | #${{ github.event.pull_request.number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Action | ${{ github.event.action }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Merged | ${{ github.event.pull_request.merged }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All resources have been cleaned up." >> $GITHUB_STEP_SUMMARY

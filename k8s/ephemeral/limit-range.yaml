@@ -1,0 +1,38 @@
+# LimitRange for PR environments
+# Sets default resource limits for containers without explicit limits
+# Variable to substitute: PR_NUMBER
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: pr-limits
+  namespace: pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: ephemeral
+spec:
+  limits:
+    # Container defaults
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "1"
+        memory: 1Gi
+      min:
+        cpu: 10m
+        memory: 32Mi
+    # Pod limits
+    - type: Pod
+      max:
+        cpu: "2"
+        memory: 2Gi
+    # PVC limits
+    - type: PersistentVolumeClaim
+      max:
+        storage: 5Gi
+      min:
+        storage: 100Mi

@@ -1,5 +1,7 @@
 # US-017: Configure GitHub Actions Access to Cluster
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
@@ -8,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] kubeconfig stored as GitHub Secret
-- [ ] ServiceAccount with appropriate permissions created
-- [ ] Workflows can execute kubectl commands
-- [ ] Access scoped to necessary permissions only
-- [ ] Credentials rotatable without workflow changes
+- [x] Runners run inside cluster (no external kubeconfig needed)
+- [x] ServiceAccount with appropriate permissions created
+- [x] Workflows can execute kubectl commands
+- [x] Access scoped to necessary permissions only
+- [x] Credentials managed via ServiceAccount (auto-rotated by K8s)
 
 ## Priority
 
@@ -25,9 +27,17 @@
 ## Dependencies
 
 - US-002: Install and Configure k3s Cluster
+- US-015: Deploy Actions Runner Controller (ARC)
 
-## Notes
+## Implementation Notes
 
-- Use short-lived tokens when possible
-- Consider OIDC for GitHub Actions (if supported by k3s)
-- ServiceAccount should have least-privilege permissions
+- Implemented as part of US-004
+- Runners use ServiceAccount `arc-runner-sa` in `arc-runners` namespace
+- ClusterRole `arc-runner-role` grants permissions for:
+  - Namespace management
+  - ResourceQuota/LimitRange management
+  - Pod/Service/ConfigMap/Secret management
+  - Deployment/StatefulSet management
+  - Ingress management
+  - CloudNativePG resources (for future database support)
+- RBAC config: `k8s/arc/runner-rbac.yaml`

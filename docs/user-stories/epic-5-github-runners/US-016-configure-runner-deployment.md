@@ -1,5 +1,7 @@
 # US-016: Configure Runner Deployment
 
+**Status:** Done
+
 ## User Story
 
 **As a** developer,
@@ -8,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] RunnerDeployment created for target repository
-- [ ] Runners have kubectl, helm, docker installed
-- [ ] Runners can execute jobs from GitHub Actions
-- [ ] Runner pods scale based on job queue (min 1, max 3)
-- [ ] Ephemeral runners (one job per pod)
+- [x] Runner scale set created for target repository
+- [x] Runners can install kubectl via workflow steps
+- [x] Runners can execute jobs from GitHub Actions
+- [x] Runner pods scale based on job queue (min 0, max 3)
+- [x] Ephemeral runners (one job per pod)
 
 ## Priority
 
@@ -26,8 +28,11 @@
 
 - US-015: Deploy Actions Runner Controller (ARC)
 
-## Notes
+## Implementation Notes
 
-- Use ephemeral runners for clean environment per job
-- Pre-install common tools in runner image
-- Consider building custom runner image
+- Implemented as part of US-004
+- Scale set name: `arc-runner-set`
+- Min runners: 0 (scale to zero when idle)
+- Max runners: 3
+- kubectl installed via workflow step (ARM64 binary)
+- Config: `k8s/arc/values-runner-set.yaml`

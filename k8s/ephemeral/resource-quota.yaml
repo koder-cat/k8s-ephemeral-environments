@@ -1,0 +1,27 @@
+# ResourceQuota for PR environments
+# Limits per namespace as defined in PRD (RNF-13)
+# Variable to substitute: PR_NUMBER
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pr-quota
+  namespace: pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: ephemeral
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "500m"
+    requests.memory: 1Gi
+    limits.cpu: "1"
+    limits.memory: 2Gi
+    # Storage
+    requests.storage: 5Gi
+    persistentvolumeclaims: "3"
+    # Object counts
+    pods: "10"
+    services: "5"
+    configmaps: "10"
+    secrets: "10"
+    replicationcontrollers: "5"
