@@ -1,5 +1,9 @@
 # US-002: Install and Configure k3s Cluster
 
+## Status
+
+**Done**
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
@@ -8,12 +12,12 @@
 
 ## Acceptance Criteria
 
-- [ ] k3s installed in single-node mode
-- [ ] kubectl configured and functional
-- [ ] Traefik ingress controller enabled and running
-- [ ] Local Path Provisioner configured for storage
-- [ ] Cluster survives VPS reboot (auto-start)
-- [ ] kubeconfig exported and securely stored
+- [x] k3s installed in single-node mode
+- [x] kubectl configured and functional
+- [x] Traefik ingress controller enabled and running
+- [x] Local Path Provisioner configured for storage
+- [x] Cluster survives VPS reboot (auto-start)
+- [x] kubeconfig exported and securely stored
 
 ## Priority
 
