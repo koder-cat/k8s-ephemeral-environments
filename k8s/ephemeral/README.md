@@ -28,7 +28,7 @@ Defense-in-depth approach with 5 policies:
 2. **allow-same-namespace** - Allow pod-to-pod within namespace
 3. **allow-ingress-controller** - Allow Traefik to route traffic
 4. **allow-observability** - Allow Prometheus scraping
-5. **allow-egress** - Allow DNS, same-namespace, and external internet
+5. **allow-egress** - Allow DNS, K8s API, same-namespace, and external internet
 
 See [Network Policies Runbook](../docs/runbooks/network-policies.md) for details.
 

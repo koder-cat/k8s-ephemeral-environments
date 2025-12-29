@@ -1,7 +1,5 @@
-# Allow egress traffic for DNS resolution and external services
+# Allow egress traffic for DNS resolution, Kubernetes API, and external services
 # Enables DNS queries, external API calls, and container registry access
-# Note: Kubernetes API server (10.43.0.1) is blocked. Application pods and
-# CloudNativePG database pods don't need direct API access.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -26,6 +24,14 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    # Allow access to Kubernetes API server (required for CNPG job status reporting)
+    # k3s API server is at 10.43.0.1 (kubernetes.default.svc)
+    - to:
+        - ipBlock:
+            cidr: 10.43.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
     # Allow all external (non-cluster) traffic
     # This permits: external APIs, container registries, internet access
     # Note: k3s uses 10.42.0.0/16 for pods and 10.43.0.0/16 for services

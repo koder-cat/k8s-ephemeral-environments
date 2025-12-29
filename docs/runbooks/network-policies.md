@@ -36,7 +36,7 @@ PR namespaces are isolated from each other using Kubernetes NetworkPolicies. The
 │  │  │ controller      │  │ (Prometheus scraping)       │   │   │
 │  │  └─────────────────┘  └─────────────────────────────┘   │   │
 │  │  ┌─────────────────────────────────────────────────────┐│   │
-│  │  │ allow-egress (DNS, same-ns, external internet)      ││   │
+│  │  │ allow-egress (DNS, K8s API, same-ns, external)      ││   │
 │  │  └─────────────────────────────────────────────────────┘│   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                  │
@@ -50,8 +50,8 @@ PR namespaces are isolated from each other using Kubernetes NetworkPolicies. The
 ┌───────────────────────┐          ┌─────────────────────────────┐
 │  Prometheus           │          │  External Services          │
 │  (observability ns)   │          │  - DNS (kube-system:53)     │
-│                       │          │  - Internet (0.0.0.0/0)     │
-│  app.kubernetes.io/   │          │  - ghcr.io, APIs            │
+│                       │          │  - K8s API (10.43.0.1:443)  │
+│  app.kubernetes.io/   │          │  - Internet (0.0.0.0/0)     │
 │  name: prometheus     │          └─────────────────────────────┘
 └───────────────────────┘
 ```
@@ -64,7 +64,7 @@ PR namespaces are isolated from each other using Kubernetes NetworkPolicies. The
 | `k8s/ephemeral/network-policy-allow-same-namespace.yaml` | Allow pod-to-pod within namespace |
 | `k8s/ephemeral/network-policy-allow-ingress.yaml` | Allow Traefik ingress traffic |
 | `k8s/ephemeral/network-policy-allow-observability.yaml` | Allow Prometheus scraping |
-| `k8s/ephemeral/network-policy-allow-egress.yaml` | Allow DNS + external internet |
+| `k8s/ephemeral/network-policy-allow-egress.yaml` | Allow DNS, K8s API, external internet |
 
 ## Verification
 
@@ -180,7 +180,8 @@ sudo iptables -L | grep "kube-router netpol"
 2. **Namespace isolation** - PR namespaces cannot communicate with each other
 3. **Prometheus access** - Limited to pods with `app.kubernetes.io/name: prometheus` label
 4. **Ingress access** - Limited to pods with `app.kubernetes.io/name: traefik` label
-5. **Egress control** - Blocks cluster-internal traffic except DNS and same-namespace
+5. **Egress control** - Blocks cluster-internal traffic except DNS, K8s API, and same-namespace
+6. **K8s API access** - Limited to port 443 on 10.43.0.1 (required for CNPG job status)
 
 ## References
 
