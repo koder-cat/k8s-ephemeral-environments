@@ -99,6 +99,11 @@ kubectl port-forward -n observability svc/prometheus-grafana 3000:80
 
 **Authentication:** Only members of the configured GitHub organization can access Grafana. Password-based login is disabled for security.
 
+**User Role:** All OAuth users are assigned the **Editor** role, which allows access to:
+- Explore (query Prometheus metrics and Loki logs)
+- Dashboards (view and edit)
+- Alerting (view alert rules)
+
 ## Resource Usage
 
 | Component | Memory Request | Memory Limit |

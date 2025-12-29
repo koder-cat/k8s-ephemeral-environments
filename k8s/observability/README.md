@@ -9,6 +9,7 @@ This directory contains the configuration for the k8s-ephemeral-environments obs
 | [kube-prometheus-stack](./kube-prometheus-stack/) | Prometheus, Grafana, Alertmanager | Deployed |
 | [loki](./loki/) | Log aggregation | Deployed |
 | [promtail](./promtail/) | Log collection | Deployed |
+| [custom-alerts.yaml](./custom-alerts.yaml) | PrometheusRule alerts | Deployed |
 
 ## Architecture
 
@@ -70,6 +71,7 @@ kubectl apply -f k8s/observability/grafana-ingress.yaml
 - URL: https://grafana.k8s-ee.genesluna.dev
 - Authentication: GitHub OAuth only (password login disabled)
 - Access Control: Only members of the configured GitHub organization can login
+- User Role: **Editor** (allows access to Explore for querying logs and metrics)
 
 ## Resource Budget
 

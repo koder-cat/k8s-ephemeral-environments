@@ -121,6 +121,10 @@ grafana:
     auth:
       disable_login_form: true
 
+    # Default role for new users
+    users:
+      auto_assign_org_role: Editor
+
     # GitHub OAuth configuration
     # Credentials loaded from envFromSecret (GF_AUTH_GITHUB_CLIENT_ID, GF_AUTH_GITHUB_CLIENT_SECRET)
     auth.github:
@@ -132,6 +136,8 @@ grafana:
       api_url: https://api.github.com/user
       # Restrict access to koder-cat organization members
       allowed_organizations: koder-cat
+      # Skip role from GitHub, use auto_assign_org_role instead
+      skip_org_role_sync: true
 
   # Ingress disabled - we use separate IngressRoute
   ingress:
