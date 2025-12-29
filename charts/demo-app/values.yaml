@@ -2,7 +2,8 @@
 image:
   repository: ghcr.io/genesluna/k8s-ephemeral-environments/demo-app
   tag: latest
-  pullPolicy: IfNotPresent
+  # Always pull for mutable tags (pr-X) to ensure latest image
+  pullPolicy: Always
 
 # Image pull secrets for private registries
 imagePullSecrets: []
