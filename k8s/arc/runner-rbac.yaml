@@ -24,6 +24,10 @@ rules:
   - apiGroups: [""]
     resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
     verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # Pod subresources for health checks and debugging
+  - apiGroups: [""]
+    resources: ["pods/portforward", "pods/exec", "pods/log"]
+    verbs: ["get", "create"]
   # Deployment management
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets", "statefulsets"]

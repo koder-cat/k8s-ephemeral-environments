@@ -241,6 +241,8 @@ jobs:
             --field-selector=status.phase=Running \
             -o jsonpath='{.items[0].metadata.name}')
 
+          echo "Checking pod: $POD_NAME"
+
           # Port-forward and check health endpoint with retry
           kubectl port-forward -n "$NAMESPACE" "pod/$POD_NAME" 8080:3000 &
           PF_PID=$!
