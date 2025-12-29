@@ -1,5 +1,7 @@
 # US-006: Create Unique Preview URL
 
+**Status:** Done
+
 ## User Story
 
 **As a** developer,
@@ -8,10 +10,10 @@
 
 ## Acceptance Criteria
 
-- [ ] Ingress created with URL pattern: `https://{project-id}-pr-{number}.preview.domain.com`
-- [ ] TLS certificate provisioned (via cert-manager or Traefik)
-- [ ] URL accessible from public internet
-- [ ] URL returns application response (not 404/502)
+- [x] Ingress created with URL pattern: `https://{project-id}-pr-{number}.preview.domain.com`
+- [x] TLS certificate provisioned (via cert-manager or Traefik)
+- [x] URL accessible from public internet
+- [x] URL returns application response (not 404/502)
 
 ## Priority
 

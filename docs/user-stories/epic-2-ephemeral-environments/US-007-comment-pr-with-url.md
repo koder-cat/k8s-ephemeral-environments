@@ -1,5 +1,7 @@
 # US-007: Comment on PR with Preview URL
 
+**Status:** Done
+
 ## User Story
 
 **As a** developer,
@@ -8,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] Bot comments on PR after successful deployment
-- [ ] Comment includes preview URL (clickable)
+- [x] Bot comments on PR after successful deployment
+- [x] Comment includes preview URL (clickable)
 - [ ] Comment includes Grafana dashboard link (if available)
-- [ ] Comment updated on re-deploy (not duplicated)
-- [ ] Comment indicates deployment status (success/failure)
+- [x] Comment updated on re-deploy (not duplicated)
+- [x] Comment indicates deployment status (success/failure)
 
 ## Priority
 
