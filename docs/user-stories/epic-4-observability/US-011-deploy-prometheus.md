@@ -1,5 +1,7 @@
 # US-011: Deploy Prometheus for Metrics Collection
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,

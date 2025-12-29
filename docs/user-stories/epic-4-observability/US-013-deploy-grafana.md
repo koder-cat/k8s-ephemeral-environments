@@ -1,5 +1,7 @@
 # US-013: Deploy Grafana Dashboards
 
+**Status:** Done
+
 ## User Story
 
 **As a** developer,
