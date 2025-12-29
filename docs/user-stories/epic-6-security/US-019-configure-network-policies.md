@@ -1,5 +1,7 @@
 # US-019: Configure Network Policies
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,

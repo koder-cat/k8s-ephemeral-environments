@@ -1,0 +1,23 @@
+# Allow traffic from Prometheus for metrics scraping
+# Note: Promtail reads logs from /var/log/pods on the node (no network access needed)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-observability
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: network-policy
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  ingress:
+    # Allow Prometheus to scrape metrics from all pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Ingress

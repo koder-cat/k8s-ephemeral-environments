@@ -1,0 +1,16 @@
+# Default deny all ingress and egress traffic
+# This is the baseline policy that blocks cross-PR-namespace communication
+# Other policies selectively allow required traffic (fail-closed approach)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: network-policy
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  policyTypes:
+    - Ingress
+    - Egress

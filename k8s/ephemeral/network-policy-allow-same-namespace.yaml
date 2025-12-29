@@ -1,0 +1,18 @@
+# Allow ingress traffic between pods within the same namespace
+# Enables app-to-database communication and service discovery
+# Note: Same-namespace egress is handled by allow-egress policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: network-policy
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  ingress:
+    - from:
+        - podSelector: {}  # Any pod in same namespace
+  policyTypes:
+    - Ingress

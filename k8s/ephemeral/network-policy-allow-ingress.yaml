@@ -1,0 +1,23 @@
+# Allow traffic from Traefik ingress controller
+# Enables external HTTP/HTTPS access via preview URLs
+# Note: No port restriction to support different app ports across projects
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-controller
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: network-policy
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+  policyTypes:
+    - Ingress

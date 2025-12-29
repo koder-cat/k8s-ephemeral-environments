@@ -1,0 +1,40 @@
+# Allow egress traffic for DNS resolution and external services
+# Enables DNS queries, external API calls, and container registry access
+# Note: Kubernetes API server (10.43.0.1) is blocked. Application pods and
+# CloudNativePG database pods don't need direct API access.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
+  labels:
+    app.kubernetes.io/managed-by: github-actions
+    k8s-ee/type: network-policy
+spec:
+  podSelector: {}  # Apply to all pods in namespace
+  egress:
+    # Allow egress to pods in the same namespace (app -> database)
+    - to:
+        - podSelector: {}
+    # Allow DNS queries to kube-system (CoreDNS)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow all external (non-cluster) traffic
+    # This permits: external APIs, container registries, internet access
+    # Note: k3s uses 10.42.0.0/16 for pods and 10.43.0.0/16 for services
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8       # Block internal cluster IPs
+              - 172.16.0.0/12    # Block internal cluster IPs
+              - 192.168.0.0/16   # Block internal cluster IPs
+  policyTypes:
+    - Egress

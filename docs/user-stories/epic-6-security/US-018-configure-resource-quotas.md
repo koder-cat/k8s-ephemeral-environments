@@ -1,5 +1,7 @@
 # US-018: Configure Resource Quotas
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
