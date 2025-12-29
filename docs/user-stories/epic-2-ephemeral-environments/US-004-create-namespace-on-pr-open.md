@@ -11,7 +11,7 @@
 ## Acceptance Criteria
 
 - [x] GitHub Actions workflow triggers on `pull_request: opened` event
-- [x] Namespace created with naming convention: `pr-<number>`
+- [x] Namespace created with naming convention: `{project-id}-pr-{number}` (e.g., `k8s-ee-pr-28`)
 - [x] Namespace has standard labels (pr-number, branch, commit-sha)
 - [x] ResourceQuota and LimitRange applied to namespace
 - [x] Workflow completes in < 2 minutes

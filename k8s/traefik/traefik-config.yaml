@@ -22,16 +22,10 @@ spec:
       size: 128Mi
       path: /data
 
-    # Configure ACME certificate resolvers via CLI arguments
+    # Configure ACME certificate resolver via CLI arguments
+    # Only production resolver - staging removed to prevent cert conflicts
     additionalArguments:
       - "--log.level=INFO"
-      # Let's Encrypt Staging (for testing)
-      - "--certificatesresolvers.letsencrypt-staging.acme.email=genesluna@gmail.com"
-      - "--certificatesresolvers.letsencrypt-staging.acme.storage=/data/acme-staging.json"
-      - "--certificatesresolvers.letsencrypt-staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
-      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge=true"
-      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge.provider=cloudflare"
-      - "--certificatesresolvers.letsencrypt-staging.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
       # Let's Encrypt Production
       - "--certificatesresolvers.letsencrypt-prod.acme.email=genesluna@gmail.com"
       - "--certificatesresolvers.letsencrypt-prod.acme.storage=/data/acme.json"

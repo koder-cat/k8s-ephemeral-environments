@@ -43,9 +43,7 @@
 
 - **Strategy:** Traefik built-in ACME with DNS-01 challenge
 - **Provider:** Cloudflare (API token stored in `cloudflare-api-token` secret)
-- **Issuers:**
-  - `letsencrypt-staging` - For testing (avoids rate limits)
-  - `letsencrypt-prod` - For production certificates
+- **Issuer:** `letsencrypt-prod` - Let's Encrypt production certificates
 
 ### Files Created
 

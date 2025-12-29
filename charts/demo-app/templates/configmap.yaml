@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "demo-app.fullname" . }}-config
+  labels:
+    {{- include "demo-app.labels" . | nindent 4 }}
+data:
+  NODE_ENV: "production"
+  PORT: {{ .Values.app.port | quote }}
+  LOG_LEVEL: {{ .Values.app.logLevel | quote }}
+  PR_NUMBER: {{ .Values.prNumber | quote }}
+  COMMIT_SHA: {{ .Values.commitSha | quote }}
+  BRANCH_NAME: {{ .Values.branchName | quote }}
+  APP_VERSION: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+  PREVIEW_URL: "https://{{ include "demo-app.hostname" . }}"
+  # CORS origin - frontend served from same origin, but set explicitly for clarity
+  CORS_ORIGIN: "https://{{ include "demo-app.hostname" . }}"

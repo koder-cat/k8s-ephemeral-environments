@@ -124,7 +124,7 @@ O projeto será desenvolvido em duas fases: **Fase 1** com um protótipo em VPS 
 | `observability` | Prometheus, Loki, Grafana | Permanente |
 | `gh-runners` | GitHub Actions self-hosted runners | Permanente |
 | `platform` | Componentes base compartilhados | Permanente |
-| `<app>-pr-<número>` | Ambiente efêmero por PR | Efêmero (PR lifecycle) |
+| `{project-id}-pr-{number}` | Ambiente efêmero por PR | Efêmero (PR lifecycle) |
 
 ### 7.3 Fluxo de CI/CD
 
@@ -151,7 +151,7 @@ O projeto será desenvolvido em duas fases: **Fase 1** com um protótipo em VPS 
 |----|-----------|------------|
 | RF-01 | Criar namespace automaticamente quando PR é aberto | Must |
 | RF-02 | Destruir namespace e volumes quando PR é fechado/mergeado (< 5 min) | Must |
-| RF-03 | URL única por PR: `https://<app>-pr-<num>.preview.dominio.com` | Must |
+| RF-03 | URL única por PR: `https://{project-id}-pr-{number}.preview.dominio.com` | Must |
 | RF-04 | Re-deploy automático em push de novos commits | Must |
 | RF-05 | Comentário automático no PR com URL de preview e status | Should |
 | RF-06 | Aplicar ResourceQuota e LimitRange em namespaces de PR | Should |
@@ -257,9 +257,9 @@ O projeto será desenvolvido em duas fases: **Fase 1** com um protótipo em VPS 
 
 1. Dev cria branch `feat/nova-funcionalidade` e abre PR
 2. GitHub Actions detecta evento `pull_request: opened`
-3. Pipeline cria namespace `app-pr-<num>` com ResourceQuota
+3. Pipeline cria namespace `{project-id}-pr-{number}` com ResourceQuota
 4. Deploy da aplicação com imagem `:<sha>` + banco de dados
-5. Ingress criado; URL `app-pr-<num>.preview.dominio.com` ativa
+5. Ingress criado; URL `{project-id}-pr-{number}.preview.dominio.com` ativa
 6. Bot comenta no PR com URL de preview e link para Grafana
 7. Dev/QA/Reviewer testam e dão feedback
 8. Commits adicionais disparam re-deploy automático

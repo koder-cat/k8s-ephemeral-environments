@@ -1,0 +1,12 @@
+apiVersion: v2
+name: demo-app
+description: Demo application for k8s ephemeral PR environments
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - demo
+  - ephemeral
+  - pr-environment
+maintainers:
+  - name: genesluna

@@ -1,14 +1,16 @@
 # LimitRange for PR environments
 # Sets default resource limits for containers without explicit limits
-# Variable to substitute: PR_NUMBER
+# Variables to substitute: PROJECT_ID, PR_NUMBER
 apiVersion: v1
 kind: LimitRange
 metadata:
   name: pr-limits
-  namespace: pr-${PR_NUMBER}
+  namespace: ${PROJECT_ID}-pr-${PR_NUMBER}
   labels:
     app.kubernetes.io/managed-by: github-actions
     k8s-ee/type: ephemeral
+    k8s-ee/project-id: "${PROJECT_ID}"
+    k8s-ee/pr-number: "${PR_NUMBER}"
 spec:
   limits:
     # Container defaults

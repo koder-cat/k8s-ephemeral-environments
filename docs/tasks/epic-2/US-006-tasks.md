@@ -5,7 +5,7 @@
 ### T-006.1: Create Ingress Manifest Template
 - **Description:** Create Kubernetes Ingress for PR environment
 - **Acceptance Criteria:**
-  - Ingress manifest with templated host: `<app>-pr-<num>.preview.domain.com`
+  - Ingress manifest with templated host: `{project-id}-pr-{number}.preview.domain.com`
   - Routes to application Service
   - TLS configuration included
 - **Estimate:** S

@@ -13,7 +13,7 @@
 ### T-004.2: Create Namespace Manifest Template
 - **Description:** Create Kubernetes manifest for namespace with labels
 - **Acceptance Criteria:**
-  - Namespace manifest with templated name `<app>-pr-<number>`
+  - Namespace manifest with templated name `{project-id}-pr-{number}`
   - Labels: pr-number, branch-name, commit-sha, created-at
   - Annotations for cleanup tracking
 - **Estimate:** S

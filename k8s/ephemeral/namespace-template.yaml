@@ -1,13 +1,14 @@
 # Namespace template for PR environments
-# Variables to substitute: PR_NUMBER, BRANCH_NAME, COMMIT_SHA, CREATED_AT
+# Variables to substitute: PROJECT_ID, PR_NUMBER, BRANCH_NAME, COMMIT_SHA, CREATED_AT
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: pr-${PR_NUMBER}
+  name: ${PROJECT_ID}-pr-${PR_NUMBER}
   labels:
     # Identification labels
     app.kubernetes.io/managed-by: github-actions
     k8s-ee/type: ephemeral
+    k8s-ee/project-id: "${PROJECT_ID}"
     k8s-ee/pr-number: "${PR_NUMBER}"
     k8s-ee/branch: "${BRANCH_NAME}"
     k8s-ee/commit-sha: "${COMMIT_SHA}"
@@ -15,6 +16,6 @@ metadata:
     # Tracking annotations
     k8s-ee/created-at: "${CREATED_AT}"
     k8s-ee/created-by: "pr-environment-workflow"
-    k8s-ee/repository: "genesluna/k8s-ephemeral-environments"
+    # Repository is set dynamically by workflow for security
     # Cleanup tracking (for orphan detection)
     k8s-ee/last-updated: "${CREATED_AT}"

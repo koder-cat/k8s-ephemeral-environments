@@ -13,7 +13,7 @@
 ### T-008.2: Implement Namespace Deletion
 - **Description:** Add step to delete the PR namespace
 - **Acceptance Criteria:**
-  - `kubectl delete namespace <app>-pr-<num>`
+  - `kubectl delete namespace {project-id}-pr-{number}`
   - Uses `--wait` to ensure completion
   - Timeout configured (5 minutes)
   - Handles "not found" gracefully

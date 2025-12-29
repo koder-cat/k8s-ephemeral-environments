@@ -1,0 +1,38 @@
+Thank you for installing {{ .Chart.Name }}!
+
+{{- if .Values.prNumber }}
+## PR Environment Details
+
+Your preview environment for PR #{{ .Values.prNumber }} is available at:
+
+  https://{{ include "demo-app.hostname" . }}
+
+{{- else }}
+## Deployment Details
+
+Your application has been deployed.
+{{- end }}
+
+## Useful Commands
+
+Check the status of your deployment:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+View application logs:
+
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+Check the health endpoint:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "demo-app.fullname" . }} 8080:80
+  curl http://localhost:8080/api/health
+
+## Resources
+
+- Deployment: {{ include "demo-app.fullname" . }}
+- Service: {{ include "demo-app.fullname" . }}
+- ConfigMap: {{ include "demo-app.fullname" . }}-config
+{{- if .Values.ingress.enabled }}
+- Ingress: {{ include "demo-app.fullname" . }}
+{{- end }}

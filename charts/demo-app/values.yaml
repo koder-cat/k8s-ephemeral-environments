@@ -1,0 +1,86 @@
+# Image configuration
+image:
+  repository: ghcr.io/genesluna/k8s-ephemeral-environments/demo-app
+  tag: latest
+  # Digest for immutable image reference (preferred over tag for security)
+  # When set, takes precedence over tag
+  digest: ""
+  # Always pull for mutable tags (pr-X) to ensure latest image
+  pullPolicy: Always
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+# - name: ghcr-secret
+
+# PR-specific configuration (overridden by workflow)
+# projectId: Unique identifier for this project in multi-tenant clusters
+projectId: "k8s-ee"
+prNumber: ""
+commitSha: ""
+branchName: ""
+previewDomain: "k8s-ee.genesluna.dev"
+
+# Application configuration
+app:
+  port: 3000
+  logLevel: info
+
+# Resource configuration (fits within LimitRange)
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 384Mi
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe (prevents liveness from killing slow-starting pods)
+startupProbe:
+  httpGet:
+    path: /api/health
+    port: http
+  failureThreshold: 30
+  periodSeconds: 2
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt-prod
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
