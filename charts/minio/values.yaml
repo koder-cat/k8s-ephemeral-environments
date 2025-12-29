@@ -1,0 +1,28 @@
+# MinIO Library Chart Values
+# Used as a sub-chart dependency by application charts
+
+# Enable/disable MinIO
+enabled: true
+
+# Storage configuration
+storage:
+  size: 1Gi
+  storageClass: ""
+
+# Number of servers (1 for ephemeral environments)
+servers: 1
+
+# Volumes per server
+volumesPerServer: 1
+
+# Default bucket to create
+bucket: data
+
+# Resource limits (conservative for ephemeral environments)
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m

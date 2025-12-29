@@ -1,0 +1,19 @@
+apiVersion: v2
+name: redis
+description: Redis in-memory data store (simple deployment without operator)
+type: application
+version: 1.0.0
+appVersion: "7.4"
+
+keywords:
+  - redis
+  - cache
+  - in-memory
+  - key-value
+
+home: https://redis.io/
+sources:
+  - https://github.com/redis/redis
+
+maintainers:
+  - name: k8s-ee-platform

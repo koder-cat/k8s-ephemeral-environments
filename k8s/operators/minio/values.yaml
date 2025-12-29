@@ -1,0 +1,17 @@
+# MinIO Operator Helm Values
+# https://github.com/minio/operator
+
+# Operator configuration
+operator:
+  # Resource limits for the operator
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Console (optional - can be disabled for ephemeral environments)
+console:
+  enabled: false

@@ -1,0 +1,41 @@
+# MongoDB Library Chart Values
+# Used as a sub-chart dependency by application charts
+
+# Enable/disable MongoDB
+enabled: true
+
+# MongoDB version
+version: "7.0.5"
+
+# Number of replica set members (1 for ephemeral environments)
+members: 1
+
+# Database name for the application
+database: app
+
+# Username for the application
+username: app
+
+# Storage configuration
+storage:
+  size: 1Gi
+  storageClass: ""
+
+# Resource limits (conservative for ephemeral environments)
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+# MongoDB agent resources
+agent:
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 100m

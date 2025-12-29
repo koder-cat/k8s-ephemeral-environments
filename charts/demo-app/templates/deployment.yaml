@@ -25,6 +25,37 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+      {{- if .Values.postgresql.enabled }}
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL to be ready (timeout: 120s)..."
+              TIMEOUT=120
+              ELAPSED=0
+              while ! nc -z {{ include "postgresql.serviceName" .Subcharts.postgresql }} 5432; do
+                if [ $ELAPSED -ge $TIMEOUT ]; then
+                  echo "ERROR: Timed out waiting for PostgreSQL after ${TIMEOUT}s"
+                  exit 1
+                fi
+                echo "PostgreSQL is not ready yet, waiting... (${ELAPSED}s/${TIMEOUT}s)"
+                sleep 2
+                ELAPSED=$((ELAPSED + 2))
+              done
+              echo "PostgreSQL is ready!"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           {{- if .Values.image.digest }}
@@ -37,6 +68,10 @@ spec:
             - name: http
               containerPort: {{ .Values.app.port }}
               protocol: TCP
+          env:
+            {{- if .Values.postgresql.enabled }}
+            {{- include "postgresql.envVars" .Subcharts.postgresql | nindent 12 }}
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "demo-app.fullname" . }}-config

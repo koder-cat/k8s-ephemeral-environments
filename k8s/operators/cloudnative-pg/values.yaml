@@ -1,0 +1,26 @@
+# CloudNativePG Operator Helm Values
+# https://github.com/cloudnative-pg/charts
+
+# Run in cluster-wide mode to watch all namespaces for Cluster CRDs
+config:
+  clusterWide: true
+
+# Resource limits for the operator itself
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# Pod priority for the operator
+priorityClassName: ""
+
+# Monitoring configuration
+monitoring:
+  # Enable Prometheus PodMonitor
+  podMonitorEnabled: false
+  # Enable Grafana dashboard ConfigMap
+  grafanaDashboard:
+    create: false

@@ -1,0 +1,87 @@
+{{- if .Values.enabled }}
+{{- $secretName := include "mongodb.passwordSecretName" . }}
+{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $password := "" }}
+{{- if and $existingSecret $existingSecret.data (index $existingSecret.data "password") }}
+{{- $password = index $existingSecret.data "password" | b64dec }}
+{{- else }}
+{{- $password = randAlphaNum 24 }}
+{{- end }}
+---
+# Password secret for the application user
+# Uses lookup to preserve existing password on helm upgrade
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  labels:
+    {{- include "mongodb.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  password: {{ $password | quote }}
+---
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: {{ include "mongodb.fullname" . }}
+  labels:
+    {{- include "mongodb.labels" . | nindent 4 }}
+spec:
+  # Number of replica set members
+  members: {{ .Values.members | default 1 }}
+  type: ReplicaSet
+  version: {{ .Values.version | default "7.0.5" | quote }}
+
+  # Security configuration
+  security:
+    authentication:
+      modes: ["SCRAM"]
+
+  # Application user
+  users:
+    - name: {{ .Values.username | default "app" }}
+      db: admin
+      passwordSecretRef:
+        name: {{ include "mongodb.passwordSecretName" . }}
+      roles:
+        - name: readWrite
+          db: {{ .Values.database | default "app" }}
+        - name: dbAdmin
+          db: {{ .Values.database | default "app" }}
+      scramCredentialsSecretName: {{ include "mongodb.scramSecretName" . }}
+
+  # Storage configuration
+  statefulSet:
+    spec:
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            {{- if .Values.storage.storageClass }}
+            storageClassName: {{ .Values.storage.storageClass }}
+            {{- end }}
+            resources:
+              requests:
+                storage: {{ .Values.storage.size | default "1Gi" }}
+
+      template:
+        spec:
+          containers:
+            - name: mongod
+              resources:
+                requests:
+                  memory: {{ .Values.resources.requests.memory | default "256Mi" }}
+                  cpu: {{ .Values.resources.requests.cpu | default "100m" }}
+                limits:
+                  memory: {{ .Values.resources.limits.memory | default "512Mi" }}
+                  cpu: {{ .Values.resources.limits.cpu | default "500m" }}
+            - name: mongodb-agent
+              resources:
+                requests:
+                  memory: {{ .Values.agent.resources.requests.memory | default "64Mi" }}
+                  cpu: {{ .Values.agent.resources.requests.cpu | default "50m" }}
+                limits:
+                  memory: {{ .Values.agent.resources.limits.memory | default "128Mi" }}
+                  cpu: {{ .Values.agent.resources.limits.cpu | default "100m" }}
+{{- end }}

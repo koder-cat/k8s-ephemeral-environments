@@ -1,0 +1,26 @@
+# Redis Library Chart Values
+# Used as a sub-chart dependency by application charts
+
+# Enable/disable Redis
+enabled: true
+
+# Redis version
+version: "7.4"
+
+# Resource limits (conservative for ephemeral environments)
+resources:
+  requests:
+    memory: 64Mi
+    cpu: 50m
+  limits:
+    memory: 128Mi
+    cpu: 200m
+
+# Enable password authentication
+auth:
+  enabled: true
+
+# Redis configuration
+config:
+  maxmemory: 100mb
+  maxmemoryPolicy: allkeys-lru

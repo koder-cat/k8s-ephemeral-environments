@@ -1,0 +1,67 @@
+# PostgreSQL Library Chart Values
+# Used as a sub-chart dependency by application charts
+
+# Enable/disable PostgreSQL
+enabled: true
+
+# Number of instances (1 for ephemeral environments)
+instances: 1
+
+# PostgreSQL version
+version: "16"
+
+# Database name (created automatically)
+database: app
+
+# Owner/user for the database
+owner: app
+
+# Storage configuration
+storage:
+  # Storage size
+  size: 1Gi
+  # Storage class (empty = default)
+  storageClass: ""
+
+# Resource limits (conservative for ephemeral environments)
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 500m
+
+# PostgreSQL configuration parameters
+postgresql:
+  parameters:
+    # Memory settings (tuned for small instances)
+    shared_buffers: "128MB"
+    effective_cache_size: "256MB"
+    work_mem: "4MB"
+    maintenance_work_mem: "64MB"
+    # Connection settings
+    max_connections: "20"
+    # Logging
+    log_statement: "ddl"
+    log_min_duration_statement: "1000"
+  # Host-based authentication (default allows all in-namespace connections)
+  pg_hba: []
+
+# Startup/Readiness probes
+probes:
+  startup:
+    failureThreshold: 30
+    periodSeconds: 10
+  readiness:
+    failureThreshold: 3
+    periodSeconds: 10
+
+# Bootstrap configuration
+bootstrap:
+  # SQL to run after database creation
+  initSQL: []
+  # Example:
+  # initSQL:
+  #   - CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+  #   - CREATE EXTENSION IF NOT EXISTS "pgcrypto"

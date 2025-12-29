@@ -1,0 +1,19 @@
+apiVersion: v2
+name: mongodb
+description: MongoDB database using MongoDB Community Operator
+type: application
+version: 1.0.0
+appVersion: "7.0"
+
+keywords:
+  - mongodb
+  - database
+  - nosql
+  - document-store
+
+home: https://www.mongodb.com/
+sources:
+  - https://github.com/mongodb/mongodb-kubernetes-operator
+
+maintainers:
+  - name: k8s-ee-platform

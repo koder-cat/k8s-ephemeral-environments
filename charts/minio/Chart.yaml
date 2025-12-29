@@ -1,0 +1,19 @@
+apiVersion: v2
+name: minio
+description: MinIO S3-compatible object storage using MinIO Operator
+type: application
+version: 1.0.0
+appVersion: "RELEASE.2024-12-18T13-15-44Z"
+
+keywords:
+  - minio
+  - s3
+  - object-storage
+  - storage
+
+home: https://min.io/
+sources:
+  - https://github.com/minio/operator
+
+maintainers:
+  - name: k8s-ee-platform

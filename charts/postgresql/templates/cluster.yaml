@@ -1,0 +1,81 @@
+{{- if .Values.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "postgresql.fullname" . }}
+  labels:
+    {{- include "postgresql.labels" . | nindent 4 }}
+spec:
+  # Number of PostgreSQL instances
+  instances: {{ .Values.instances | default 1 }}
+
+  # PostgreSQL version
+  imageName: ghcr.io/cloudnative-pg/postgresql:{{ .Values.version | default "16" }}
+
+  # Primary update strategy
+  primaryUpdateStrategy: unsupervised
+
+  # Storage configuration
+  storage:
+    size: {{ .Values.storage.size | default "1Gi" }}
+    {{- if .Values.storage.storageClass }}
+    storageClass: {{ .Values.storage.storageClass }}
+    {{- end }}
+
+  # Resource limits
+  resources:
+    requests:
+      memory: {{ .Values.resources.requests.memory | default "256Mi" }}
+      cpu: {{ .Values.resources.requests.cpu | default "100m" }}
+    limits:
+      memory: {{ .Values.resources.limits.memory | default "512Mi" }}
+      cpu: {{ .Values.resources.limits.cpu | default "500m" }}
+
+  # PostgreSQL configuration
+  # User parameters are merged with defaults (user values override defaults)
+  postgresql:
+    {{- $defaultParams := dict
+        "shared_buffers" "128MB"
+        "effective_cache_size" "256MB"
+        "work_mem" "4MB"
+        "maintenance_work_mem" "64MB"
+        "max_connections" "20"
+        "log_statement" "ddl"
+        "log_min_duration_statement" "1000"
+    }}
+    {{- $userParams := dict }}
+    {{- if and .Values.postgresql .Values.postgresql.parameters }}
+    {{- $userParams = .Values.postgresql.parameters }}
+    {{- end }}
+    {{- $mergedParams := mustMergeOverwrite $defaultParams $userParams }}
+    parameters:
+      {{- toYaml $mergedParams | nindent 6 }}
+    {{- if and .Values.postgresql .Values.postgresql.pg_hba }}
+    pg_hba:
+      {{- toYaml .Values.postgresql.pg_hba | nindent 6 }}
+    {{- end }}
+
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: {{ .Values.database | default "app" }}
+      owner: {{ .Values.owner | default "app" }}
+      {{- if and .Values.bootstrap .Values.bootstrap.initSQL }}
+      postInitSQL:
+        {{- toYaml .Values.bootstrap.initSQL | nindent 8 }}
+      {{- end }}
+
+  # Startup delay calculation
+  {{- if .Values.probes }}
+  startDelay: {{ mul (.Values.probes.startup.failureThreshold | default 30) (.Values.probes.startup.periodSeconds | default 10) }}
+  {{- else }}
+  startDelay: 300
+  {{- end }}
+
+  # Disable superuser access from applications (security best practice)
+  enableSuperuserAccess: false
+
+  # Monitoring (disabled by default for ephemeral environments)
+  monitoring:
+    enablePodMonitor: false
+{{- end }}

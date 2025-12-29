@@ -1,0 +1,26 @@
+# MongoDB Community Operator Helm Values
+# https://github.com/mongodb/helm-charts
+
+# Operator configuration
+operator:
+  # Watch all namespaces for MongoDBCommunity resources
+  watchNamespace: "*"
+
+  # Resource limits for the operator
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Agent configuration (MongoDB agent sidecar)
+agent:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

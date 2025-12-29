@@ -84,3 +84,20 @@ containerSecurityContext:
   capabilities:
     drop:
       - ALL
+
+# PostgreSQL database configuration (uses library chart)
+postgresql:
+  enabled: true
+  instances: 1
+  version: "16"
+  database: app
+  owner: app
+  storage:
+    size: 1Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m

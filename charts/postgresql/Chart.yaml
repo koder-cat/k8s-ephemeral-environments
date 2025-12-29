@@ -1,0 +1,19 @@
+apiVersion: v2
+name: postgresql
+description: PostgreSQL database using CloudNativePG operator
+type: application
+version: 1.0.0
+appVersion: "16"
+
+keywords:
+  - postgresql
+  - database
+  - cloudnative-pg
+  - cnpg
+
+home: https://cloudnative-pg.io/
+sources:
+  - https://github.com/cloudnative-pg/cloudnative-pg
+
+maintainers:
+  - name: k8s-ee-platform
