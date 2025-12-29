@@ -8,7 +8,8 @@ import { AppService } from './app.service';
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
-      exclude: ['/api/(.*)'],
+      // path-to-regexp v8 requires named parameters
+      exclude: ['/api{/*path}'],
     }),
   ],
   controllers: [AppController],
