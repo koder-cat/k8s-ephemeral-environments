@@ -23,5 +23,6 @@ spec:
     pods: "10"
     services: "5"
     configmaps: "10"
-    secrets: "10"
+    # Increased to accommodate Helm release secrets (1 per revision)
+    secrets: "20"
     replicationcontrollers: "5"
