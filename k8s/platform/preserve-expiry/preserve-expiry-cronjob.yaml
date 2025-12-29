@@ -1,0 +1,134 @@
+# CronJob for checking and expiring preserve labels
+# Runs every hour to check for expired preservations
+#
+# US-021: Preserve Environment Feature
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: preserve-expiry
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: preserve-expiry
+    app.kubernetes.io/component: cronjob
+spec:
+  # Run every hour at minute 30
+  schedule: "30 * * * *"
+
+  # Concurrency policy: don't run if previous job is still running
+  concurrencyPolicy: Forbid
+
+  # Keep history for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  # Don't start if missed by more than 1 hour
+  startingDeadlineSeconds: 3600
+
+  jobTemplate:
+    spec:
+      # Job timeout: 10 minutes max
+      activeDeadlineSeconds: 600
+
+      # Don't retry on failure - next scheduled run will handle it
+      backoffLimit: 1
+
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: preserve-expiry
+            app.kubernetes.io/component: job
+        spec:
+          # Reuse cleanup job service account (has required permissions)
+          serviceAccountName: cleanup-job-sa
+          restartPolicy: Never
+
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+
+          initContainers:
+            # Install kubectl into shared volume
+            # NOTE: Using :latest because specific version tags (e.g., 1.30, 1.31)
+            # lack ARM64 images. The :latest tag includes multi-arch support.
+            # See: https://hub.docker.com/r/bitnami/kubectl/tags
+            - name: install-kubectl
+              image: bitnami/kubectl:latest
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - cp /opt/bitnami/kubectl/bin/kubectl /shared/kubectl
+              volumeMounts:
+                - name: shared
+                  mountPath: /shared
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false
+                capabilities:
+                  drop:
+                    - ALL
+
+          containers:
+            - name: preserve-expiry
+              # ARM64-compatible Python image
+              image: python:3.12-alpine
+              imagePullPolicy: IfNotPresent
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  export PATH="/shared:$PATH"
+                  python3 /scripts/preserve-expiry.py
+
+              env:
+                # GitHub token from secret (reuse cleanup job secret)
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: github-cleanup-token
+                      key: GITHUB_TOKEN
+
+                # Warning threshold (hours before expiry)
+                - name: WARNING_HOURS
+                  value: "1"
+
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: shared
+                  mountPath: /shared
+                  readOnly: true
+
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 128Mi
+
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+          volumes:
+            - name: script
+              configMap:
+                name: preserve-expiry-script
+                defaultMode: 0555
+            - name: shared
+              emptyDir: {}
+
+          # Tolerate ARM64 nodes
+          tolerations:
+            - key: "kubernetes.io/arch"
+              operator: "Equal"
+              value: "arm64"
+              effect: "NoSchedule"

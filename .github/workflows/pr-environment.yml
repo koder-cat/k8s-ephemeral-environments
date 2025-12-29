@@ -619,6 +619,7 @@ jobs:
           echo "NAMESPACE=${{ env.PROJECT_ID }}-pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
 
       - name: Delete namespace
+        id: delete
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -638,6 +639,19 @@ jobs:
 
             if [ -n "$REPO" ] && [ "$REPO" != "$GITHUB_REPOSITORY" ]; then
               echo "WARNING: Namespace $NAMESPACE belongs to different repository: $REPO, skipping deletion"
+              exit 0
+            fi
+
+            # Check for preserve label (US-021)
+            PRESERVE=$(kubectl get namespace "$NAMESPACE" \
+              -o jsonpath='{.metadata.labels.preserve}' 2>/dev/null || echo "")
+            if [ "$PRESERVE" = "true" ]; then
+              echo "PRESERVED=true" >> $GITHUB_OUTPUT
+              PRESERVE_UNTIL=$(kubectl get namespace "$NAMESPACE" \
+                -o jsonpath='{.metadata.annotations.k8s-ee/preserve-until}' 2>/dev/null || echo "unknown")
+              echo "INFO: Namespace $NAMESPACE has preserve=true label, skipping deletion"
+              echo "INFO: Preserve expires at: $PRESERVE_UNTIL"
+              echo "INFO: The namespace will be cleaned up by the preserve-expiry job after expiration"
               exit 0
             fi
 
@@ -669,21 +683,44 @@ jobs:
             const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
             const merged = '${{ github.event.pull_request.merged }}' === 'true';
             const namespace = process.env.NAMESPACE || 'unknown';
+            const preserved = '${{ steps.delete.outputs.PRESERVED }}' === 'true';
 
-            const body = [
-              marker,
-              '## 🗑️ Preview Environment Destroyed',
-              '',
-              '| Property | Value |',
-              '|----------|-------|',
-              '| **Status** | 🏁 Cleaned up |',
-              `| **Namespace** | \`${namespace}\` |`,
-              `| **Merged** | ${merged ? 'Yes' : 'No'} |`,
-              `| **Destroyed** | ${timestamp} |`,
-              '',
-              '---',
-              '<sub>🤖 Managed by GitHub Actions</sub>',
-            ].join('\n');
+            let body;
+            if (preserved) {
+              body = [
+                marker,
+                '## 🔒 Preview Environment Preserved',
+                '',
+                '| Property | Value |',
+                '|----------|-------|',
+                '| **Status** | 🔒 Preserved |',
+                `| **Namespace** | \`${namespace}\` |`,
+                `| **Merged** | ${merged ? 'Yes' : 'No'} |`,
+                `| **PR Closed** | ${timestamp} |`,
+                '',
+                'The environment was preserved and will remain active until the preserve expires.',
+                '',
+                'The preserve-expiry job will clean it up automatically.',
+                '',
+                '---',
+                '<sub>🤖 Managed by GitHub Actions</sub>',
+              ].join('\n');
+            } else {
+              body = [
+                marker,
+                '## 🗑️ Preview Environment Destroyed',
+                '',
+                '| Property | Value |',
+                '|----------|-------|',
+                '| **Status** | 🏁 Cleaned up |',
+                `| **Namespace** | \`${namespace}\` |`,
+                `| **Merged** | ${merged ? 'Yes' : 'No'} |`,
+                `| **Destroyed** | ${timestamp} |`,
+                '',
+                '---',
+                '<sub>🤖 Managed by GitHub Actions</sub>',
+              ].join('\n');
+            }
 
             // Find existing comment (fetch up to 100 to handle busy PRs)
             const { data: comments } = await github.rest.issues.listComments({

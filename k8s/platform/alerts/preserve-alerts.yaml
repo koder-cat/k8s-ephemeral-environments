@@ -1,0 +1,62 @@
+# PrometheusRule alerts for preserve feature monitoring
+# US-021: Preserve Environment Feature
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: preserve-expiry-alerts
+  namespace: observability
+  labels:
+    release: prometheus
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: preserve-expiry.rules
+      rules:
+        # =====================================================================
+        # Preserve Expiry Job Alerts
+        # =====================================================================
+        - alert: PreserveExpiryJobFailed
+          expr: |
+            kube_job_status_failed{namespace="platform", job_name=~"preserve-expiry.*"} > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Preserve expiry job failed"
+            description: "The preserve-expiry CronJob has failed. Preserved environments may not expire correctly."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/preserve-environment.md#preserveexpiryjobfailed"
+
+        - alert: PreserveExpiryJobNotRunning
+          expr: |
+            time() - kube_cronjob_status_last_schedule_time{namespace="platform", cronjob="preserve-expiry"} > 7200
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Preserve expiry job not running"
+            description: "The preserve-expiry CronJob has not run in over 2 hours (expected every hour)."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/preserve-environment.md#preserveexpiryjobnotrunning"
+
+        # =====================================================================
+        # Preserve Quota Alerts
+        # =====================================================================
+        - alert: TooManyPreservedEnvironments
+          expr: |
+            count(kube_namespace_labels{label_preserve="true"}) > 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Too many preserved environments"
+            description: "There are {{ $value }} preserved environments (max 3). This may indicate quota enforcement issues."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/preserve-environment.md#toomanypreservedenvironments"
+
+        - alert: PreservedEnvironmentsActive
+          expr: |
+            count(kube_namespace_labels{label_preserve="true"}) > 0
+          for: 1h
+          labels:
+            severity: info
+          annotations:
+            summary: "Preserved environments active"
+            description: "There are {{ $value }} preserved environment(s). This is informational only."

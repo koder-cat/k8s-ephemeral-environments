@@ -1,0 +1,299 @@
+name: Preserve Environment
+
+on:
+  issue_comment:
+    types: [created]
+
+# Prevent concurrent preserve operations on the same PR
+concurrency:
+  group: preserve-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+# Workflow-level environment variables for consistency
+env:
+  PROJECT_ID: "k8s-ee"
+  KUBECTL_VERSION: "v1.31.0"
+  MAX_PRESERVED_ENVIRONMENTS: 3
+  PRESERVE_DURATION_HOURS: 48
+
+jobs:
+  preserve:
+    name: Preserve PR Environment
+    # Only run on PR comments (not issues) that start with /preserve
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/preserve')
+    runs-on: arc-runner-set
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            return {
+              number: pr.number,
+              state: pr.state,
+              head_sha: pr.head.sha,
+            };
+
+      - name: Check PR is open
+        env:
+          PR_STATE: ${{ fromJSON(steps.pr.outputs.result).state }}
+        run: |
+          if [ "$PR_STATE" != "open" ]; then
+            echo "ERROR: PR is not open (state: $PR_STATE)"
+            exit 1
+          fi
+
+      - name: Install kubectl
+        run: |
+          set -euo pipefail
+
+          # Install kubectl with SHA256 verification
+          curl --connect-timeout 10 --max-time 60 -fLO \
+            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl"
+          curl --connect-timeout 10 --max-time 30 -fLO \
+            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          rm kubectl.sha256
+          kubectl version --client
+
+      - name: Set environment variables
+        env:
+          # Pass user-controlled input through env to prevent command injection
+          PRESERVED_BY: ${{ github.event.comment.user.login }}
+        run: |
+          set -euo pipefail
+
+          # Validate PROJECT_ID format
+          if ! [[ "${{ env.PROJECT_ID }}" =~ ^[a-z0-9]([a-z0-9-]{0,18}[a-z0-9])?$ ]]; then
+            echo "ERROR: PROJECT_ID must be lowercase alphanumeric with hyphens, 1-20 chars"
+            exit 1
+          fi
+
+          PR_NUMBER="${{ github.event.issue.number }}"
+          NAMESPACE="${{ env.PROJECT_ID }}-pr-${PR_NUMBER}"
+
+          # Calculate preserve-until timestamp (48 hours from now)
+          PRESERVE_UNTIL=$(date -u -d "+${{ env.PRESERVE_DURATION_HOURS }} hours" +%Y-%m-%dT%H:%M:%SZ)
+          PRESERVE_UNTIL_HUMAN=$(date -u -d "+${{ env.PRESERVE_DURATION_HOURS }} hours" "+%Y-%m-%d %H:%M UTC")
+
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+          echo "PRESERVE_UNTIL=$PRESERVE_UNTIL" >> $GITHUB_ENV
+          echo "PRESERVE_UNTIL_HUMAN=$PRESERVE_UNTIL_HUMAN" >> $GITHUB_ENV
+          echo "PRESERVED_BY=$PRESERVED_BY" >> $GITHUB_ENV
+
+      - name: Check namespace exists
+        run: |
+          set -euo pipefail
+
+          if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+            echo "ERROR: Namespace $NAMESPACE does not exist"
+            echo "The PR environment may not have been deployed yet."
+            exit 1
+          fi
+
+          echo "Namespace $NAMESPACE exists"
+
+      - name: Check preserve quota
+        id: quota
+        run: |
+          set -euo pipefail
+
+          # Count namespaces with preserve=true label (excluding current namespace)
+          PRESERVED_COUNT=$(kubectl get namespaces -l preserve=true \
+            --no-headers 2>/dev/null | wc -l || echo "0")
+
+          # Check if current namespace is already preserved
+          CURRENT_PRESERVED=$(kubectl get namespace "$NAMESPACE" \
+            -o jsonpath='{.metadata.labels.preserve}' 2>/dev/null || echo "")
+
+          echo "Current preserved count: $PRESERVED_COUNT"
+          echo "Current namespace preserve status: $CURRENT_PRESERVED"
+
+          # If already preserved, allow extending
+          if [ "$CURRENT_PRESERVED" = "true" ]; then
+            echo "ALREADY_PRESERVED=true" >> $GITHUB_ENV
+            echo "Namespace is already preserved, will extend preservation"
+            exit 0
+          fi
+
+          # Check quota
+          if [ "$PRESERVED_COUNT" -ge "${{ env.MAX_PRESERVED_ENVIRONMENTS }}" ]; then
+            echo "QUOTA_EXCEEDED=true" >> $GITHUB_ENV
+            echo "ERROR: Maximum preserved environments (${{ env.MAX_PRESERVED_ENVIRONMENTS }}) reached"
+            exit 0
+          fi
+
+          echo "ALREADY_PRESERVED=false" >> $GITHUB_ENV
+          echo "QUOTA_EXCEEDED=false" >> $GITHUB_ENV
+
+      - name: Comment on quota exceeded
+        if: env.QUOTA_EXCEEDED == 'true'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const marker = '<!-- k8s-ee-preserve -->';
+            const maxEnvs = process.env.MAX_PRESERVED_ENVIRONMENTS;
+
+            const body = [
+              marker,
+              '## :warning: Cannot Preserve Environment',
+              '',
+              `Maximum preserved environments (${maxEnvs}) already reached.`,
+              '',
+              'Please wait for an existing preserved environment to expire or be released.',
+              '',
+              '---',
+              '<sub>Managed by GitHub Actions</sub>',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+
+      - name: Fail on quota exceeded
+        if: env.QUOTA_EXCEEDED == 'true'
+        run: exit 1
+
+      - name: Apply preserve label
+        run: |
+          set -euo pipefail
+
+          echo "Applying preserve label and annotation to $NAMESPACE..."
+
+          # Add preserve=true label
+          kubectl label namespace "$NAMESPACE" preserve=true --overwrite
+
+          # Add preserve-until annotation (user passed through env for safety)
+          kubectl annotate namespace "$NAMESPACE" \
+            "k8s-ee/preserve-until=$PRESERVE_UNTIL" \
+            "k8s-ee/preserved-by=$PRESERVED_BY" \
+            "k8s-ee/preserve-warning-sent=false" \
+            --overwrite
+
+          echo "Namespace preserved until $PRESERVE_UNTIL"
+
+      - name: Comment on success
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const marker = '<!-- k8s-ee-preserve -->';
+            const preserveUntil = process.env.PRESERVE_UNTIL_HUMAN;
+            const namespace = process.env.NAMESPACE;
+            const preservedBy = process.env.PRESERVED_BY;
+            const alreadyPreserved = process.env.ALREADY_PRESERVED === 'true';
+            const action = alreadyPreserved ? 'Extended' : 'Preserved';
+
+            const body = [
+              marker,
+              `## :lock: Environment ${action}`,
+              '',
+              '| Property | Value |',
+              '|----------|-------|',
+              `| **Namespace** | \`${namespace}\` |`,
+              `| **Expires** | ${preserveUntil} |`,
+              `| **Duration** | ${process.env.PRESERVE_DURATION_HOURS} hours |`,
+              `| **Preserved by** | @${preservedBy} |`,
+              '',
+              'The environment will **not** be destroyed when the PR is closed.',
+              '',
+              `After ${preserveUntil}, the preserve label will be removed and the cleanup job will delete it.`,
+              '',
+              'To extend preservation, comment `/preserve` again.',
+              '',
+              '---',
+              '<sub>Managed by GitHub Actions</sub>',
+            ].join('\n');
+
+            // Find existing preserve comment (fetch up to 100 to handle busy PRs)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+
+            const existingComment = comments.find(c => c.body.includes(marker));
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body,
+              });
+              console.log(`Updated comment: ${existingComment.html_url}`);
+            } else {
+              const { data: newComment } = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+              console.log(`Created comment: ${newComment.html_url}`);
+            }
+
+      - name: Comment on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const marker = '<!-- k8s-ee-preserve -->';
+            const namespace = process.env.NAMESPACE || 'unknown';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const body = [
+              marker,
+              '## :x: Preserve Failed',
+              '',
+              '| Property | Value |',
+              '|----------|-------|',
+              `| **Namespace** | \`${namespace}\` |`,
+              '| **Status** | Failed |',
+              '',
+              `[View workflow logs](${runUrl})`,
+              '',
+              '---',
+              '<sub>Managed by GitHub Actions</sub>',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Preserve Environment"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Namespace | \`$NAMESPACE\` |"
+            echo "| PR Number | #$PR_NUMBER |"
+            echo "| Preserve Until | $PRESERVE_UNTIL_HUMAN |"
+            echo "| Already Preserved | ${ALREADY_PRESERVED:-false} |"
+            echo "| Quota Exceeded | ${QUOTA_EXCEEDED:-false} |"
+          } >> $GITHUB_STEP_SUMMARY || true

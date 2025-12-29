@@ -1,0 +1,332 @@
+# ConfigMap containing the preserve expiry script
+# This script checks for expired preserve labels and removes them
+#
+# US-021: Preserve Environment Feature
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: preserve-expiry-script
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: preserve-expiry
+    app.kubernetes.io/component: script
+data:
+  preserve-expiry.py: |
+    #!/usr/bin/env python3
+    """
+    Preserve expiry script for PR namespaces.
+
+    This script checks namespaces with preserve=true label and:
+    - Posts warning comment 1 hour before expiry
+    - Removes preserve label when expired
+    - Posts notification comment when preserve is removed
+
+    The cleanup job (US-020) will then delete the namespace.
+
+    Environment Variables:
+        GITHUB_TOKEN: GitHub PAT with repo scope (required)
+        WARNING_HOURS: Hours before expiry to warn (default: 1)
+    """
+
+    import json
+    import logging
+    import os
+    import re
+    import subprocess
+    import sys
+    from datetime import datetime, timezone
+    from typing import Dict, List, Optional, Tuple
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError, URLError
+
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    logger = logging.getLogger(__name__)
+
+    # Configuration
+    GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+    try:
+        WARNING_HOURS = int(os.environ.get("WARNING_HOURS", "1"))
+    except ValueError:
+        logger.warning("Invalid WARNING_HOURS value, using default: 1")
+        WARNING_HOURS = 1
+    KUBECTL_TIMEOUT = 60
+
+    # Labels and annotations
+    LABEL_PRESERVE = "preserve"
+    ANNOTATION_PRESERVE_UNTIL = "k8s-ee/preserve-until"
+    ANNOTATION_REPOSITORY = "k8s-ee/repository"
+    ANNOTATION_WARNING_SENT = "k8s-ee/preserve-warning-sent"
+    LABEL_PR_NUMBER = "k8s-ee/pr-number"
+
+    # Metrics
+    metrics = {
+        "namespaces_checked": 0,
+        "namespaces_expired": 0,
+        "namespaces_warned": 0,
+        "labels_removed": 0,
+        "comments_posted": 0,
+        "errors": 0,
+    }
+
+
+    def run_kubectl(args: List[str], timeout: int = KUBECTL_TIMEOUT) -> Tuple[bool, str]:
+        """Execute kubectl command and return success status and output."""
+        try:
+            result = subprocess.run(
+                ["kubectl"] + args,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            if result.returncode == 0:
+                return True, result.stdout.strip()
+            return False, result.stderr.strip()
+        except subprocess.TimeoutExpired:
+            return False, "Command timed out"
+        except FileNotFoundError:
+            return False, "kubectl not found"
+        except Exception as e:
+            return False, str(e)
+
+
+    def get_preserved_namespaces() -> List[Dict]:
+        """Get all namespaces with preserve=true label."""
+        success, output = run_kubectl([
+            "get", "namespaces",
+            "-l", f"{LABEL_PRESERVE}=true",
+            "-o", "json"
+        ])
+
+        if not success:
+            logger.error(f"Failed to list preserved namespaces: {output}")
+            return []
+
+        try:
+            data = json.loads(output)
+            return data.get("items", [])
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse namespace JSON: {e}")
+            return []
+
+
+    def parse_namespace_metadata(namespace: Dict) -> Dict:
+        """Extract relevant metadata from namespace object."""
+        metadata = namespace.get("metadata", {})
+        labels = metadata.get("labels", {})
+        annotations = metadata.get("annotations", {})
+
+        return {
+            "name": metadata.get("name", ""),
+            "preserve_until": annotations.get(ANNOTATION_PRESERVE_UNTIL, ""),
+            "repository": annotations.get(ANNOTATION_REPOSITORY, ""),
+            "pr_number": labels.get(LABEL_PR_NUMBER, ""),
+            "warning_sent": annotations.get(ANNOTATION_WARNING_SENT, "") == "true",
+        }
+
+
+    def parse_timestamp(timestamp: str) -> Optional[datetime]:
+        """Parse ISO 8601 timestamp."""
+        if not timestamp:
+            return None
+        try:
+            if timestamp.endswith("Z"):
+                timestamp = timestamp[:-1] + "+00:00"
+            return datetime.fromisoformat(timestamp)
+        except ValueError as e:
+            logger.warning(f"Failed to parse timestamp '{timestamp}': {e}")
+            return None
+
+
+    def post_github_comment(owner: str, repo: str, pr_number: int, body: str) -> bool:
+        """Post a comment on a GitHub PR."""
+        if not GITHUB_TOKEN:
+            logger.error("GITHUB_TOKEN not set")
+            return False
+
+        url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
+        headers = {
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "k8s-ee-preserve-expiry",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            data = json.dumps({"body": body}).encode("utf-8")
+            request = Request(url, data=data, headers=headers, method="POST")
+            with urlopen(request, timeout=30) as response:
+                if response.status in (200, 201):
+                    logger.info(f"Posted comment to {owner}/{repo}#{pr_number}")
+                    return True
+            return False
+        except HTTPError as e:
+            logger.error(f"GitHub API error posting comment: {e.code}")
+            return False
+        except URLError as e:
+            logger.error(f"Network error posting comment: {e}")
+            return False
+
+
+    def remove_preserve_label(namespace: str) -> bool:
+        """Remove preserve label from namespace."""
+        success, output = run_kubectl([
+            "label", "namespace", namespace,
+            f"{LABEL_PRESERVE}-"
+        ])
+
+        if not success:
+            logger.error(f"Failed to remove preserve label from {namespace}: {output}")
+            return False
+
+        logger.info(f"Removed preserve label from {namespace}")
+        return True
+
+
+    def mark_warning_sent(namespace: str) -> bool:
+        """Mark that warning has been sent for this namespace."""
+        success, output = run_kubectl([
+            "annotate", "namespace", namespace,
+            f"{ANNOTATION_WARNING_SENT}=true",
+            "--overwrite"
+        ])
+
+        if not success:
+            logger.warning(f"Failed to mark warning sent for {namespace}: {output}")
+            return False
+
+        return True
+
+
+    def process_namespace(ns_meta: Dict) -> str:
+        """
+        Process a single preserved namespace.
+        Returns: 'expired', 'warned', 'ok', 'error'
+        """
+        name = ns_meta["name"]
+        preserve_until = parse_timestamp(ns_meta["preserve_until"])
+
+        if preserve_until is None:
+            logger.warning(f"Namespace {name} has no valid preserve-until timestamp")
+            return "error"
+
+        now = datetime.now(timezone.utc)
+        time_remaining = preserve_until - now
+        hours_remaining = time_remaining.total_seconds() / 3600
+
+        logger.info(f"Namespace {name}: {hours_remaining:.1f} hours until expiry")
+
+        # Parse repository for GitHub API
+        repository = ns_meta["repository"]
+        pr_number = ns_meta["pr_number"]
+
+        if repository and "/" in repository and pr_number:
+            owner, repo = repository.split("/", 1)
+            pr_num = int(pr_number) if pr_number.isdigit() else 0
+        else:
+            owner, repo, pr_num = None, None, 0
+
+        # Check if expired
+        if hours_remaining <= 0:
+            logger.info(f"Namespace {name} preserve has expired, removing label")
+
+            if remove_preserve_label(name):
+                metrics["labels_removed"] += 1
+
+                # Post expiry comment
+                if owner and repo and pr_num:
+                    body = "\n".join([
+                        "## :unlock: Preserve Expired",
+                        "",
+                        f"The preserve label for namespace `{name}` has expired.",
+                        "",
+                        "The environment will be cleaned up by the next cleanup job run.",
+                        "",
+                        "---",
+                        "<sub>Managed by GitHub Actions</sub>",
+                    ])
+                    if post_github_comment(owner, repo, pr_num, body):
+                        metrics["comments_posted"] += 1
+
+                return "expired"
+            return "error"
+
+        # Check if warning needed (1 hour before expiry)
+        if hours_remaining <= WARNING_HOURS and not ns_meta["warning_sent"]:
+            logger.info(f"Namespace {name} expires in {hours_remaining:.1f}h, sending warning")
+
+            if owner and repo and pr_num:
+                expiry_time = preserve_until.strftime("%Y-%m-%d %H:%M UTC")
+                body = "\n".join([
+                    "## :warning: Preserve Expiring Soon",
+                    "",
+                    f"The preserve for namespace `{name}` will expire in approximately {int(hours_remaining * 60)} minutes.",
+                    "",
+                    f"**Expires at:** {expiry_time}",
+                    "",
+                    "To extend preservation, comment `/preserve` on this PR.",
+                    "",
+                    "---",
+                    "<sub>Managed by GitHub Actions</sub>",
+                ])
+                if post_github_comment(owner, repo, pr_num, body):
+                    metrics["comments_posted"] += 1
+                    mark_warning_sent(name)
+                    return "warned"
+
+            return "ok"
+
+        return "ok"
+
+
+    def main() -> int:
+        """Main entry point. Returns exit code."""
+        logger.info("=" * 60)
+        logger.info("Starting preserve expiry check")
+        logger.info(f"Warning threshold: {WARNING_HOURS} hour(s)")
+        logger.info("=" * 60)
+
+        if not GITHUB_TOKEN:
+            logger.error("GITHUB_TOKEN environment variable is required")
+            return 1
+
+        # Get all preserved namespaces
+        namespaces = get_preserved_namespaces()
+        logger.info(f"Found {len(namespaces)} preserved namespace(s)")
+        metrics["namespaces_checked"] = len(namespaces)
+
+        for ns in namespaces:
+            ns_meta = parse_namespace_metadata(ns)
+            result = process_namespace(ns_meta)
+
+            if result == "expired":
+                metrics["namespaces_expired"] += 1
+            elif result == "warned":
+                metrics["namespaces_warned"] += 1
+            elif result == "error":
+                metrics["errors"] += 1
+
+        # Log summary
+        logger.info("=" * 60)
+        logger.info("Preserve Expiry Summary:")
+        logger.info(f"  Namespaces checked: {metrics['namespaces_checked']}")
+        logger.info(f"  Expired (labels removed): {metrics['namespaces_expired']}")
+        logger.info(f"  Warnings sent: {metrics['namespaces_warned']}")
+        logger.info(f"  Comments posted: {metrics['comments_posted']}")
+        logger.info(f"  Errors: {metrics['errors']}")
+        logger.info("=" * 60)
+
+        if metrics["errors"] > 0:
+            logger.warning("Some operations failed")
+            return 1
+
+        logger.info("Preserve expiry check completed successfully")
+        return 0
+
+
+    if __name__ == "__main__":
+        sys.exit(main())
