@@ -14,7 +14,7 @@ Create a default fully qualified app name.
 {{- else }}
 {{- $name := default .Chart.Name .Values.nameOverride }}
 {{- if .Values.prNumber }}
-{{- printf "pr-%s-%s" .Values.prNumber $name | trunc 63 | trimSuffix "-" }}
+{{- printf "pr-%s-%s" (.Values.prNumber | toString) $name | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name | trunc 63 | trimSuffix "-" }}
 {{- end }}
@@ -60,7 +60,7 @@ Preview URL hostname
 */}}
 {{- define "demo-app.hostname" -}}
 {{- if .Values.prNumber }}
-{{- printf "pr-%s.%s" .Values.prNumber .Values.previewDomain }}
+{{- printf "pr-%s.%s" (.Values.prNumber | toString) .Values.previewDomain }}
 {{- else }}
 {{- printf "demo.%s" .Values.previewDomain }}
 {{- end }}
