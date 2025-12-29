@@ -10,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [x] Loki deployed in `observability` namespace
-- [x] Promtail collecting logs from all pods
-- [x] Logs queryable by namespace/pod/container
-- [x] Retention configured (7 days)
-- [x] Resource usage < 2GB RAM
+- [ ] Loki deployed in `observability` namespace
+- [ ] Promtail collecting logs from all pods
+- [ ] Logs queryable by namespace/pod/container
+- [ ] Retention configured (7 days)
+- [ ] Resource usage < 2GB RAM
 
 ## Priority
 
