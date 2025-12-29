@@ -107,6 +107,22 @@ kubectl apply -f k8s/arc/controller-rbac.yaml
 kubectl apply -f k8s/arc/runner-rbac.yaml
 ```
 
+### Runner RBAC Permissions
+
+The `arc-runner-role` ClusterRole grants runners the following permissions:
+
+| API Group | Resources | Purpose |
+|-----------|-----------|---------|
+| `""` (core) | namespaces | Create/delete PR namespaces |
+| `""` (core) | resourcequotas, limitranges | Apply resource limits |
+| `""` (core) | pods, services, configmaps, secrets, pvcs | Manage workloads |
+| `""` (core) | pods/portforward, pods/log | Health checks and debugging |
+| `apps` | deployments, replicasets, statefulsets | Manage deployments |
+| `networking.k8s.io` | ingresses, networkpolicies | Preview URLs and isolation |
+| `traefik.io` | ingressroutes, middlewares | Traefik CRDs |
+| `postgresql.cnpg.io` | clusters, poolers, scheduledbackups | CloudNativePG |
+| `batch` | jobs | Database migrations |
+
 ## Step 4: Create GitHub App Secret
 
 Create the secret with GitHub App credentials:

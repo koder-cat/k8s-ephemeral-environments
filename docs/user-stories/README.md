@@ -60,12 +60,12 @@ This document provides an index of all user stories derived from the PRD.
 
 ### [Epic 6: Resource Management & Security](./epic-6-security/)
 
-| Story | Title | Priority | Points |
-|-------|-------|----------|--------|
-| [US-018](./epic-6-security/US-018-configure-resource-quotas.md) | Configure Resource Quotas | Should | 3 |
-| [US-019](./epic-6-security/US-019-configure-network-policies.md) | Configure Network Policies | Should | 5 |
-| [US-020](./epic-6-security/US-020-cleanup-job.md) | Implement Cleanup Job for Orphaned Resources | Should | 5 |
-| [US-021](./epic-6-security/US-021-preserve-environment.md) | Preserve Environment Feature | Could | 5 |
+| Story | Title | Priority | Points | Status |
+|-------|-------|----------|--------|--------|
+| [US-018](./epic-6-security/US-018-configure-resource-quotas.md) | Configure Resource Quotas | Should | 3 | ✅ Done |
+| [US-019](./epic-6-security/US-019-configure-network-policies.md) | Configure Network Policies | Should | 5 | ✅ Done |
+| [US-020](./epic-6-security/US-020-cleanup-job.md) | Implement Cleanup Job for Orphaned Resources | Should | 5 | |
+| [US-021](./epic-6-security/US-021-preserve-environment.md) | Preserve Environment Feature | Could | 5 | |
 
 ---
 

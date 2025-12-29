@@ -350,6 +350,8 @@ postgresql:
 - Namespace deletion cascades to all secrets
 - No credentials are committed to git
 - Cross-namespace access is prevented by RBAC
+- NetworkPolicies allow same-namespace communication (app to database)
+- Cross-namespace database access is blocked by default
 
 ## Helm Operations
 
