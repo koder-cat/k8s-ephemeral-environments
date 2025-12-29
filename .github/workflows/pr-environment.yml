@@ -308,6 +308,12 @@ jobs:
           echo "IMAGE_DIGEST=${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_ENV
           echo "PREVIEW_URL=https://${{ env.PROJECT_ID }}-pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}" >> $GITHUB_ENV
 
+      - name: Build Helm dependencies
+        run: |
+          set -euo pipefail
+          echo "Building Helm chart dependencies..."
+          helm dependency build ./charts/demo-app
+
       - name: Deploy with Helm
         run: |
           set -euo pipefail
