@@ -1,7 +1,7 @@
 # Stage 1: Install ALL dependencies (for building)
 FROM node:22-alpine AS deps
 
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN pnpm install --frozen-lockfile
 # Stage 1b: Production dependencies only
 FROM node:22-alpine AS prod-deps
 
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ RUN pnpm install --frozen-lockfile --prod
 # Stage 2: Build the applications
 FROM node:22-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.26.2 --activate
 
 WORKDIR /app
 

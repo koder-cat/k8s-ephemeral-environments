@@ -1,5 +1,7 @@
 # US-014: Configure Basic Alerts
 
+**Status:** Done
+
 ## User Story
 
 **As an** SRE/DevOps engineer,
@@ -8,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Alert for disk usage > 80%
-- [ ] Alert for memory usage > 90%
-- [ ] Alert for pod crash loops (> 3 restarts in 10 min)
-- [ ] Alert for node not ready
-- [ ] Alerts visible in Grafana
-- [ ] Optional: notifications via Slack/email
+- [x] Alert for disk usage > 80%
+- [x] Alert for memory usage > 90%
+- [x] Alert for pod crash loops (> 3 restarts in 10 min)
+- [x] Alert for node not ready
+- [x] Alerts visible in Grafana
+- [ ] Optional: notifications via Slack/email (skipped per user request)
 
 ## Priority
 

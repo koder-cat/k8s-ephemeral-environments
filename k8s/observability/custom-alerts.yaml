@@ -1,0 +1,95 @@
+# Custom PrometheusRule Alerts
+# US-014: Configure Basic Alerts for cluster health monitoring
+# Requires: kube-prometheus-stack deployed in observability namespace
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: custom-alerts
+  namespace: observability
+  labels:
+    release: prometheus
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: custom.rules
+      rules:
+        # =============================================================================
+        # Disk Usage Alerts
+        # =============================================================================
+        - alert: DiskUsageHigh
+          expr: |
+            (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/run.*|/sys.*|/snap.*",device!=""}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/run.*|/sys.*|/snap.*",device!=""}) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Disk usage above 80%"
+            description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf \"%.1f\" $value }}% full."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagehigh"
+
+        - alert: DiskUsageCritical
+          expr: |
+            (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/run.*|/sys.*|/snap.*",device!=""}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint!~"/run.*|/sys.*|/snap.*",device!=""}) * 100 > 90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Disk usage above 90% - CRITICAL"
+            description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf \"%.1f\" $value }}% full. Immediate action required."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagecritical"
+
+        # =============================================================================
+        # Memory Usage Alerts
+        # =============================================================================
+        - alert: MemoryUsageWarning
+          expr: |
+            (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Memory usage above 80%"
+            description: "Node {{ $labels.instance }} memory usage is {{ printf \"%.1f\" $value }}%. Monitor for potential issues."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagewarning"
+
+        - alert: MemoryUsageHigh
+          expr: |
+            (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Memory usage above 90%"
+            description: "Node {{ $labels.instance }} memory usage is {{ printf \"%.1f\" $value }}%. Consider scaling or investigating memory-hungry workloads."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagehigh"
+
+        # =============================================================================
+        # Pod Health Alerts
+        # =============================================================================
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[10m]) > 3
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod crash looping"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} (container {{ $labels.container }}) has restarted {{ printf \"%.0f\" $value }} times in the last 10 minutes."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#podcrashlooping"
+
+        # =============================================================================
+        # Node Health Alerts
+        # =============================================================================
+        - alert: NodeNotReady
+          expr: |
+            kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node not ready"
+            description: "Node {{ $labels.node }} has been in NotReady state for more than 2 minutes."
+            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#nodenotready"
