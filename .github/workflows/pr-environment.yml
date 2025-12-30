@@ -275,6 +275,9 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        env:
+          # Image is ARM64-only, tell Trivy to scan that platform
+          TRIVY_PLATFORM: linux/arm64
         with:
           image-ref: ghcr.io/${{ github.repository }}/demo-app@${{ steps.build.outputs.digest }}
           format: 'sarif'
@@ -306,6 +309,8 @@ jobs:
           artifact-name: sbom-pr-${{ github.event.pull_request.number }}
           upload-artifact: true
           upload-artifact-retention: 30
+          # Image is ARM64-only, tell Syft to scan that platform
+          syft-args: --platform linux/arm64
 
       - name: Summary
         if: always()
