@@ -135,7 +135,7 @@ gateway:
 # =============================================================================
 # Disable Optional Components
 # =============================================================================
-# Disable monitoring features not needed for this setup
+# Monitoring configuration
 monitoring:
   selfMonitoring:
     enabled: false
@@ -143,6 +143,11 @@ monitoring:
       installOperator: false
   lokiCanary:
     enabled: false
+  # Enable ServiceMonitor to scrape Loki metrics
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus
 
 # Disable test pod
 test:
