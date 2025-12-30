@@ -1,18 +1,18 @@
 # Tasks for US-022: CI/CD Pipeline Performance
 
-**Status:** Draft
+**Status:** All tasks complete
 
 ## Tasks
 
 ### T-022.1: Create kubectl Composite Action
 - **Description:** Create reusable composite action for kubectl installation
 - **Acceptance Criteria:**
-  - Composite action created at `.github/actions/install-kubectl/action.yml`
+  - Composite action created at `.github/actions/setup-kubectl/action.yml`
   - Accepts version as input parameter
   - Handles ARM64 and AMD64 architectures
   - Verifies installation with checksum
 - **Estimate:** S
-- **Files:** `.github/actions/install-kubectl/action.yml`
+- **Files:** `.github/actions/setup-kubectl/action.yml`
 
 ### T-022.2: Add kubectl/Helm Binary Caching
 - **Description:** Cache kubectl and helm binaries across workflow runs
@@ -37,7 +37,7 @@
 - **Description:** Cache Helm chart dependencies
 - **Acceptance Criteria:**
   - Cache for `charts/*/charts/` directories
-  - Cache key includes Chart.lock hash
+  - Cache key includes Chart.yaml hash
   - Dependency build skipped on cache hit
 - **Estimate:** XS
 - **Files:** `.github/workflows/pr-environment.yml`

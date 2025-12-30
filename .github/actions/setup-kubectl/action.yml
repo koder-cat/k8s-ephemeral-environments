@@ -1,0 +1,45 @@
+name: 'Setup kubectl'
+description: 'Install and cache kubectl binary with SHA256 verification'
+
+inputs:
+  version:
+    description: 'kubectl version (e.g., v1.31.0)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache kubectl
+      id: cache-kubectl
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /usr/local/bin/kubectl
+        key: kubectl-linux-arm64-${{ inputs.version }}
+
+    - name: Install kubectl
+      if: steps.cache-kubectl.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Installing kubectl ${{ inputs.version }}..."
+
+        # Download kubectl and checksum
+        curl --connect-timeout 10 --max-time 60 -fLO \
+          "https://dl.k8s.io/release/${{ inputs.version }}/bin/linux/arm64/kubectl"
+        curl --connect-timeout 10 --max-time 30 -fLO \
+          "https://dl.k8s.io/release/${{ inputs.version }}/bin/linux/arm64/kubectl.sha256"
+
+        # Verify checksum
+        echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
+
+        # Install
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        rm kubectl.sha256
+
+        echo "kubectl ${{ inputs.version }} installed successfully"
+
+    - name: Verify kubectl
+      shell: bash
+      run: |
+        echo "kubectl version: $(kubectl version --client --short 2>/dev/null || kubectl version --client)"
