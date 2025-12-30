@@ -12,7 +12,9 @@
     "dev:web": "pnpm --filter @demo-app/web dev",
     "start": "pnpm --filter @demo-app/api start:prod",
     "lint": "pnpm -r lint",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "test": "pnpm -r test",
+    "test:cov": "pnpm -r test:cov"
   },
   "engines": {
     "node": ">=22.0.0",
