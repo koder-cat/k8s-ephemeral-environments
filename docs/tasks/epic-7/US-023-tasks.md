@@ -1,6 +1,6 @@
 # Tasks for US-023: Testing Framework Setup
 
-**Status:** Draft
+**Status:** Done
 
 ## Tasks
 

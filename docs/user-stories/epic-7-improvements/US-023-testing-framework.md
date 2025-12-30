@@ -1,6 +1,6 @@
 # US-023: Testing Framework Setup
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Vitest configured for API and Web apps
-- [ ] Unit test examples created
-- [ ] Linting runs in CI before build
-- [ ] Helm chart validation runs before deploy
-- [ ] Duplicate cleanup script issue resolved
-- [ ] CI validates script sync
+- [x] Vitest configured for API and Web apps
+- [x] Unit test examples created
+- [x] Linting runs in CI before build
+- [x] Helm chart validation runs before deploy
+- [x] Duplicate cleanup script issue resolved
+- [x] CI validates script sync
 
 ## Priority
 
