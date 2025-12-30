@@ -5,9 +5,19 @@ import { MetricsService } from '../metrics/metrics.service';
 
 describe('MetricsMiddleware', () => {
   let middleware: MetricsMiddleware;
-  let mockMetricsService: Partial<MetricsService>;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockMetricsService: {
+    httpRequestDuration: { observe: ReturnType<typeof vi.fn> };
+    httpRequestTotal: { inc: ReturnType<typeof vi.fn> };
+  };
+  let mockRequest: {
+    path: string;
+    method: string;
+    route?: { path: string };
+  };
+  let mockResponse: {
+    statusCode: number;
+    on: ReturnType<typeof vi.fn>;
+  };
   let nextFunction: NextFunction;
   let finishCallback: (() => void) | null;
 
@@ -16,12 +26,14 @@ describe('MetricsMiddleware', () => {
     mockMetricsService = {
       httpRequestDuration: {
         observe: vi.fn(),
-      } as unknown as MetricsService['httpRequestDuration'],
+      },
       httpRequestTotal: {
         inc: vi.fn(),
-      } as unknown as MetricsService['httpRequestTotal'],
+      },
     };
-    middleware = new MetricsMiddleware(mockMetricsService as MetricsService);
+    middleware = new MetricsMiddleware(
+      mockMetricsService as unknown as MetricsService,
+    );
     mockRequest = {
       path: '/api/test',
       method: 'GET',
@@ -33,6 +45,7 @@ describe('MetricsMiddleware', () => {
         if (event === 'finish') {
           finishCallback = callback;
         }
+        return mockResponse;
       }),
     };
     nextFunction = vi.fn();
@@ -42,8 +55,8 @@ describe('MetricsMiddleware', () => {
     mockRequest.path = '/metrics';
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
@@ -53,25 +66,24 @@ describe('MetricsMiddleware', () => {
 
   it('should record request duration on response finish', () => {
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     expect(finishCallback).not.toBeNull();
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestDuration!.observe).toHaveBeenCalled();
-    const observeArgs = vi.mocked(
-      mockMetricsService.httpRequestDuration!.observe,
-    ).mock.calls[0];
+    expect(mockMetricsService.httpRequestDuration.observe).toHaveBeenCalled();
+    const observeArgs = mockMetricsService.httpRequestDuration.observe.mock
+      .calls[0] as unknown[];
     expect(observeArgs[0]).toEqual({
       method: 'GET',
       route: '/api/test',
       status_code: '200',
     });
     expect(typeof observeArgs[1]).toBe('number');
-    expect(observeArgs[1]).toBeGreaterThanOrEqual(0);
+    expect(observeArgs[1] as number).toBeGreaterThanOrEqual(0);
   });
 
   it('should record request count with correct labels', () => {
@@ -80,14 +92,14 @@ describe('MetricsMiddleware', () => {
     mockResponse.statusCode = 201;
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestTotal!.inc).toHaveBeenCalledWith({
+    expect(mockMetricsService.httpRequestTotal.inc).toHaveBeenCalledWith({
       method: 'POST',
       route: '/api/users',
       status_code: '201',
@@ -99,14 +111,14 @@ describe('MetricsMiddleware', () => {
     mockRequest.path = '/api/users/123';
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestDuration!.observe).toHaveBeenCalledWith(
+    expect(mockMetricsService.httpRequestDuration.observe).toHaveBeenCalledWith(
       expect.objectContaining({ route: '/api/users/:id' }),
       expect.any(Number),
     );
@@ -116,14 +128,14 @@ describe('MetricsMiddleware', () => {
     mockRequest.path = '/api/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestDuration!.observe).toHaveBeenCalledWith(
+    expect(mockMetricsService.httpRequestDuration.observe).toHaveBeenCalledWith(
       expect.objectContaining({ route: '/api/users/:uuid' }),
       expect.any(Number),
     );
@@ -133,14 +145,14 @@ describe('MetricsMiddleware', () => {
     mockRequest.path = '/api/users/12345';
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestDuration!.observe).toHaveBeenCalledWith(
+    expect(mockMetricsService.httpRequestDuration.observe).toHaveBeenCalledWith(
       expect.objectContaining({ route: '/api/users/:id' }),
       expect.any(Number),
     );
@@ -150,14 +162,14 @@ describe('MetricsMiddleware', () => {
     mockRequest.path = '/api/orders/123/items/456';
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
     finishCallback!();
 
-    expect(mockMetricsService.httpRequestDuration!.observe).toHaveBeenCalledWith(
+    expect(mockMetricsService.httpRequestDuration.observe).toHaveBeenCalledWith(
       expect.objectContaining({ route: '/api/orders/:id/items/:id' }),
       expect.any(Number),
     );
@@ -165,8 +177,8 @@ describe('MetricsMiddleware', () => {
 
   it('should call next function', () => {
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 
@@ -174,13 +186,13 @@ describe('MetricsMiddleware', () => {
   });
 
   it('should not throw if metrics recording fails', () => {
-    mockMetricsService.httpRequestDuration!.observe = vi.fn(() => {
+    mockMetricsService.httpRequestDuration.observe = vi.fn(() => {
       throw new Error('Metrics error');
     });
 
     middleware.use(
-      mockRequest as Request,
-      mockResponse as Response,
+      mockRequest as unknown as Request,
+      mockResponse as unknown as Response,
       nextFunction,
     );
 

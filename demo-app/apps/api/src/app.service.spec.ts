@@ -2,9 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AppService } from './app.service';
 import { DatabaseService } from './database.service';
 
+// Create a mock type that allows `enabled` to be mutable
+interface MockDatabaseService {
+  enabled: boolean;
+  getStatus: ReturnType<typeof vi.fn>;
+  query: ReturnType<typeof vi.fn>;
+}
+
 describe('AppService', () => {
   let appService: AppService;
-  let mockDatabaseService: Partial<DatabaseService>;
+  let mockDatabaseService: MockDatabaseService;
 
   beforeEach(() => {
     mockDatabaseService = {
@@ -13,7 +20,9 @@ describe('AppService', () => {
       query: vi.fn(),
     };
 
-    appService = new AppService(mockDatabaseService as DatabaseService);
+    appService = new AppService(
+      mockDatabaseService as unknown as DatabaseService,
+    );
   });
 
   afterEach(() => {

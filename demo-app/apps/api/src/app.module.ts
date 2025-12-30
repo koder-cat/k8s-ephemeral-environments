@@ -1,6 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { LoggerModule } from 'nestjs-pino';
+import { Request } from 'express';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -24,9 +25,9 @@ import { MetricsMiddleware } from './middleware/metrics.middleware';
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty', options: { colorize: true } }
             : undefined,
-        // Use correlation ID from request
+        // Use correlation ID from request (cast to Express Request for extended type)
         customProps: (req) => ({
-          correlationId: req.correlationId,
+          correlationId: (req as Request).correlationId,
         }),
         // Redact sensitive headers
         redact: ['req.headers.authorization', 'req.headers.cookie'],
