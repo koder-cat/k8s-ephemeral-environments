@@ -616,7 +616,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["ephemeral", "pr-environment", "kubernetes"],
+  "tags": ["k8s-ee", "ephemeral", "pr-environment", "kubernetes"],
   "templating": {
     "list": [
       {

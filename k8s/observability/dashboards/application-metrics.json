@@ -805,7 +805,7 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["ephemeral", "application", "nodejs", "metrics"],
+  "tags": ["k8s-ee", "ephemeral", "application", "nodejs", "metrics"],
   "templating": {
     "list": [
       {
