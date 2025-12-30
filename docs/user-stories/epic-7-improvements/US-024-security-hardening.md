@@ -1,6 +1,6 @@
 # US-024: Security Hardening
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Container images scanned for CVEs (Trivy)
-- [ ] SBOM generated for supply chain transparency
-- [ ] All image tags pinned (no :latest)
-- [ ] NetworkPolicy restricts to specific ports
-- [ ] Security contexts on all workloads
-- [ ] Security model documented
+- [x] Container images scanned for CVEs (Trivy)
+- [x] SBOM generated for supply chain transparency
+- [x] All image tags pinned (no :latest)
+- [x] NetworkPolicy restricts to specific ports
+- [x] Security contexts on all workloads
+- [x] Security model documented
 
 ## Priority
 

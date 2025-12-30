@@ -26,3 +26,18 @@ resources:
   limits:
     memory: 512Mi
     cpu: 500m
+
+# Pod security context (MinIO runs as UID 1000)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false  # MinIO needs to write to data directory
+  capabilities:
+    drop:
+      - ALL

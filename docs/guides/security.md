@@ -1,0 +1,254 @@
+# Security Model
+
+This document describes the security architecture of the k8s-ephemeral-environments platform.
+
+## Overview
+
+The platform implements defense-in-depth with multiple security layers:
+
+1. **Network Isolation** - NetworkPolicies restrict pod-to-pod communication
+2. **Secret Management** - Sealed Secrets for GitOps-safe secret storage
+3. **Container Security** - Non-root containers with dropped capabilities
+4. **Image Security** - CVE scanning and SBOM generation
+5. **Resource Isolation** - ResourceQuota and LimitRange per namespace
+
+## Network Isolation
+
+### Default Deny Policy
+
+All PR namespaces start with a default-deny policy that blocks all ingress and egress traffic:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+```
+
+### Allowed Traffic
+
+Specific policies allow only necessary traffic:
+
+| Policy | Direction | From/To | Port | Purpose |
+|--------|-----------|---------|------|---------|
+| allow-ingress-controller | Ingress | Traefik (kube-system) | 3000 | External HTTP/HTTPS via preview URLs |
+| allow-same-namespace | Ingress | Same namespace | All | App-to-database communication |
+| allow-egress | Egress | DNS, K8s API, Internet | 53, 6443, * | DNS resolution, external APIs |
+| allow-observability | Ingress | Prometheus (observability) | All | Metrics scraping |
+
+### Cross-Namespace Isolation
+
+- PR namespaces cannot communicate with each other
+- Only platform namespaces (kube-system, observability) can access PR namespaces
+- Database access is restricted to the same namespace
+
+## Secret Management
+
+### Sealed Secrets
+
+The platform uses Bitnami Sealed Secrets for encrypting secrets in Git:
+
+```bash
+# Encrypt a secret
+kubeseal --controller-name=sealed-secrets \
+  --controller-namespace=kube-system \
+  --format yaml < secret.yaml > sealed-secret.yaml
+```
+
+### Auto-Generated Credentials
+
+Database operators (CloudNativePG, MongoDB Community, MinIO) automatically generate secure credentials:
+
+- Credentials stored in Kubernetes Secrets
+- Secrets scoped to the PR namespace
+- Automatic cleanup on namespace deletion
+
+### Secrets Not Committed to Git
+
+- `.gitignore` excludes all secret files
+- Sealed Secrets allow encrypted secrets in Git
+- CI/CD uses GitHub Secrets for deployment credentials
+
+## Container Security
+
+### Security Context (Pod Level)
+
+All workloads run with restricted pod security contexts:
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+```
+
+### Security Context (Container Level)
+
+Containers have additional restrictions:
+
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true  # where possible
+  capabilities:
+    drop:
+      - ALL
+```
+
+### Workload-Specific Settings
+
+| Workload | UID | readOnlyRootFilesystem | Notes |
+|----------|-----|------------------------|-------|
+| Demo App | 1001 | true | NestJS + React |
+| PostgreSQL | Operator-managed | Operator-managed | CloudNativePG |
+| MongoDB | 999 | false | Needs data writes |
+| MinIO | 1000 | false | Needs data writes |
+| Redis | 999 | true | No persistent data |
+| Cleanup Jobs | 1000 | true | Python scripts |
+
+## Image Security
+
+### CVE Scanning
+
+All container images are scanned with Trivy before deployment:
+
+- Scans run after Docker build in CI/CD
+- Reports CRITICAL and HIGH severity vulnerabilities
+- Ignores unfixed vulnerabilities (no available patches)
+- Results uploaded to GitHub Security tab (SARIF format)
+- Findings are informational (don't block PR deployments)
+
+### SBOM Generation
+
+Software Bill of Materials (SBOM) generated for supply chain transparency:
+
+- Format: SPDX JSON
+- Generated using Anchore's sbom-action
+- Uploaded as workflow artifact (30-day retention)
+
+### Image Pinning
+
+All images use pinned versions for reproducibility:
+
+| Image | Version | Notes |
+|-------|---------|-------|
+| bitnami/kubectl | 1.31.4 | ARM64 verified |
+| python | 3.12-alpine | Scripts |
+| node | 22-alpine | Demo app base |
+
+## Resource Isolation
+
+### ResourceQuota
+
+Each PR namespace has strict resource limits:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pr-quota
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 2Gi
+    limits.cpu: "2"
+    limits.memory: 4Gi
+    persistentvolumeclaims: "5"
+    requests.storage: 5Gi
+```
+
+### LimitRange
+
+Default limits for pods without explicit resource requests:
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: pr-limits
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      default:
+        cpu: 200m
+        memory: 256Mi
+```
+
+## Platform Components Security
+
+| Component | Security Measures |
+|-----------|-------------------|
+| GitHub Actions Runners | Ephemeral pods, isolated namespace, limited RBAC |
+| Traefik Ingress | TLS termination, rate limiting, security headers |
+| Prometheus/Loki | Read-only access to PR namespaces |
+| Cleanup Jobs | Minimal RBAC, non-root, read-only filesystem |
+
+## RBAC
+
+### Cleanup Job Service Account
+
+The cleanup job uses a dedicated service account with minimal permissions:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cleanup-job-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+```
+
+### GitHub Actions Runner
+
+Runners have cluster-admin access within their assigned namespace only.
+
+## Security Checklist for New Projects
+
+- [ ] Use pinned image tags (never `:latest`)
+- [ ] Set resource requests and limits
+- [ ] Configure security context (runAsNonRoot)
+- [ ] Drop all capabilities
+- [ ] Use readOnlyRootFilesystem where possible
+- [ ] Store secrets in Sealed Secrets
+- [ ] Review NetworkPolicy compatibility
+
+## Incident Response
+
+### Compromised Container
+
+1. Delete the PR environment: `kubectl delete ns <namespace>`
+2. Revoke any exposed secrets
+3. Review audit logs in Loki
+4. Check for lateral movement attempts in other namespaces
+
+### Orphaned Resources
+
+The cleanup CronJob runs every 6 hours to remove:
+- Namespaces for closed PRs
+- Expired preserve labels
+
+Manual cleanup: `kubectl delete ns <namespace>`
+
+## References
+
+- [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
+- [Sealed Secrets](https://sealed-secrets.netlify.app/)
+- [Trivy Scanner](https://aquasecurity.github.io/trivy/)
+- [NetworkPolicy Recipes](https://github.com/ahmetb/kubernetes-network-policy-recipes)

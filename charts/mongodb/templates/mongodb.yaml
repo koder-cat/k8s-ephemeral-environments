@@ -67,8 +67,16 @@ spec:
 
       template:
         spec:
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           containers:
             - name: mongod
+              {{- with .Values.containerSecurityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               resources:
                 requests:
                   memory: {{ .Values.resources.requests.memory | default "256Mi" }}
@@ -77,6 +85,10 @@ spec:
                   memory: {{ .Values.resources.limits.memory | default "512Mi" }}
                   cpu: {{ .Values.resources.limits.cpu | default "500m" }}
             - name: mongodb-agent
+              {{- with .Values.containerSecurityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               resources:
                 requests:
                   memory: {{ .Values.agent.resources.requests.memory | default "64Mi" }}

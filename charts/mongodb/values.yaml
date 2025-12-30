@@ -39,3 +39,18 @@ agent:
     limits:
       memory: 128Mi
       cpu: 100m
+
+# Pod security context (MongoDB runs as UID 999)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  runAsGroup: 999
+  fsGroup: 999
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false  # MongoDB needs to write to data directory
+  capabilities:
+    drop:
+      - ALL

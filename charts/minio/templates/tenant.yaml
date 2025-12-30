@@ -70,6 +70,14 @@ spec:
         limits:
           memory: {{ .Values.resources.limits.memory | default "512Mi" }}
           cpu: {{ .Values.resources.limits.cpu | default "500m" }}
+      {{- with .Values.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.containerSecurityContext }}
+      containerSecurityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
 
   # Disable TLS for simplicity in ephemeral environments
   requestAutoCert: false

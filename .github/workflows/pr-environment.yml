@@ -191,6 +191,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write  # For Trivy SARIF upload
 
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}
@@ -271,6 +272,47 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
+        env:
+          # Image is ARM64-only, tell Trivy to scan that platform
+          TRIVY_PLATFORM: linux/arm64
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/demo-app@${{ steps.build.outputs.digest }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          # Don't fail PR builds on vulnerabilities - report to Security tab instead
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results as artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: trivy-scan-results
+          path: trivy-results.sarif
+          retention-days: 30
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        env:
+          # Image is ARM64-only, tell Syft to scan that platform
+          SYFT_PLATFORM: linux/arm64
+        with:
+          image: ghcr.io/${{ github.repository }}/demo-app@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-${{ github.event.pull_request.number }}.spdx.json
+          artifact-name: sbom-pr-${{ github.event.pull_request.number }}
+          upload-artifact: true
+          upload-artifact-retention: 30
 
       - name: Summary
         if: always()
