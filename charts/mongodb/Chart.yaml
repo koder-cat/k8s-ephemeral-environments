@@ -4,6 +4,7 @@ description: MongoDB database using MongoDB Community Operator
 type: application
 version: 1.0.0
 appVersion: "7.0"
+kubeVersion: ">=1.25.0-0"
 
 keywords:
   - mongodb

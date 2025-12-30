@@ -41,6 +41,9 @@ spec:
           serviceAccountName: cleanup-job-sa
           restartPolicy: Never
 
+          # Platform priority - ensures cleanup runs even under resource pressure
+          priorityClassName: system-platform
+
           # Security context
           securityContext:
             runAsNonRoot: true
