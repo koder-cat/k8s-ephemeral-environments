@@ -51,10 +51,14 @@ export class AppService {
       const tables = await this.database.query<{ table_name: string }>(
         `SELECT table_name FROM information_schema.tables
          WHERE table_schema = 'public' ORDER BY table_name`,
+        undefined,
+        'list_tables',
       );
 
       const dbSize = await this.database.query<{ size: string }>(
         `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
+        undefined,
+        'db_size',
       );
 
       return {

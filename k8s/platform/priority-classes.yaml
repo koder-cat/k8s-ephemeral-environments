@@ -1,0 +1,35 @@
+# PriorityClasses for workload scheduling
+# Ensures platform components are scheduled before ephemeral PR environments
+#
+# US-027: Kubernetes Best Practices
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: platform-critical
+  labels:
+    app.kubernetes.io/name: priority-classes
+    app.kubernetes.io/component: scheduling
+    k8s-ee/type: platform
+# High priority for platform components (cleanup jobs, preserve jobs, operators)
+# Value range: -2147483648 to 1000000000
+# System-critical components like kube-system use values > 1000000000
+# Note: 'system-' prefix is reserved, using 'platform-critical' instead
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Priority class for platform components (cleanup jobs, operators)"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: default-app
+  labels:
+    app.kubernetes.io/name: priority-classes
+    app.kubernetes.io/component: scheduling
+    k8s-ee/type: ephemeral
+# Lower priority for ephemeral PR environment workloads
+# These can be preempted by platform components if resources are scarce
+value: 100
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Priority class for ephemeral PR environment workloads"

@@ -6,6 +6,7 @@ NestJS backend API for the demo application. Serves both the API endpoints and t
 
 - [Overview](#overview)
 - [API Endpoints](#api-endpoints)
+- [Prometheus Metrics](#prometheus-metrics)
 - [Environment Variables](#environment-variables)
 - [Database Integration](#database-integration)
 - [Development](#development)
@@ -81,6 +82,72 @@ Returns database connection information.
 ### GET /
 
 Serves the React SPA (static files from `public/` directory).
+
+### GET /metrics
+
+Prometheus metrics endpoint for observability.
+
+**Response:** Prometheus text format with all application metrics.
+
+## Prometheus Metrics
+
+The API exposes Prometheus metrics at `/metrics` for monitoring and alerting.
+
+### HTTP Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `http_requests_total` | Counter | `method`, `route`, `status_code` | Total HTTP requests |
+| `http_request_duration_seconds` | Histogram | `method`, `route`, `status_code` | Request duration |
+
+**Histogram buckets:** 10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s
+
+### Database Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `db_pool_connections_total` | Gauge | - | Total connections in pool |
+| `db_pool_connections_idle` | Gauge | - | Idle connections in pool |
+| `db_pool_connections_waiting` | Gauge | - | Clients waiting for connection |
+| `db_query_duration_seconds` | Histogram | `operation`, `success` | Query duration |
+
+**Query operation types:**
+- `query` - Generic queries
+- `health_check` - Health check queries (SELECT version())
+- `list_tables` - Schema introspection queries
+- `db_size` - Database size queries
+
+**Histogram buckets:** 1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s
+
+### Node.js Metrics
+
+Default Node.js metrics from `prom-client`:
+- `process_cpu_seconds_total` - CPU usage
+- `process_resident_memory_bytes` - Memory usage
+- `nodejs_heap_size_used_bytes` - Heap usage
+- `nodejs_eventloop_lag_seconds` - Event loop lag
+
+### Default Labels
+
+All metrics include these default labels:
+- `app` - Application name (`demo-app`)
+- `pr` - PR number from environment
+
+### Example Queries
+
+```promql
+# Request rate by route
+sum(rate(http_requests_total{namespace="k8s-ee-pr-42"}[5m])) by (route)
+
+# P95 latency
+histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="k8s-ee-pr-42"}[5m])) by (le))
+
+# Database query duration by operation
+histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket{namespace="k8s-ee-pr-42"}[5m])) by (le, operation))
+
+# Failed database queries
+sum(rate(db_query_duration_seconds_count{success="false"}[5m]))
+```
 
 ## Environment Variables
 

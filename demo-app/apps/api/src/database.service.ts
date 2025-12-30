@@ -3,6 +3,16 @@ import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { Pool, PoolClient } from 'pg';
 import { MetricsService } from './metrics/metrics.service';
 
+/**
+ * Valid operation types for database query metrics.
+ * Used to categorize queries in Prometheus histograms.
+ */
+export type DbOperation =
+  | 'query'
+  | 'health_check'
+  | 'list_tables'
+  | 'db_size';
+
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
@@ -77,34 +87,54 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const result = await this.pool.query('SELECT version()');
-      this.updatePoolMetrics();
+      const result = await this.query<{ version: string }>(
+        'SELECT version()',
+        undefined,
+        'health_check',
+      );
       return {
         enabled: true,
         connected: true,
         host: process.env.PGHOST || 'unknown',
         database: process.env.PGDATABASE || 'unknown',
-        version: result.rows[0]?.version?.split(' ')[1] || 'unknown',
+        version: result[0]?.version?.split(' ')[1] || 'unknown',
       };
     } catch {
       return { enabled: true, connected: false };
     }
   }
 
-  async query<T = unknown>(text: string, params?: unknown[]): Promise<T[]> {
+  /**
+   * Execute a database query with metrics instrumentation.
+   *
+   * @param text - SQL query string
+   * @param params - Query parameters for parameterized queries
+   * @param operation - Operation type for metrics categorization
+   * @returns Query result rows
+   * @throws Error if database is not connected
+   */
+  async query<T = unknown>(
+    text: string,
+    params?: unknown[],
+    operation: DbOperation = 'query',
+  ): Promise<T[]> {
     if (!this.pool) {
       throw new Error('Database not connected');
     }
 
     const endTimer = this.metrics.dbQueryDuration.startTimer({
-      operation: 'query',
+      operation,
     });
+    let success = true;
 
     try {
       const result = await this.pool.query(text, params);
       return result.rows as T[];
+    } catch (error) {
+      success = false;
+      throw error;
     } finally {
-      endTimer();
+      endTimer({ success: String(success) });
       this.updatePoolMetrics();
     }
   }

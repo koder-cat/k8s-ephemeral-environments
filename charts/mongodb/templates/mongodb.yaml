@@ -84,6 +84,15 @@ spec:
                 limits:
                   memory: {{ .Values.resources.limits.memory | default "512Mi" }}
                   cpu: {{ .Values.resources.limits.cpu | default "500m" }}
+              {{- if .Values.startupProbe.enabled }}
+              startupProbe:
+                tcpSocket:
+                  port: {{ .Values.startupProbe.tcpSocket.port | default 27017 }}
+                initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds | default 10 }}
+                periodSeconds: {{ .Values.startupProbe.periodSeconds | default 10 }}
+                timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds | default 5 }}
+                failureThreshold: {{ .Values.startupProbe.failureThreshold | default 30 }}
+              {{- end }}
             - name: mongodb-agent
               {{- with .Values.containerSecurityContext }}
               securityContext:

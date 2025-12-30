@@ -54,3 +54,14 @@ containerSecurityContext:
   capabilities:
     drop:
       - ALL
+
+# Startup probe configuration
+# Handles slow database initialization (replica set setup, data sync)
+startupProbe:
+  enabled: true
+  tcpSocket:
+    port: 27017
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30  # 30 * 10s = 5 minutes max startup time

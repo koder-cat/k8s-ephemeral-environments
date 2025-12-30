@@ -516,7 +516,7 @@
     {
       "datasource": {
         "type": "loki",
-        "uid": "loki"
+        "uid": "${DS_LOKI}"
       },
       "gridPos": {
         "h": 8,
@@ -540,7 +540,7 @@
         {
           "datasource": {
             "type": "loki",
-            "uid": "loki"
+            "uid": "${DS_LOKI}"
           },
           "expr": "{namespace=\"$namespace\"}",
           "refId": "A"
@@ -616,16 +616,29 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["ephemeral", "pr-environment", "kubernetes"],
+  "tags": ["k8s-ee", "ephemeral", "pr-environment", "kubernetes"],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "DS_LOKI",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
       {
         "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(kube_namespace_labels{namespace=~\".*-pr-.*\"}, namespace)",
+        "definition": "label_values(kube_namespace_status_phase{namespace=~\".*-pr-.*\"}, namespace)",
         "hide": 0,
         "includeAll": false,
         "label": "Namespace",
@@ -633,7 +646,7 @@
         "name": "namespace",
         "options": [],
         "query": {
-          "query": "label_values(kube_namespace_labels{namespace=~\".*-pr-.*\"}, namespace)",
+          "query": "label_values(kube_namespace_status_phase{namespace=~\".*-pr-.*\"}, namespace)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,

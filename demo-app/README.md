@@ -11,6 +11,7 @@ A full-stack demonstration application for the k8s-ephemeral-environments platfo
 - [Available Scripts](#available-scripts)
 - [Docker Build](#docker-build)
 - [Kubernetes Deployment](#kubernetes-deployment)
+- [Observability](#observability)
 - [Configuration](#configuration)
 
 ## Overview
@@ -169,6 +170,40 @@ See [charts/demo-app/README.md](../charts/demo-app/README.md) for full configura
 ```
 k8s-ee-pr-{number}.k8s-ee.genesluna.dev
 ```
+
+## Observability
+
+The demo app exposes Prometheus metrics at `/metrics` for monitoring.
+
+### Metrics Exposed
+
+| Category | Metrics |
+|----------|---------|
+| HTTP | Request count, request duration (histogram) |
+| Database | Connection pool stats, query duration by operation |
+| Node.js | CPU, memory, heap, event loop lag |
+
+### Grafana Dashboards
+
+Two dashboards are available in Grafana for monitoring PR environments:
+
+1. **PR Environment Overview** - Kubernetes-level metrics (pods, CPU, memory, network, logs)
+2. **Application Metrics** - Application-level metrics (requests, latency, errors, database)
+
+See [k8s/observability/dashboards/README.md](../k8s/observability/dashboards/README.md) for dashboard details.
+
+### ServiceMonitor
+
+The Helm chart includes a ServiceMonitor for automatic Prometheus scraping:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  path: /metrics
+```
+
+For detailed metrics documentation, see [API README](apps/api/README.md#prometheus-metrics).
 
 ## Configuration
 

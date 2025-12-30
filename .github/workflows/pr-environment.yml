@@ -14,11 +14,13 @@ concurrency:
 # Workflow-level environment variables for consistency
 # PROJECT_ID: Unique identifier for this project in the cluster (required for multi-tenant clusters)
 # Must be lowercase, alphanumeric with hyphens, max 20 chars to leave room for PR number
+# K8S_API_IP: Kubernetes API server IP (cluster-specific, see docs/guides/phase2-migration.md)
 env:
   PROJECT_ID: "k8s-ee"
   KUBECTL_VERSION: "v1.31.0"
   HELM_VERSION: "v3.16.0"
   PREVIEW_DOMAIN: "k8s-ee.genesluna.dev"
+  K8S_API_IP: "10.0.0.39"  # k3s API server on VPS host network
 
 jobs:
   create-namespace:

@@ -267,10 +267,13 @@ Order matters. Restore services in this sequence:
 kubectl get nodes
 kubectl get pods -n kube-system
 
-# 2. Apply platform namespace
+# 2. Apply PriorityClasses (required before platform jobs)
+kubectl apply -f k8s/platform/priority-classes.yaml
+
+# 3. Apply platform namespace
 kubectl apply -f k8s/platform/namespace.yaml
 
-# 3. Restore Sealed Secrets (if backed up)
+# 4. Restore Sealed Secrets (if backed up)
 kubectl apply -f ~/sealed-secrets-key.yaml
 ```
 

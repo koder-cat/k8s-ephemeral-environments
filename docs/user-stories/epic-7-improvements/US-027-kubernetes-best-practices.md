@@ -1,6 +1,6 @@
 # US-027: Kubernetes Best Practices
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] PriorityClasses ensure platform jobs run first
-- [ ] Pod Disruption Budgets protect maintenance
-- [ ] Startup probes handle slow database init
-- [ ] Lifecycle hooks enable graceful shutdown
-- [ ] Helm chart metadata follows best practices
-- [ ] Cluster-specific configs abstracted for Phase 2
+- [x] PriorityClasses ensure platform jobs run first
+- [x] Pod Disruption Budgets protect maintenance (skipped for Phase 1, documented for Phase 2)
+- [x] Startup probes handle slow database init
+- [x] Lifecycle hooks enable graceful shutdown
+- [x] Helm chart metadata follows best practices
+- [x] Cluster-specific configs abstracted for Phase 2
 
 ## Priority
 
@@ -42,7 +42,7 @@
 
 - **PriorityClasses:**
   - Create `k8s/platform/priority-classes.yaml`
-  - `system-platform` (1000000) for cleanup jobs, operators
+  - `platform-critical` (1000000) for cleanup jobs, operators (renamed from system-platform; system- prefix is reserved)
   - `default-app` (100) for PR environments
 
 - **Pod Disruption Budgets:**

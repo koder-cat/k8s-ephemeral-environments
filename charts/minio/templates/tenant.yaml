@@ -88,4 +88,9 @@ spec:
   # Buckets to create
   buckets:
     - name: {{ .Values.bucket | default "data" }}
+
+  # Note: Startup probes are defined in values.yaml but MinIO Operator manages
+  # container probes internally. The probe configuration is kept in values for
+  # documentation purposes and potential future operator support.
+  # See: https://github.com/minio/operator/issues/1367
 {{- end }}

@@ -4,6 +4,7 @@ description: Redis in-memory data store (simple deployment without operator)
 type: application
 version: 1.0.0
 appVersion: "7.4"
+kubeVersion: ">=1.25.0-0"
 
 keywords:
   - redis

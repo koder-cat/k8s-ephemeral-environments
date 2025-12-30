@@ -25,11 +25,12 @@ spec:
         - protocol: TCP
           port: 53
     # Allow access to Kubernetes API server (required for CNPG job status reporting)
-    # k3s API server runs on host network at 10.0.0.39:6443
+    # k3s API server runs on host network (K8S_API_IP is set in GitHub workflow)
     # Note: Service IP (10.43.0.1) doesn't work due to DNAT evaluation order
+    # See docs/guides/phase2-migration.md for EKS migration considerations
     - to:
         - ipBlock:
-            cidr: 10.0.0.39/32
+            cidr: ${K8S_API_IP}/32
       ports:
         - protocol: TCP
           port: 6443
