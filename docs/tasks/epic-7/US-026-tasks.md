@@ -18,8 +18,10 @@
   - `demo-app/apps/api/src/main.ts`
   - `demo-app/apps/api/src/metrics/metrics.module.ts`
   - `demo-app/apps/api/src/metrics/metrics.service.ts`
+  - `demo-app/apps/api/src/metrics/metrics.service.spec.ts`
   - `demo-app/apps/api/src/metrics/metrics.controller.ts`
   - `demo-app/apps/api/src/middleware/metrics.middleware.ts`
+  - `demo-app/apps/api/src/middleware/metrics.middleware.spec.ts`
 
 ### ✅ T-026.2: Add Structured Logging (Pino)
 - **Description:** Replace console.log with structured JSON logging
@@ -46,6 +48,8 @@
 - **Files:**
   - `charts/demo-app/templates/servicemonitor.yaml`
   - `charts/demo-app/values.yaml`
+  - `charts/demo-app/README.md` (metrics section added)
+  - `k8s/arc/runner-rbac.yaml` (ServiceMonitor permissions added)
 
 ### ✅ T-026.4: Create Grafana Dashboards
 - **Description:** Pre-built dashboards for PR environment monitoring
