@@ -1,10 +1,10 @@
 # Tasks for US-025: Developer Documentation
 
-**Status:** Draft
+**Status:** Done
 
 ## Tasks
 
-### T-025.1: Create Developer Onboarding Guide
+### T-025.1: Create Developer Onboarding Guide ✅
 - **Description:** Single document for new team member onboarding
 - **Acceptance Criteria:**
   - First-time setup instructions
@@ -15,7 +15,7 @@
 - **Estimate:** M
 - **Files:** `docs/DEVELOPER-ONBOARDING.md`
 
-### T-025.2: Add Demo App Documentation
+### T-025.2: Add Demo App Documentation ✅
 - **Description:** Document the demo application structure and usage
 - **Acceptance Criteria:**
   - Root README with overview and local setup
@@ -28,7 +28,7 @@
   - `demo-app/apps/api/README.md`
   - `demo-app/apps/web/README.md`
 
-### T-025.3: Create Troubleshooting Guide
+### T-025.3: Create Troubleshooting Guide ✅
 - **Description:** Decision tree for common issues
 - **Acceptance Criteria:**
   - PR namespace doesn't create - checklist
@@ -39,7 +39,7 @@
 - **Estimate:** M
 - **Files:** `docs/guides/troubleshooting.md`
 
-### T-025.4: Create CONTRIBUTING.md
+### T-025.4: Create CONTRIBUTING.md ✅
 - **Description:** Contribution guidelines at project root
 - **Acceptance Criteria:**
   - PR process documented
@@ -50,7 +50,7 @@
 - **Estimate:** S
 - **Files:** `CONTRIBUTING.md`
 
-### T-025.5: Create Cluster Recovery Runbook
+### T-025.5: Create Cluster Recovery Runbook ✅
 - **Description:** Disaster recovery procedures
 - **Acceptance Criteria:**
   - VPS recovery procedures
@@ -61,7 +61,7 @@
 - **Estimate:** M
 - **Files:** `docs/runbooks/cluster-recovery.md`
 
-### T-025.6: Add Helm Chart README
+### T-025.6: Add Helm Chart README ✅
 - **Description:** Document demo-app Helm chart customization
 - **Acceptance Criteria:**
   - Chart overview and usage

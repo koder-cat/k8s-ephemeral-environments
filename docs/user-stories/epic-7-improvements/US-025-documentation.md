@@ -1,6 +1,6 @@
 # US-025: Developer Documentation
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,12 +10,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Developer onboarding guide created
-- [ ] Demo-app documentation complete
-- [ ] Troubleshooting guide with decision tree
-- [ ] CONTRIBUTING.md with PR process
-- [ ] Cluster recovery runbook created
-- [ ] Helm chart documentation added
+- [x] Developer onboarding guide created
+- [x] Demo-app documentation complete
+- [x] Troubleshooting guide with decision tree
+- [x] CONTRIBUTING.md with PR process
+- [x] Cluster recovery runbook created
+- [x] Helm chart documentation added
 
 ## Priority
 
