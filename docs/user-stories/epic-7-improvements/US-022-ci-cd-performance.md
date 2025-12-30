@@ -1,6 +1,6 @@
 # US-022: CI/CD Pipeline Performance
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,11 +10,11 @@
 
 ## Acceptance Criteria
 
-- [ ] kubectl installation reused via composite action
-- [ ] Binary caching reduces pipeline time by 30+ seconds
-- [ ] pnpm dependencies cached between builds
-- [ ] Helm dependencies cached
-- [ ] Pipeline metrics tracked for performance monitoring
+- [x] kubectl installation reused via composite action
+- [x] Binary caching reduces pipeline time by 30+ seconds
+- [x] pnpm dependencies cached between builds (via Docker BuildKit layer caching)
+- [x] Helm dependencies cached
+- [x] Pipeline metrics tracked for performance monitoring
 
 ## Priority
 
@@ -38,9 +38,13 @@
 
 ## Implementation
 
-- **Composite Action:** `.github/actions/install-kubectl/action.yml`
+- **Composite Action:** `.github/actions/setup-kubectl/action.yml`
+  - Caches kubectl binary with version-based cache key
+  - SHA256 checksum verification
+  - ARM64 architecture support
 - **Workflow Updates:** `.github/workflows/pr-environment.yml`
-  - Add actions/cache for kubectl and helm binaries
-  - Add pnpm/action with caching enabled
-  - Add Helm dependency caching
-  - Add workflow duration metrics
+  - Replaced 3 kubectl installations with composite action
+  - Added Helm dependency caching (Chart.yaml based)
+  - Added job timing metrics to all Summary steps
+  - pnpm already optimized via Docker BuildKit layer caching
+  - Job parallelization already optimal

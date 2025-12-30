@@ -31,28 +31,22 @@ jobs:
       contents: read
 
     steps:
+      - name: Start timer
+        run: echo "JOB_START=$(date +%s)" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install kubectl and tools
+      - name: Setup kubectl
+        uses: ./.github/actions/setup-kubectl
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: Install tools
         run: |
           set -euo pipefail
-
-          # Install kubectl with SHA256 verification
-          curl --connect-timeout 10 --max-time 60 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl"
-          curl --connect-timeout 10 --max-time 30 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-          rm kubectl.sha256
-
           # Install gettext for envsubst
           sudo apt-get update && sudo apt-get install -y gettext-base
-
-          # Verify installations
-          kubectl version --client
           envsubst --version
 
       - name: Set environment variables
@@ -171,6 +165,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          JOB_END=$(date +%s)
+          DURATION=$((JOB_END - ${JOB_START:-$JOB_END}))
           {
             echo "## PR Environment Created"
             echo ""
@@ -180,6 +176,7 @@ jobs:
             echo "| PR Number | #$PR_NUMBER |"
             echo "| Branch | \`$BRANCH_NAME\` |"
             echo "| Commit | \`${COMMIT_SHA:0:7}\` |"
+            echo "| Duration | ${DURATION}s |"
             echo ""
             echo "ResourceQuota, LimitRange, and NetworkPolicies have been applied."
           } >> $GITHUB_STEP_SUMMARY || true
@@ -200,6 +197,9 @@ jobs:
       image-digest: ${{ steps.build.outputs.digest }}
 
     steps:
+      - name: Start timer
+        run: echo "JOB_START=$(date +%s)" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -240,6 +240,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          JOB_END=$(date +%s)
+          DURATION=$((JOB_END - ${JOB_START:-$JOB_END}))
           {
             echo "## Docker Image Built"
             echo ""
@@ -249,6 +251,7 @@ jobs:
             echo "| Tag | \`${{ steps.meta.outputs.version }}\` |"
             echo "| Digest | \`${{ steps.build.outputs.digest }}\` |"
             echo "| Platform | \`linux/arm64\` |"
+            echo "| Duration | ${DURATION}s |"
           } >> $GITHUB_STEP_SUMMARY || true
 
   deploy-application:
@@ -263,23 +266,16 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Start timer
+        run: echo "JOB_START=$(date +%s)" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install kubectl
-        run: |
-          set -euo pipefail
-
-          # Install kubectl with SHA256 verification
-          curl --connect-timeout 10 --max-time 60 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl"
-          curl --connect-timeout 10 --max-time 30 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-          rm kubectl.sha256
-          kubectl version --client
+      - name: Setup kubectl
+        uses: ./.github/actions/setup-kubectl
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
 
       - name: Install Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
@@ -320,11 +316,23 @@ jobs:
           echo "IMAGE_DIGEST=${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_ENV
           echo "PREVIEW_URL=https://${{ env.PROJECT_ID }}-pr-${{ github.event.pull_request.number }}.${{ env.PREVIEW_DOMAIN }}" >> $GITHUB_ENV
 
+      - name: Cache Helm dependencies
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: charts/demo-app/charts
+          key: helm-deps-${{ hashFiles('charts/demo-app/Chart.yaml') }}
+          restore-keys: |
+            helm-deps-
+
       - name: Build Helm dependencies
         run: |
           set -euo pipefail
-          echo "Building Helm chart dependencies..."
-          helm dependency build ./charts/demo-app
+          if [ ! -d "charts/demo-app/charts" ] || [ -z "$(ls -A charts/demo-app/charts 2>/dev/null)" ]; then
+            echo "Building Helm chart dependencies..."
+            helm dependency build ./charts/demo-app
+          else
+            echo "Using cached Helm dependencies"
+          fi
 
       - name: Deploy with Helm
         run: |
@@ -569,6 +577,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          JOB_END=$(date +%s)
+          DURATION=$((JOB_END - ${JOB_START:-$JOB_END}))
           {
             echo "## Application Deployed"
             echo ""
@@ -578,6 +588,7 @@ jobs:
             echo "| Preview URL | [$PREVIEW_URL]($PREVIEW_URL) |"
             echo "| Image Tag | \`$IMAGE_TAG\` |"
             echo "| Health Check | Passed |"
+            echo "| Duration | ${DURATION}s |"
           } >> $GITHUB_STEP_SUMMARY || true
 
   destroy-namespace:
@@ -591,20 +602,20 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Install kubectl
-        run: |
-          set -euo pipefail
+      - name: Start timer
+        run: echo "JOB_START=$(date +%s)" >> $GITHUB_ENV
 
-          # Install kubectl with SHA256 verification
-          curl --connect-timeout 10 --max-time 60 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl"
-          curl --connect-timeout 10 --max-time 30 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl.sha256"
-          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-          rm kubectl.sha256
-          kubectl version --client
+      # Sparse checkout to access composite action without cloning full repo
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+
+      - name: Setup kubectl
+        uses: ./.github/actions/setup-kubectl
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
 
       - name: Set namespace
         run: |
@@ -753,6 +764,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
+          JOB_END=$(date +%s)
+          DURATION=$((JOB_END - ${JOB_START:-$JOB_END}))
           {
             echo "## PR Environment Destroyed"
             echo ""
@@ -762,6 +775,7 @@ jobs:
             echo "| PR Number | #${{ github.event.pull_request.number }} |"
             echo "| Action | ${{ github.event.action }} |"
             echo "| Merged | ${{ github.event.pull_request.merged }} |"
+            echo "| Duration | ${DURATION}s |"
             echo ""
             echo "All resources have been cleaned up."
           } >> $GITHUB_STEP_SUMMARY || true
