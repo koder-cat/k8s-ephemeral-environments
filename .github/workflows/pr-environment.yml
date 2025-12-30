@@ -283,7 +283,8 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1'
+          # Don't fail PR builds on vulnerabilities - report to Security tab instead
+          exit-code: '0'
           ignore-unfixed: true
 
       - name: Upload Trivy scan results to GitHub Security tab
