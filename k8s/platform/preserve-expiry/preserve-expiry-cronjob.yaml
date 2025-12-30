@@ -43,7 +43,7 @@ spec:
           restartPolicy: Never
 
           # Platform priority - ensures expiry check runs even under resource pressure
-          priorityClassName: system-platform
+          priorityClassName: platform-critical
 
           # Security context
           securityContext:

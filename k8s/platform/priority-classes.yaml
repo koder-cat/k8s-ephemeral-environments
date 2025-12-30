@@ -5,7 +5,7 @@
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
-  name: system-platform
+  name: platform-critical
   labels:
     app.kubernetes.io/name: priority-classes
     app.kubernetes.io/component: scheduling
@@ -13,6 +13,7 @@ metadata:
 # High priority for platform components (cleanup jobs, preserve jobs, operators)
 # Value range: -2147483648 to 1000000000
 # System-critical components like kube-system use values > 1000000000
+# Note: 'system-' prefix is reserved, using 'platform-critical' instead
 value: 1000000
 globalDefault: false
 preemptionPolicy: PreemptLowerPriority

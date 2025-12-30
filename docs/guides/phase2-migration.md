@@ -61,8 +61,10 @@ Consider using the Kubernetes service IP (`kubernetes.default.svc`) which resolv
 **File**: `k8s/platform/priority-classes.yaml`
 
 Currently defines two priority classes:
-- `system-platform` (value: 1000000) - Platform components
+- `platform-critical` (value: 1000000) - Platform components
 - `default-app` (value: 100) - Ephemeral PR workloads
+
+> **Note**: The `system-` prefix is reserved by Kubernetes, so we use `platform-critical` instead.
 
 **EKS Consideration**: EKS includes additional system priority classes. Verify values don't conflict with:
 - `system-cluster-critical` (2000000000)

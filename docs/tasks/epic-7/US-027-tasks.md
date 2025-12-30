@@ -7,12 +7,13 @@
 ### T-027.1: Create PriorityClasses ✅
 - **Description:** Define priority classes for workload scheduling
 - **Acceptance Criteria:**
-  - ✅ `system-platform` class (value: 1000000) for platform components
+  - ✅ `platform-critical` class (value: 1000000) for platform components
   - ✅ `default-app` class (value: 100) for PR environments
   - ✅ Applied to cleanup jobs and preserve-expiry job
   - ✅ Documented in phase2-migration.md
 - **Estimate:** S
 - **Files:** `k8s/platform/priority-classes.yaml`
+- **Note:** Renamed from `system-platform` to `platform-critical` (system- prefix is reserved)
 
 ### T-027.2: Add Pod Disruption Budgets (Skipped)
 - **Description:** Protect system components during maintenance

@@ -42,7 +42,7 @@ spec:
           restartPolicy: Never
 
           # Platform priority - ensures cleanup runs even under resource pressure
-          priorityClassName: system-platform
+          priorityClassName: platform-critical
 
           # Security context
           securityContext:
