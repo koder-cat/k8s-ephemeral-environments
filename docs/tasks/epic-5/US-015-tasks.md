@@ -2,10 +2,11 @@
 
 ## Tasks
 
-### T-015.1: Create gh-runners Namespace
-- **Description:** Create dedicated namespace for runners
+### T-015.1: Create ARC Namespaces
+- **Description:** Create dedicated namespaces for ARC controller and runners
 - **Acceptance Criteria:**
-  - Namespace `gh-runners` created
+  - Namespace `arc-systems` created for controller
+  - Namespace `arc-runners` created for runner pods
   - Labels applied
   - ResourceQuota defined
 - **Estimate:** XS

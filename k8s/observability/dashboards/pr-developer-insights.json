@@ -343,7 +343,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "loki", "uid": "loki" },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 5 },
       "id": 8,
       "options": {
@@ -359,7 +359,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
           "expr": "{namespace=\"$namespace\"} |~ \"(?i)(error|exception|failed|fatal)\"",
           "refId": "A"
         }
@@ -694,6 +694,19 @@
   "tags": ["k8s-ee", "ephemeral", "developer"],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "DS_LOKI",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
       {
         "current": {},
         "datasource": { "type": "prometheus", "uid": "prometheus" },

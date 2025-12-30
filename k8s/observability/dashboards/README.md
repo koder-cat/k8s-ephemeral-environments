@@ -303,17 +303,38 @@ kubectl get configmap prometheus-grafana-datasource -n observability -o yaml
 ```
 
 Current datasource UIDs:
-- **Prometheus:** `prometheus`
-- **Loki:** `loki`
-- **Alertmanager:** `alertmanager`
+- **Prometheus:** `prometheus` (hardcoded)
+- **Loki:** `${DS_LOKI}` (variable - see below)
+- **Alertmanager:** `alertmanager` (hardcoded)
 
-In dashboard JSON, update all datasource references:
+**Prometheus/Alertmanager** - use hardcoded UID:
 ```json
 {
   "datasource": {
     "type": "prometheus",
     "uid": "prometheus"
   }
+}
+```
+
+**Loki** - MUST use `${DS_LOKI}` variable (hardcoded `"uid": "loki"` will NOT work):
+```json
+{
+  "datasource": {
+    "type": "loki",
+    "uid": "${DS_LOKI}"
+  }
+}
+```
+
+Dashboards using Loki must also include this variable in `templating.list`:
+```json
+{
+  "current": {},
+  "hide": 2,
+  "name": "DS_LOKI",
+  "query": "loki",
+  "type": "datasource"
 }
 ```
 
@@ -487,8 +508,12 @@ If empty, no PR namespaces exist. Create a PR to generate one.
 
 ### Loki panel shows no logs
 
-1. **Check Loki datasource UID** in dashboard JSON matches actual UID
-2. **Verify logs exist:**
+1. **Check if Explore works** - Go to Grafana Explore, select Loki, run `{namespace="k8s-ee-pr-XX"}`
+2. **If Explore works but dashboard doesn't:**
+   - Dashboard is using hardcoded `"uid": "loki"` instead of `${DS_LOKI}` variable
+   - Fix: Change datasource to `"uid": "${DS_LOKI}"` and add `DS_LOKI` variable to templating
+   - See "Datasource UIDs" section above for details
+3. **If Explore also fails**, verify logs exist:
    ```bash
    kubectl exec -n observability $(kubectl get pod -n observability -l app.kubernetes.io/name=grafana -o name | head -1) \
      -c grafana -- wget -q -O - 'http://loki-gateway.observability:80/loki/api/v1/query?query={namespace="k8s-ee-pr-XX"}'

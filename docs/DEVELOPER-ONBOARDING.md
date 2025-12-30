@@ -107,7 +107,8 @@ ssh ubuntu@168.138.151.63
 |-----------|---------|
 | `kube-system` | k3s core components, Traefik |
 | `observability` | Prometheus, Loki, Grafana |
-| `gh-runners` | GitHub Actions self-hosted runners |
+| `arc-systems` | ARC controller (manages runner lifecycle) |
+| `arc-runners` | GitHub Actions self-hosted runner pods |
 | `platform` | Shared platform components |
 | `k8s-ee-pr-{N}` | Ephemeral PR environments |
 

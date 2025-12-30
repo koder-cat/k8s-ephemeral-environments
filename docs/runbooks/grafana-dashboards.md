@@ -116,15 +116,15 @@ Option B: Create JSON manually (use existing dashboards as templates)
 
 ### 3. Datasource UIDs
 
-All panels must use correct datasource UIDs:
+All panels must use correct datasource references:
 
-| Datasource | UID | Type |
-|------------|-----|------|
-| Prometheus | `prometheus` | `prometheus` |
-| Loki | `loki` | `loki` |
-| Alertmanager | `alertmanager` | `alertmanager` |
+| Datasource | UID Pattern | Type |
+|------------|-------------|------|
+| Prometheus | `prometheus` (hardcoded) | `prometheus` |
+| Loki | `${DS_LOKI}` (variable) | `loki` |
+| Alertmanager | `alertmanager` (hardcoded) | `alertmanager` |
 
-Example panel datasource:
+**Prometheus example** (hardcoded UID):
 ```json
 {
   "datasource": {
@@ -134,7 +134,49 @@ Example panel datasource:
 }
 ```
 
-### 4. Deploy using steps above
+**Loki example** (MUST use variable):
+```json
+{
+  "datasource": {
+    "type": "loki",
+    "uid": "${DS_LOKI}"
+  }
+}
+```
+
+> **Critical:** Loki panels MUST use `${DS_LOKI}` variable, NOT hardcoded `"uid": "loki"`. Hardcoded UIDs will cause "No data" errors even when Explore works fine.
+
+### 4. Loki Datasource Variable (Required for log panels)
+
+Any dashboard with Loki log panels must include this variable in the `templating.list` array:
+
+```json
+{
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "DS_LOKI",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  }
+}
+```
+
+- `hide: 2` makes the variable hidden from the UI
+- `query: "loki"` finds datasources of type loki
+- `type: "datasource"` makes it a datasource selector variable
+
+### 5. Deploy using steps above
 
 ---
 
@@ -194,6 +236,55 @@ If empty, no PR environments exist. Create a PR to generate one.
    ```bash
    ssh ubuntu@168.138.151.63 "kubectl exec prometheus-prometheus-prometheus-0 -n observability -c prometheus -- \
      wget -q -O - 'http://localhost:9090/api/v1/query?query=kube_pod_status_phase{namespace=\"k8s-ee-pr-XX\"}'"
+   ```
+
+### Log panels showing no data
+
+**Symptoms:** Logs panels (type: logs) show "No data" even when Explore works fine.
+
+**Cause:** Dashboard uses hardcoded `"uid": "loki"` instead of the `${DS_LOKI}` variable.
+
+**Fix:**
+1. Add `DS_LOKI` variable to dashboard's `templating.list` (see section 4 above)
+
+2. Change all Loki panel datasource references from:
+   ```json
+   "datasource": { "type": "loki", "uid": "loki" }
+   ```
+   To:
+   ```json
+   "datasource": { "type": "loki", "uid": "${DS_LOKI}" }
+   ```
+
+3. Update both the panel-level AND target-level datasource references
+
+4. Redeploy the dashboard ConfigMap
+
+### Loki metrics panels showing no data
+
+**Symptoms:** Panels showing Loki metrics (e.g., Active Streams, Ingestion Rate) display "No data".
+
+**Cause:** Loki ServiceMonitor not enabled - Prometheus isn't scraping Loki metrics.
+
+**Fix:**
+1. Enable ServiceMonitor in Loki Helm values:
+   ```yaml
+   # k8s/observability/loki/values.yaml
+   monitoring:
+     serviceMonitor:
+       enabled: true
+       labels:
+         release: prometheus
+   ```
+
+2. Upgrade Loki:
+   ```bash
+   helm upgrade loki grafana/loki -n observability -f k8s/observability/loki/values.yaml
+   ```
+
+3. Verify ServiceMonitor exists:
+   ```bash
+   kubectl get servicemonitor -n observability | grep loki
    ```
 
 ---

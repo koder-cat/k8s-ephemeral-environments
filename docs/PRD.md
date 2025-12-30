@@ -101,7 +101,7 @@ The project will be developed in two phases: **Phase 1** with a prototype on VPS
 │  │                        k3s Cluster                        │  │
 │  │                                                           │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐       │  │
-│  │  │observability│  │  gh-runners │  │ app-pr-123  │       │  │
+│  │  │observability│  │ arc-runners │  │ app-pr-123  │       │  │
 │  │  │             │  │             │  │ (ephemeral) │       │  │
 │  │  │ - Prometheus│  │ - Runner x2 │  │             │       │  │
 │  │  │ - Loki      │  │             │  │ - App Pod   │       │  │
@@ -122,7 +122,8 @@ The project will be developed in two phases: **Phase 1** with a prototype on VPS
 |-----------|---------|-----------|
 | `kube-system` | k3s components | Permanent |
 | `observability` | Prometheus, Loki, Grafana | Permanent |
-| `gh-runners` | GitHub Actions self-hosted runners | Permanent |
+| `arc-systems` | ARC controller (manages runner lifecycle) | Permanent |
+| `arc-runners` | GitHub Actions self-hosted runner pods | Permanent |
 | `platform` | Shared base components | Permanent |
 | `{project-id}-pr-{number}` | Ephemeral environment per PR | Ephemeral (PR lifecycle) |
 

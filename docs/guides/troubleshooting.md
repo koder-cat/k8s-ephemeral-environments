@@ -51,14 +51,14 @@ gh run view <run-id> --log-failed
 | Cause | Solution |
 |-------|----------|
 | Workflow not triggered | Check PR is from correct repo, not a fork |
-| Runner unavailable | Check `gh-runners` namespace for healthy runners |
+| Runner unavailable | Check `arc-runners` namespace for healthy runners |
 | kubectl auth failed | Verify KUBECONFIG secret in GitHub |
 | Previous run conflict | Delete stale namespace manually |
 
 **Resolution:**
 ```bash
 # Check runner status
-kubectl get pods -n gh-runners
+kubectl get pods -n arc-runners
 
 # Re-run failed workflow
 gh run rerun <run-id>

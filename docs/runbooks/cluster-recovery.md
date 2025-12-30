@@ -332,13 +332,14 @@ kubectl apply -f k8s/observability/grafana-ingress.yaml
 ### Phase 4: GitHub Runners
 
 ```bash
-# 1. Create namespace
-kubectl create namespace gh-runners
+# 1. Create namespaces
+kubectl create namespace arc-systems
+kubectl create namespace arc-runners
 
 # 2. Install ARC controller
 helm upgrade --install arc \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller \
-  -n gh-runners \
+  -n arc-systems \
   -f k8s/arc/values-controller.yaml
 
 # 3. Apply RBAC
@@ -348,7 +349,7 @@ kubectl apply -f k8s/arc/runner-rbac.yaml
 # 4. Install runner scale set
 helm upgrade --install arc-runner-set \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
-  -n gh-runners \
+  -n arc-runners \
   -f k8s/arc/values-runner-set.yaml
 ```
 
@@ -383,7 +384,8 @@ echo "=== Observability ==="
 kubectl get pods -n observability
 
 echo "=== GitHub Runners ==="
-kubectl get pods -n gh-runners
+kubectl get pods -n arc-systems
+kubectl get pods -n arc-runners
 
 echo "=== Platform Jobs ==="
 kubectl get cronjobs -n platform

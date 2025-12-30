@@ -479,7 +479,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "loki", "uid": "loki" },
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
       "id": 7,
       "options": {
@@ -495,8 +495,8 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{namespace=\"$namespace\"} |= `$log_filter`",
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+          "expr": "{namespace=\"$namespace\"}",
           "refId": "A"
         }
       ],
@@ -509,6 +509,19 @@
   "tags": ["k8s-ee", "ephemeral", "pr-environment"],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "DS_LOKI",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
       {
         "current": {},
         "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -525,16 +538,6 @@
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
-      },
-      {
-        "current": { "selected": false, "text": "", "value": "" },
-        "hide": 0,
-        "label": "Log Filter",
-        "name": "log_filter",
-        "options": [{ "selected": true, "text": "", "value": "" }],
-        "query": "",
-        "skipUrlSync": false,
-        "type": "textbox"
       }
     ]
   },
@@ -543,6 +546,6 @@
   "timezone": "",
   "title": "PR Environment Overview",
   "uid": "pr-environment-overview",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
