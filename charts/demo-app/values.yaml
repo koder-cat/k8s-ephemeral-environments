@@ -92,6 +92,8 @@ securityContext:
   runAsUser: 1001
   runAsGroup: 1001
   fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
 
 containerSecurityContext:
   allowPrivilegeEscalation: false
@@ -171,4 +173,9 @@ redis:
 # MinIO configuration (uses library chart)
 # Enable for applications requiring S3-compatible storage
 minio:
+  enabled: false
+
+# MariaDB configuration (uses library chart)
+# Enable for applications requiring MariaDB
+mariadb:
   enabled: false

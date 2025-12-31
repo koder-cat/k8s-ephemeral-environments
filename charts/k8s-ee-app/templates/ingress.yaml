@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "k8s-ee-app.fullname" . }}
+  labels:
+    {{- include "k8s-ee-app.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    # Note: secretName omitted - Traefik provisions certificates automatically
+    # via the certresolver annotation (letsencrypt-prod)
+    - hosts:
+        - {{ include "k8s-ee-app.hostname" . | quote }}
+  rules:
+    - host: {{ include "k8s-ee-app.hostname" . | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "k8s-ee-app.fullname" . }}
+                port:
+                  name: http
+{{- end }}

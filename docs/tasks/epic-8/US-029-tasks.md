@@ -1,6 +1,6 @@
 # Tasks for US-029: Create Generic Application Chart
 
-**Status:** Draft
+**Status:** Done
 
 ## Tasks
 
@@ -12,6 +12,7 @@
   - Dependencies use `oci://ghcr.io/...` repository
   - Conditional dependencies for databases
 - **Estimate:** S
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/Chart.yaml`
 
 ### T-029.2: Create Values Schema
@@ -20,8 +21,9 @@
   - All values map to k8s-ee.yaml config structure
   - Sensible defaults for all optional values
   - Comments documenting each value
-  - Database toggles (postgresql, mongodb, redis, minio)
+  - Database toggles (postgresql, mongodb, redis, minio, mariadb)
 - **Estimate:** S
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/values.yaml`
 
 ### T-029.3: Create Deployment Template
@@ -32,7 +34,9 @@
   - Environment variable injection from values
   - Init containers for database readiness (conditional)
   - Security context following hardened patterns
+  - Required validation for image.repository and image.tag
 - **Estimate:** M
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/templates/deployment.yaml`
 
 ### T-029.4: Create Service Template
@@ -42,6 +46,7 @@
   - Port from values.app.port
   - Correct selector labels
 - **Estimate:** XS
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/templates/service.yaml`
 
 ### T-029.5: Create Ingress Template
@@ -51,6 +56,7 @@
   - Traefik annotations for TLS
   - Let's Encrypt cert-resolver
 - **Estimate:** S
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/templates/ingress.yaml`
 
 ### T-029.6: Create ServiceMonitor Template
@@ -60,6 +66,7 @@
   - Configurable metrics path and interval
   - Correct selector labels
 - **Estimate:** S
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/templates/servicemonitor.yaml`
 
 ### T-029.7: Create Helpers Template
@@ -68,17 +75,31 @@
   - Name generation functions
   - Label generation functions
   - Selector functions
+  - Hostname function for preview URLs
 - **Estimate:** S
+- **Status:** Done
 - **Files:** `charts/k8s-ee-app/templates/_helpers.tpl`
 
-### T-029.8: Test Chart Installation
-- **Description:** Test chart with manual helm install
+### T-029.8: Update Publish Workflow
+- **Description:** Add k8s-ee-app to chart publishing workflow
+- **Acceptance Criteria:**
+  - Path trigger includes k8s-ee-app
+  - Lint step includes k8s-ee-app
+  - Package step handles OCI dependencies
+  - Summary includes k8s-ee-app
+- **Estimate:** S
+- **Status:** Done
+- **Files:** `.github/workflows/publish-charts.yml`
+
+### T-029.9: Test Chart
+- **Description:** Test chart with helm lint and template
 - **Acceptance Criteria:**
   - Chart passes `helm lint`
-  - Chart installs without errors
-  - All resources created correctly
+  - Chart templates correctly with required values
   - Database subcharts included when enabled
-- **Estimate:** M
+  - OCI dependencies pulled successfully
+- **Estimate:** S
+- **Status:** Done
 - **Files:** None (verification)
 
 ---

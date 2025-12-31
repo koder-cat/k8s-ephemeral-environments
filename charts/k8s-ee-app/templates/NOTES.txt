@@ -1,0 +1,53 @@
+{{- $hostname := include "k8s-ee-app.hostname" . -}}
+Your application has been deployed!
+
+** Preview URL **
+
+  https://{{ $hostname }}
+
+** Deployment Details **
+
+  Project ID: {{ .Values.projectId }}
+  {{- if .Values.prNumber }}
+  PR Number:  {{ .Values.prNumber }}
+  {{- end }}
+  {{- if .Values.commitSha }}
+  Commit:     {{ .Values.commitSha }}
+  {{- end }}
+  {{- if .Values.branchName }}
+  Branch:     {{ .Values.branchName }}
+  {{- end }}
+
+** Application Info **
+
+  Port:        {{ .Values.app.port }}
+  Health Path: {{ .Values.app.healthPath }}
+  {{- if .Values.metrics.enabled }}
+  Metrics:     {{ .Values.app.metricsPath }} (Prometheus enabled)
+  {{- end }}
+
+** Databases **
+
+  {{- if .Values.postgresql.enabled }}
+  PostgreSQL: Enabled (environment variables injected)
+  {{- end }}
+  {{- if .Values.mongodb.enabled }}
+  MongoDB:    Enabled (environment variables injected)
+  {{- end }}
+  {{- if .Values.redis.enabled }}
+  Redis:      Enabled (environment variables injected)
+  {{- end }}
+  {{- if .Values.minio.enabled }}
+  MinIO:      Enabled (environment variables injected)
+  {{- end }}
+  {{- if .Values.mariadb.enabled }}
+  MariaDB:    Enabled (environment variables injected)
+  {{- end }}
+  {{- if not (or .Values.postgresql.enabled .Values.mongodb.enabled .Values.redis.enabled .Values.minio.enabled .Values.mariadb.enabled) }}
+  None enabled
+  {{- end }}
+
+** Check Application Status **
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}

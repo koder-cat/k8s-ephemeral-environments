@@ -9,6 +9,7 @@ on:
       - 'charts/redis/**'
       - 'charts/minio/**'
       - 'charts/mariadb/**'
+      - 'charts/k8s-ee-app/**'
   workflow_dispatch:  # Manual trigger for initial publish
 
 jobs:
@@ -37,9 +38,14 @@ jobs:
       - name: Lint Charts
         run: |
           set -euo pipefail
-          echo "Linting all database charts..."
-          for chart in postgresql mongodb redis minio mariadb; do
+          echo "Linting all charts..."
+          for chart in postgresql mongodb redis minio mariadb k8s-ee-app; do
             echo "Linting charts/$chart..."
+            # Build dependencies for charts that have them
+            if [ -f "charts/$chart/Chart.lock" ]; then
+              echo "Building dependencies for $chart..."
+              helm dependency build charts/$chart
+            fi
             helm lint charts/$chart
           done
           echo "All charts passed linting"
@@ -50,6 +56,7 @@ jobs:
 
           REGISTRY="oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts"
 
+          # Database charts first (no dependencies)
           for chart in postgresql mongodb redis minio mariadb; do
             echo "=== Processing $chart ==="
 
@@ -69,6 +76,25 @@ jobs:
             echo ""
           done
 
+          # Application chart (has OCI dependencies, must be after database charts)
+          echo "=== Processing k8s-ee-app ==="
+
+          CHART_NAME=$(grep '^name:' charts/k8s-ee-app/Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' charts/k8s-ee-app/Chart.yaml | awk '{print $2}')
+
+          echo "Chart: $CHART_NAME v$CHART_VERSION"
+
+          # Build dependencies from OCI registry
+          helm dependency build charts/k8s-ee-app
+
+          # Package the chart
+          helm package charts/k8s-ee-app --destination .
+
+          # Push to GHCR
+          helm push "${CHART_NAME}-${CHART_VERSION}.tgz" "$REGISTRY"
+
+          echo "Published $CHART_NAME:$CHART_VERSION to $REGISTRY"
+
       - name: Summary
         run: |
           {
@@ -76,7 +102,7 @@ jobs:
             echo ""
             echo "| Chart | Version | Registry |"
             echo "|-------|---------|----------|"
-            for chart in postgresql mongodb redis minio mariadb; do
+            for chart in postgresql mongodb redis minio mariadb k8s-ee-app; do
               CHART_NAME=$(grep '^name:' charts/$chart/Chart.yaml | awk '{print $2}')
               CHART_VERSION=$(grep '^version:' charts/$chart/Chart.yaml | awk '{print $2}')
               echo "| \`$CHART_NAME\` | \`$CHART_VERSION\` | \`oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts\` |"
@@ -84,6 +110,6 @@ jobs:
             echo ""
             echo "Charts can be pulled with:"
             echo "\`\`\`bash"
-            echo "helm pull oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts/k8s-ee-postgresql"
+            echo "helm pull oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts/k8s-ee-app"
             echo "\`\`\`"
           } >> $GITHUB_STEP_SUMMARY

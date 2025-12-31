@@ -357,7 +357,7 @@ node_filesystem_avail_bytes / node_filesystem_size_bytes
 | Task | Deliverable | Status |
 |------|-------------|--------|
 | Publish Helm charts to OCI registry | 5 charts (postgresql, mongodb, redis, minio, mariadb) at ghcr.io | ✅ Done |
-| Create generic application chart | k8s-ee-app chart with OCI dependencies | |
+| Create generic application chart | k8s-ee-app chart with OCI dependencies | ✅ Done |
 | Create reusable composite actions | 7 modular actions (validate, setup, build, deploy, etc.) | |
 | Create reusable workflow | `pr-environment-reusable.yml` callable from client repos | |
 | Define configuration schema | JSON schema for k8s-ee.yaml validation | |
