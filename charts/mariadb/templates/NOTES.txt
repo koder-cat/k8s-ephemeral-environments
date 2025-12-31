@@ -1,0 +1,27 @@
+{{- if .Values.enabled }}
+MariaDB has been deployed as part of {{ .Release.Name }}.
+
+** Connection Details **
+
+Host: {{ include "mariadb.serviceName" . }}
+Port: 3306
+Database: {{ .Values.database | default "app" }}
+User: {{ .Values.username | default "app" }}
+
+To get the password:
+
+  kubectl get secret {{ include "mariadb.secretName" . }} -n {{ .Release.Namespace }} -o jsonpath="{.data.user-password}" | base64 --decode
+
+** Environment Variables **
+
+When using as a subchart, inject environment variables with:
+
+  env:
+    {{`{{- include "mariadb.envVars" .Subcharts.mariadb | nindent 4 }}`}}
+
+This provides: MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD, MYSQL_URL
+
+** Connection String **
+
+  mysql://{{ .Values.username | default "app" }}:<password>@{{ include "mariadb.serviceName" . }}:3306/{{ .Values.database | default "app" }}
+{{- end }}

@@ -1,0 +1,37 @@
+# MariaDB Library Chart Values
+# Used as a sub-chart dependency by application charts
+
+# Enable/disable MariaDB
+enabled: true
+
+# MariaDB version
+version: "11.4"
+
+# Database name (created automatically)
+database: app
+
+# Application user (created with access to database)
+username: app
+
+# Resource limits (conservative for ephemeral environments)
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 50m
+  limits:
+    memory: 256Mi
+    cpu: 300m
+
+# MariaDB configuration
+config:
+  # Maximum connections
+  maxConnections: 20
+  # Buffer pool size (InnoDB)
+  innodbBufferPoolSize: 64M
+
+# Startup probe configuration
+# Allows MariaDB up to 120 seconds to start before being killed
+startupProbe:
+  enabled: true
+  failureThreshold: 60
+  periodSeconds: 2

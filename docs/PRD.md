@@ -235,6 +235,7 @@ The project will be developed in two phases: **Phase 1** with a prototype on VPS
 | **Dashboards** | Grafana | Unified interface for logs and metrics |
 | **Runners** | actions-runner-controller (ARC) | Ephemeral and scalable runners in the cluster |
 | **DB Operator** | CloudNativePG | Manages PostgreSQL lifecycle in the cluster |
+| **MariaDB** | mariadb:11 | Simple deployment for MySQL-compatible databases |
 | **Secrets** | Sealed Secrets | Basic security, encrypted secrets in git |
 | **Storage** | Local Path Provisioner | Simple, adequate for MVP using VPS NVMe |
 | **DNS** | Wildcard | `*.preview.domain.com` → VPS IP |
@@ -353,14 +354,14 @@ node_filesystem_avail_bytes / node_filesystem_size_bytes
 
 ### Phase 5: Simplified Onboarding (Epic 8)
 
-| Task | Deliverable |
-|------|-------------|
-| Publish Helm charts to OCI registry | Charts available at ghcr.io |
-| Create generic application chart | k8s-ee-app chart with OCI dependencies |
-| Create reusable composite actions | 7 modular actions (validate, setup, build, deploy, etc.) |
-| Create reusable workflow | `pr-environment-reusable.yml` callable from client repos |
-| Define configuration schema | JSON schema for k8s-ee.yaml validation |
-| Update documentation & dogfood | Simplified onboarding guide, this repo uses own system |
+| Task | Deliverable | Status |
+|------|-------------|--------|
+| Publish Helm charts to OCI registry | 5 charts (postgresql, mongodb, redis, minio, mariadb) at ghcr.io | ✅ Done |
+| Create generic application chart | k8s-ee-app chart with OCI dependencies | |
+| Create reusable composite actions | 7 modular actions (validate, setup, build, deploy, etc.) | |
+| Create reusable workflow | `pr-environment-reusable.yml` callable from client repos | |
+| Define configuration schema | JSON schema for k8s-ee.yaml validation | |
+| Update documentation & dogfood | Simplified onboarding guide, this repo uses own system | |
 
 ---
 

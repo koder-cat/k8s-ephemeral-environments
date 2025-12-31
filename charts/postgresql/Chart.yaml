@@ -1,8 +1,8 @@
 apiVersion: v2
-name: postgresql
+name: k8s-ee-postgresql
 description: PostgreSQL database using CloudNativePG operator
 type: application
-version: 1.0.0
+version: 1.1.0
 appVersion: "16"
 kubeVersion: ">=1.25.0-0"
 

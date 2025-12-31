@@ -1,0 +1,20 @@
+apiVersion: v2
+name: k8s-ee-mariadb
+description: MariaDB database (simple deployment without operator)
+type: application
+version: 1.0.0
+appVersion: "11.4"
+kubeVersion: ">=1.25.0-0"
+
+keywords:
+  - mariadb
+  - mysql
+  - database
+  - sql
+
+home: https://mariadb.org/
+sources:
+  - https://github.com/MariaDB/mariadb-docker
+
+maintainers:
+  - name: k8s-ee-platform

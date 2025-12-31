@@ -1,0 +1,89 @@
+name: Publish Helm Charts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/postgresql/**'
+      - 'charts/mongodb/**'
+      - 'charts/redis/**'
+      - 'charts/minio/**'
+      - 'charts/mariadb/**'
+  workflow_dispatch:  # Manual trigger for initial publish
+
+jobs:
+  publish:
+    name: Publish Charts to GHCR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v3.16.0
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Lint Charts
+        run: |
+          set -euo pipefail
+          echo "Linting all database charts..."
+          for chart in postgresql mongodb redis minio mariadb; do
+            echo "Linting charts/$chart..."
+            helm lint charts/$chart
+          done
+          echo "All charts passed linting"
+
+      - name: Package and Push Charts
+        run: |
+          set -euo pipefail
+
+          REGISTRY="oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts"
+
+          for chart in postgresql mongodb redis minio mariadb; do
+            echo "=== Processing $chart ==="
+
+            # Get chart name and version from Chart.yaml
+            CHART_NAME=$(grep '^name:' charts/$chart/Chart.yaml | awk '{print $2}')
+            CHART_VERSION=$(grep '^version:' charts/$chart/Chart.yaml | awk '{print $2}')
+
+            echo "Chart: $CHART_NAME v$CHART_VERSION"
+
+            # Package the chart
+            helm package charts/$chart --destination .
+
+            # Push to GHCR
+            helm push "${CHART_NAME}-${CHART_VERSION}.tgz" "$REGISTRY"
+
+            echo "Published $CHART_NAME:$CHART_VERSION to $REGISTRY"
+            echo ""
+          done
+
+      - name: Summary
+        run: |
+          {
+            echo "## Helm Charts Published"
+            echo ""
+            echo "| Chart | Version | Registry |"
+            echo "|-------|---------|----------|"
+            for chart in postgresql mongodb redis minio mariadb; do
+              CHART_NAME=$(grep '^name:' charts/$chart/Chart.yaml | awk '{print $2}')
+              CHART_VERSION=$(grep '^version:' charts/$chart/Chart.yaml | awk '{print $2}')
+              echo "| \`$CHART_NAME\` | \`$CHART_VERSION\` | \`oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts\` |"
+            done
+            echo ""
+            echo "Charts can be pulled with:"
+            echo "\`\`\`bash"
+            echo "helm pull oci://ghcr.io/${{ github.repository_owner }}/k8s-ephemeral-environments/charts/k8s-ee-postgresql"
+            echo "\`\`\`"
+          } >> $GITHUB_STEP_SUMMARY

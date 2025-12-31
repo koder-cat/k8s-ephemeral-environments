@@ -1,0 +1,17 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mariadb.serviceName" . }}
+  labels:
+    {{- include "mariadb.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3306
+      targetPort: mysql
+      protocol: TCP
+      name: mysql
+  selector:
+    {{- include "mariadb.selectorLabels" . | nindent 4 }}
+{{- end }}

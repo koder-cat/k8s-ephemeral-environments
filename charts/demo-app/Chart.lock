@@ -1,15 +1,18 @@
 dependencies:
-- name: postgresql
+- name: k8s-ee-postgresql
   repository: file://../postgresql
-  version: 1.0.0
-- name: mongodb
+  version: 1.1.0
+- name: k8s-ee-mongodb
   repository: file://../mongodb
-  version: 1.0.0
-- name: redis
+  version: 1.1.0
+- name: k8s-ee-redis
   repository: file://../redis
-  version: 1.0.0
-- name: minio
+  version: 1.1.0
+- name: k8s-ee-minio
   repository: file://../minio
+  version: 1.1.0
+- name: k8s-ee-mariadb
+  repository: file://../mariadb
   version: 1.0.0
-digest: sha256:1ee9a9827605eeab3d23c1f9bd62806865e1c3f3abe4563e126d6524c250ca42
-generated: "2025-12-30T22:21:46.832270928Z"
+digest: sha256:d5cf962583938dcd8cba302a3a2bb434eecb29d8e7e1b2946b09ff5ce3706649
+generated: "2025-12-31T13:25:29.314156897-03:00"

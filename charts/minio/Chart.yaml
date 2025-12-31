@@ -1,8 +1,8 @@
 apiVersion: v2
-name: minio
+name: k8s-ee-minio
 description: MinIO S3-compatible object storage using MinIO Operator
 type: application
-version: 1.0.0
+version: 1.1.0
 appVersion: "RELEASE.2024-12-18T13-15-44Z"
 kubeVersion: ">=1.25.0-0"
 

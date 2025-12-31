@@ -1,0 +1,99 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mariadb.fullname" . }}
+  labels:
+    {{- include "mariadb.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "mariadb.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "mariadb.labels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mariadb
+          image: mariadb:{{ .Values.version | default "11.4" }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mariadb.secretName" . }}
+                  key: root-password
+            - name: MARIADB_DATABASE
+              value: {{ .Values.database | default "app" | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.username | default "app" | quote }}
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mariadb.secretName" . }}
+                  key: user-password
+          args:
+            - --max-connections={{ .Values.config.maxConnections | default 20 }}
+            - --innodb-buffer-pool-size={{ .Values.config.innodbBufferPoolSize | default "64M" }}
+          resources:
+            requests:
+              memory: {{ .Values.resources.requests.memory | default "128Mi" }}
+              cpu: {{ .Values.resources.requests.cpu | default "50m" }}
+            limits:
+              memory: {{ .Values.resources.limits.memory | default "256Mi" }}
+              cpu: {{ .Values.resources.limits.cpu | default "300m" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run/mysqld
+          # Use TCP probes to avoid password exposure in process listings
+          livenessProbe:
+            tcpSocket:
+              port: mysql
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: mysql
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            tcpSocket:
+              port: mysql
+            failureThreshold: {{ .Values.startupProbe.failureThreshold | default 60 }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds | default 2 }}
+          {{- end }}
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+{{- end }}

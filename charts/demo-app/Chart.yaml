@@ -19,19 +19,28 @@ maintainers:
   - name: genesluna
 
 dependencies:
-  - name: postgresql
-    version: "1.0.0"
+  - name: k8s-ee-postgresql
+    alias: postgresql
+    version: "1.1.0"
     repository: "file://../postgresql"
     condition: postgresql.enabled
-  - name: mongodb
-    version: "1.0.0"
+  - name: k8s-ee-mongodb
+    alias: mongodb
+    version: "1.1.0"
     repository: "file://../mongodb"
     condition: mongodb.enabled
-  - name: redis
-    version: "1.0.0"
+  - name: k8s-ee-redis
+    alias: redis
+    version: "1.1.0"
     repository: "file://../redis"
     condition: redis.enabled
-  - name: minio
-    version: "1.0.0"
+  - name: k8s-ee-minio
+    alias: minio
+    version: "1.1.0"
     repository: "file://../minio"
     condition: minio.enabled
+  - name: k8s-ee-mariadb
+    alias: mariadb
+    version: "1.0.0"
+    repository: "file://../mariadb"
+    condition: mariadb.enabled

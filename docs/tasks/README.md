@@ -80,6 +80,17 @@ This document provides an index of all tasks organized by epic and user story.
 | US-026: Observability Enhancements | [US-026-tasks.md](./epic-7/US-026-tasks.md) | 6 |
 | US-027: K8s Best Practices | [US-027-tasks.md](./epic-7/US-027-tasks.md) | 6 |
 
+## Epic 8: Simplified Onboarding
+
+| Story | Task File | Tasks |
+|-------|-----------|-------|
+| US-028: Publish Helm Charts | [US-028-tasks.md](./epic-8/US-028-tasks.md) | 8 |
+| US-029: Generic App Chart | [US-029-tasks.md](./epic-8/US-029-tasks.md) | TBD |
+| US-030: Composite Actions | [US-030-tasks.md](./epic-8/US-030-tasks.md) | TBD |
+| US-031: Reusable Workflow | [US-031-tasks.md](./epic-8/US-031-tasks.md) | TBD |
+| US-032: Config Schema | [US-032-tasks.md](./epic-8/US-032-tasks.md) | TBD |
+| US-033: Documentation & Dogfood | [US-033-tasks.md](./epic-8/US-033-tasks.md) | TBD |
+
 ---
 
 ## Estimate Legend
