@@ -5,6 +5,7 @@ This guide helps diagnose and resolve common issues with PR environments.
 ## Table of Contents
 
 - [Quick Diagnosis](#quick-diagnosis)
+- [Initialization Race Conditions](#initialization-race-conditions)
 - [PR Namespace Issues](#pr-namespace-issues)
 - [Deployment Failures](#deployment-failures)
 - [Database Issues](#database-issues)
@@ -30,6 +31,66 @@ Is the namespace created?
             ├── No → See "Database Issues"
             └── Yes → See "Health Check Failures"
 ```
+
+## Initialization Race Conditions
+
+Race conditions occur when the app starts before dependencies (database, storage) are fully ready. This is one of the most common issues in Kubernetes environments.
+
+### Symptoms
+- "Migration failed" errors immediately at startup
+- "Database not connected" errors on first requests
+- App works after manual pod restart
+- Logs show connection errors followed by app starting anyway
+
+### Root Cause
+
+Even with proper init containers using native client tools (`pg_isready`, etc.), a small timing window can exist between init container success and app startup:
+
+```
+1. PostgreSQL pod starts and initializes
+2. Init container (pg_isready) confirms readiness → SUCCESS
+3. App pod starts (small timing gap here)
+4. onModuleInit() runs immediately
+5. Transient connection issue → MIGRATION FAILS
+6. App starts with broken database state
+```
+
+This is rare (~1% of deployments) but the app should handle it with short retry logic.
+
+### Diagnosis
+
+```bash
+# Check if this is a race condition (look for timing)
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId} | grep -E "(not ready|retry|connection refused)"
+
+# Check init container logs
+kubectl logs -n k8s-ee-pr-{number} <pod-name> -c wait-for-postgresql
+
+# Verify database pod readiness
+kubectl get pods -n k8s-ee-pr-{number} -l cnpg.io/cluster -o wide
+```
+
+### Resolution
+
+**Immediate fix:** Restart the pod after database is ready:
+```bash
+kubectl rollout restart deployment -n k8s-ee-pr-{number} <app-deployment>
+```
+
+**Permanent fix:** Ensure your service implements retry logic:
+```typescript
+// In onModuleInit(), wait for database before migrations
+await this.waitForDatabase();  // Retries 3 times, 1s delay (handles init container timing gap)
+await this.runMigrations();    // Only after connection confirmed
+```
+
+### Prevention
+
+1. **Application-level retry**: Implement `waitForDatabase()` with exponential backoff
+2. **Proper init containers**: Use native client tools (`pg_isready`, `redis-cli ping`)
+3. **Follow patterns**: See [Service Development Guide](./service-development.md)
+
+**Best practice:** Both init containers AND application retry should be implemented (defense in depth).
 
 ## PR Namespace Issues
 

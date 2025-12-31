@@ -179,5 +179,6 @@ For production applications with evolving schemas, use database migrations inste
 ## See Also
 
 - [Configuration Reference](./k8s-ee-config-reference.md) - All configuration options
+- [Service Development Guide](./service-development.md) - Best practices for database/storage services
 - [Migration Guide](./migration-guide.md) - Migrate from manual workflow setup
 - [Troubleshooting Guide](./troubleshooting.md) - Detailed problem resolution

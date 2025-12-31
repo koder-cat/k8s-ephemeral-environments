@@ -88,24 +88,67 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       // Initialize Drizzle with the pool
       this._db = drizzle(this.pool, { schema });
 
+      // Wait for database to be truly ready (with retry logic)
+      await this.waitForDatabase();
+
       // Run migrations at startup (for ephemeral environments)
       await this.runMigrations();
 
       // Seed database if empty (auto-seed on first run)
       await this.runSeeding();
 
-      // Test connection
-      const client = await this.pool.connect();
-      await client.query('SELECT 1');
-      client.release();
-
       this.isConnected = true;
       this.updatePoolMetrics();
-      this.logger.info('Database connection established');
+      this.logger.info('Database initialization complete');
     } catch (error) {
-      this.logger.error({ error }, 'Failed to connect to database');
+      this.logger.error({ error }, 'Failed to initialize database');
       this.isConnected = false;
+      // Re-throw to prevent app from starting with broken database
+      throw error;
     }
+  }
+
+  /**
+   * Wait for database to be ready with short retry.
+   *
+   * Enterprise approach: Init containers handle primary readiness check.
+   * This short retry (3 attempts, ~3s) handles only the tiny timing window
+   * between init container exit and app startup. If still failing after
+   * this, we fail fast and let Kubernetes restart us with its own backoff.
+   */
+  private async waitForDatabase(
+    maxRetries = 3,
+    delayMs = 1000,
+  ): Promise<void> {
+    if (!this.pool) return;
+
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const client = await this.pool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        if (attempt > 1) {
+          this.logger.info({ attempt }, 'Database connection established');
+        }
+        return;
+      } catch (error) {
+        lastError = error as Error;
+        if (attempt < maxRetries) {
+          this.logger.warn(
+            { attempt, maxRetries, error: lastError.message },
+            'Database not ready, retrying...',
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    // Fail fast - let Kubernetes handle restart with its own backoff
+    throw new Error(
+      `Database not available after ${maxRetries} attempts: ${lastError?.message}`,
+    );
   }
 
   /**
@@ -123,9 +166,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.info('Running database migrations...');
 
-      // Migrations folder is relative to the compiled output
-      // In production: dist/drizzle, in development: drizzle
-      const migrationsFolder = resolve(__dirname, '../drizzle');
+      // Migrations folder is copied to dist/drizzle during Docker build
+      const migrationsFolder = resolve(__dirname, 'drizzle');
 
       await migrate(this._db, { migrationsFolder });
 
