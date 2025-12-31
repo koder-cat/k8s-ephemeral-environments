@@ -185,6 +185,45 @@ kubectl run debug --rm -it --image=busybox -n k8s-ee-pr-{number} -- \
 
 ## Database Issues
 
+### Database Not Deployed (k8s-ee.yaml)
+
+**Symptoms:**
+- No database pod exists in the namespace
+- App logs show connection refused to database
+- `kubectl get pods -n k8s-ee-pr-{number}` shows no PostgreSQL/MongoDB/etc. pod
+
+**Diagnosis:**
+```bash
+# Check if database is enabled in Helm values
+helm get values app -n k8s-ee-pr-{number} | grep -A5 postgresql
+
+# Verify k8s-ee.yaml has database enabled
+cat k8s-ee.yaml | grep -A5 databases
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| `databases.postgresql: false` in k8s-ee.yaml | Change to `databases.postgresql: true` |
+| Missing databases section | Add `databases:` section with enabled databases |
+| Object form without `enabled` | Use `postgresql: { enabled: true }` or just `postgresql: true` |
+
+**Resolution:**
+
+Update your `k8s-ee.yaml`:
+```yaml
+databases:
+  postgresql: true  # Simple boolean form
+  # OR object form with custom settings:
+  # postgresql:
+  #   enabled: true
+  #   version: "16"
+  #   storage: 2Gi
+```
+
+Push the change to trigger a new deployment.
+
 ### Connection Refused
 
 **Symptoms:**
@@ -279,18 +318,29 @@ kubectl logs -n k8s-ee-pr-{number} -l job-name --tail=100
 
 **Resolution:**
 ```bash
-# Delete the PostgreSQL cluster (data will be lost!)
-kubectl delete cluster -n k8s-ee-pr-{number} -l app.kubernetes.io/instance
+# Option 1: Delete the PostgreSQL cluster to trigger re-init (data will be lost!)
+# First, find the cluster name
+kubectl get clusters.postgresql.cnpg.io -n k8s-ee-pr-{number}
 
-# Trigger redeploy via GitHub Actions
-# (push new commit or re-run workflow)
+# Delete it (usually named {namespace}-postgresql)
+kubectl delete cluster -n k8s-ee-pr-{number} k8s-ee-pr-{number}-postgresql
 
-# OR manually apply SQL to existing database
+# Re-run Helm to recreate the cluster with bootstrap SQL
+helm upgrade app oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app \
+  --namespace k8s-ee-pr-{number} --reuse-values
+
+# Option 2: Manually apply SQL to existing database (keeps data)
 kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
-  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -f /path/to/sql
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c "
+    CREATE TABLE IF NOT EXISTS your_table (...);
+    GRANT ALL PRIVILEGES ON your_table TO app;
+  "
+
+# Option 3: For PR environments, close and reopen the PR
+# This destroys and recreates the namespace with fresh bootstrap SQL
 ```
 
-**Note:** For PR environments, simply closing and reopening the PR will recreate the namespace with fresh bootstrap SQL.
+**Note:** For PR environments, simply closing and reopening the PR will recreate the namespace with fresh bootstrap SQL. This is the easiest approach when you don't need to preserve data.
 
 ### Permission Denied on Tables
 

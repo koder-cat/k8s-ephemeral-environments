@@ -55,6 +55,46 @@ inputs:
     description: 'Application container port'
     required: false
     default: '3000'
+  postgresql-enabled:
+    description: 'Enable PostgreSQL database'
+    required: false
+    default: 'false'
+  mongodb-enabled:
+    description: 'Enable MongoDB database'
+    required: false
+    default: 'false'
+  redis-enabled:
+    description: 'Enable Redis database'
+    required: false
+    default: 'false'
+  minio-enabled:
+    description: 'Enable MinIO object storage'
+    required: false
+    default: 'false'
+  mariadb-enabled:
+    description: 'Enable MariaDB database'
+    required: false
+    default: 'false'
+  postgresql-config:
+    description: 'Full PostgreSQL configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  mongodb-config:
+    description: 'Full MongoDB configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  redis-config:
+    description: 'Full Redis configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  minio-config:
+    description: 'Full MinIO configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  mariadb-config:
+    description: 'Full MariaDB configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
 
 outputs:
   preview-url:
@@ -217,6 +257,16 @@ runs:
         TIMEOUT: ${{ inputs.timeout }}
         HEALTH_PATH: ${{ inputs.health-path }}
         APP_PORT: ${{ inputs.app-port }}
+        POSTGRESQL_ENABLED: ${{ inputs.postgresql-enabled }}
+        MONGODB_ENABLED: ${{ inputs.mongodb-enabled }}
+        REDIS_ENABLED: ${{ inputs.redis-enabled }}
+        MINIO_ENABLED: ${{ inputs.minio-enabled }}
+        MARIADB_ENABLED: ${{ inputs.mariadb-enabled }}
+        POSTGRESQL_CONFIG: ${{ inputs.postgresql-config }}
+        MONGODB_CONFIG: ${{ inputs.mongodb-config }}
+        REDIS_CONFIG: ${{ inputs.redis-config }}
+        MINIO_CONFIG: ${{ inputs.minio-config }}
+        MARIADB_CONFIG: ${{ inputs.mariadb-config }}
       run: |
         set -euo pipefail
 
@@ -245,6 +295,23 @@ runs:
         # Add digest if provided
         if [ -n "$IMAGE_DIGEST" ]; then
           HELM_ARGS+=("--set" "image.digest=$IMAGE_DIGEST")
+        fi
+
+        # Database configuration (pass full config as JSON for bootstrap SQL, storage, etc.)
+        if [ "$POSTGRESQL_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "postgresql=$POSTGRESQL_CONFIG")
+        fi
+        if [ "$MONGODB_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "mongodb=$MONGODB_CONFIG")
+        fi
+        if [ "$REDIS_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "redis=$REDIS_CONFIG")
+        fi
+        if [ "$MINIO_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "minio=$MINIO_CONFIG")
+        fi
+        if [ "$MARIADB_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "mariadb=$MARIADB_CONFIG")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")
@@ -291,6 +358,8 @@ runs:
       shell: bash
       env:
         NAMESPACE: ${{ inputs.namespace }}
+        PROJECT_ID: ${{ inputs.project-id }}
+        PR_NUMBER: ${{ inputs.pr-number }}
         HEALTH_PATH: ${{ inputs.health-path }}
         APP_PORT: ${{ inputs.app-port }}
       run: |
@@ -299,10 +368,11 @@ runs:
         echo "Running in-cluster health check..."
 
         # Find a pod that is actually Ready and not terminating
+        # Use k8s-ee labels set by the Helm chart based on config values
         echo "Finding a Ready pod..."
         POD_NAME=""
         for i in {1..30}; do
-          POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=app \
+          POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l "k8s-ee/project-id=${PROJECT_ID},k8s-ee/pr-number=${PR_NUMBER}" \
             --field-selector=status.phase=Running \
             -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.deletionTimestamp}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' | \
             grep -E "^[^ ]+  True$" | head -1 | awk '{print $1}') || true

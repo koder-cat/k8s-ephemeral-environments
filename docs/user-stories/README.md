@@ -8,7 +8,7 @@ This document provides an index of all user stories derived from the PRD.
 |--------|-------|
 | Total Epics | 8 |
 | Total User Stories | 33 |
-| **Completed** | **32** ✅ |
+| **Completed** | **33** ✅ |
 | Must Have | 18 |
 | Should Have | 12 |
 | Could Have | 3 |
@@ -17,7 +17,7 @@ This document provides an index of all user stories derived from the PRD.
 
 **Phase 1.5 Status:** Complete - All 6 user stories in Epic 7 implemented and deployed.
 
-**Phase 2 Status:** In Progress - Epic 8: Simplified Onboarding (6 stories).
+**Phase 2 Status:** Complete - Epic 8: Simplified Onboarding (6 stories).
 
 **Phase 3 Status:** Future - EKS Migration (as defined in PRD).
 
@@ -87,7 +87,7 @@ This document provides an index of all user stories derived from the PRD.
 | [US-026](./epic-7-improvements/US-026-observability-enhancements.md) | Observability Enhancements | Should | 8 | ✅ Done |
 | [US-027](./epic-7-improvements/US-027-kubernetes-best-practices.md) | Kubernetes Best Practices | Could | 5 | ✅ Done |
 
-### [Epic 8: Simplified Onboarding](./epic-8-simplified-onboarding/)
+### [Epic 8: Simplified Onboarding](./epic-8-simplified-onboarding/) ✅
 
 | Story | Title | Priority | Points | Status |
 |-------|-------|----------|--------|--------|
@@ -96,7 +96,7 @@ This document provides an index of all user stories derived from the PRD.
 | [US-030](./epic-8-simplified-onboarding/US-030-composite-actions.md) | Create Reusable Composite Actions | Must | 13 | ✅ Done |
 | [US-031](./epic-8-simplified-onboarding/US-031-reusable-workflow.md) | Create Reusable Workflow | Must | 8 | ✅ Done |
 | [US-032](./epic-8-simplified-onboarding/US-032-config-schema.md) | Define Configuration Schema | Must | 5 | ✅ Done |
-| [US-033](./epic-8-simplified-onboarding/US-033-documentation-dogfood.md) | Update Documentation & Dogfood | Should | 5 | Draft |
+| [US-033](./epic-8-simplified-onboarding/US-033-documentation-dogfood.md) | Update Documentation & Dogfood | Should | 5 | ✅ Done |
 
 ---
 

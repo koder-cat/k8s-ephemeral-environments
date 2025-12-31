@@ -10,15 +10,15 @@
 
 ## Acceptance Criteria
 
-- [x] JSON Schema defined for k8s-ee.yaml validation
-- [x] `projectId` required (max 20 chars, lowercase alphanumeric + hyphens)
-- [x] `app.port` has default (3000)
+- [ ] JSON Schema defined for k8s-ee.yaml validation
+- [ ] `projectId` required (max 20 chars, lowercase alphanumeric + hyphens)
+- [ ] `app.port` has default (3000)
 - [x] `app.healthPath` has default (/health)
-- [x] `image.context` and `image.dockerfile` have defaults
-- [x] `resources` have sensible defaults within cluster limits
-- [x] `databases` all default to false (opt-in)
-- [x] Validation errors provide clear, actionable messages
-- [x] Schema documented in config reference guide
+- [ ] `image.context` and `image.dockerfile` have defaults
+- [ ] `resources` have sensible defaults within cluster limits
+- [ ] `databases` all default to false (opt-in)
+- [ ] Validation errors provide clear, actionable messages
+- [ ] Schema documented in config reference guide
 
 ## Priority
 
