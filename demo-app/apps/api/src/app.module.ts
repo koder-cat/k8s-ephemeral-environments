@@ -7,6 +7,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseService } from './database.service';
 import { MetricsModule } from './metrics/metrics.module';
+import { SimulatorModule } from './simulator/simulator.module';
+import { DatabaseTestModule } from './database-test/database-test.module';
 import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
 import { MetricsMiddleware } from './middleware/metrics.middleware';
 
@@ -38,6 +40,8 @@ import { MetricsMiddleware } from './middleware/metrics.middleware';
       },
     }),
     MetricsModule,
+    SimulatorModule,
+    DatabaseTestModule,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseService],

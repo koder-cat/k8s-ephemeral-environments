@@ -11,7 +11,22 @@ export type DbOperation =
   | 'query'
   | 'health_check'
   | 'list_tables'
-  | 'db_size';
+  | 'db_size'
+  | 'create_record'
+  | 'read_record'
+  | 'update_record'
+  | 'delete_record'
+  | 'heavy_query';
+
+/**
+ * Database pool statistics
+ */
+export interface PoolStats {
+  total: number;
+  idle: number;
+  active: number;
+  waiting: number;
+}
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
@@ -144,5 +159,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       throw new Error('Database not connected');
     }
     return this.pool.connect();
+  }
+
+  /**
+   * Get current connection pool statistics
+   */
+  getPoolStats(): PoolStats {
+    if (!this.pool) {
+      return { total: 0, idle: 0, active: 0, waiting: 0 };
+    }
+    return {
+      total: this.pool.totalCount,
+      idle: this.pool.idleCount,
+      active: this.pool.totalCount - this.pool.idleCount,
+      waiting: this.pool.waitingCount,
+    };
   }
 }
