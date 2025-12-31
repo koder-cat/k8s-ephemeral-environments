@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/genesluna/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json",
   "title": "k8s-ee Configuration",
   "description": "Configuration schema for k8s-ephemeral-environments",
   "type": "object",
@@ -111,6 +112,44 @@
         "type": "string"
       }
     },
+    "envFrom": {
+      "type": "array",
+      "description": "Environment variables from secrets or configmaps",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          { "required": ["secretRef"] },
+          { "required": ["configMapRef"] }
+        ],
+        "properties": {
+          "secretRef": {
+            "type": "object",
+            "description": "Reference to a Kubernetes secret",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the secret"
+              }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+          },
+          "configMapRef": {
+            "type": "object",
+            "description": "Reference to a Kubernetes configmap",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the configmap"
+              }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "databases": {
       "type": "object",
       "description": "Database configuration (all disabled by default)",
@@ -123,7 +162,7 @@
               "properties": {
                 "enabled": { "type": "boolean", "default": true },
                 "version": { "type": "string", "default": "16" },
-                "storage": { "type": "string", "default": "1Gi" }
+                "storage": { "type": "string", "default": "1Gi", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
               },
               "additionalProperties": true
             }
@@ -138,7 +177,7 @@
               "properties": {
                 "enabled": { "type": "boolean", "default": true },
                 "version": { "type": "string" },
-                "storage": { "type": "string", "default": "1Gi" }
+                "storage": { "type": "string", "default": "1Gi", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
               },
               "additionalProperties": true
             }
@@ -165,7 +204,7 @@
               "type": "object",
               "properties": {
                 "enabled": { "type": "boolean", "default": true },
-                "storage": { "type": "string", "default": "1Gi" }
+                "storage": { "type": "string", "default": "1Gi", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
               },
               "additionalProperties": true
             }
@@ -179,7 +218,8 @@
               "type": "object",
               "properties": {
                 "enabled": { "type": "boolean", "default": true },
-                "storage": { "type": "string", "default": "1Gi" }
+                "version": { "type": "string", "default": "11.4" },
+                "storage": { "type": "string", "default": "1Gi", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
               },
               "additionalProperties": true
             }

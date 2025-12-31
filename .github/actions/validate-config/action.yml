@@ -106,7 +106,7 @@ runs:
         if ! command -v yq &> /dev/null; then
           echo "Installing yq..."
           YQ_VERSION="v4.44.1"
-          curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" -o /tmp/yq
+          curl -fsSL --connect-timeout 10 --max-time 60 "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${ARCH}" -o /tmp/yq
 
           echo "Verifying yq checksum..."
           echo "${YQ_SHA256}  /tmp/yq" | sha256sum -c -
@@ -118,10 +118,10 @@ runs:
           echo "yq already installed: $(yq --version)"
         fi
 
-        # Install ajv-cli for JSON Schema validation
+        # Install ajv-cli for JSON Schema validation (pinned versions for reproducibility)
         if ! command -v ajv &> /dev/null; then
           echo "Installing ajv-cli..."
-          npm install -g ajv-cli ajv-formats
+          npm install -g ajv-cli@5.0.0 ajv-formats@3.0.1
         else
           echo "ajv-cli already installed"
         fi
@@ -226,6 +226,8 @@ runs:
           .resources.limits = (.resources.limits // {}) |
           .resources.limits.cpu = (.resources.limits.cpu // "200m") |
           .resources.limits.memory = (.resources.limits.memory // "384Mi") |
+          .env = (.env // {}) |
+          .envFrom = (.envFrom // []) |
           .databases = (.databases // {}) |
           .databases.postgresql = (.databases.postgresql // false) |
           .databases.mongodb = (.databases.mongodb // false) |

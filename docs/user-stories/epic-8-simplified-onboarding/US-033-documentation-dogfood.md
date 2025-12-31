@@ -13,8 +13,8 @@
 - [ ] `k8s-ee.yaml` added to this repository (dogfooding)
 - [ ] PR environment workflow updated to use reusable workflow
 - [ ] `docs/guides/onboarding-new-repo.md` simplified to new process
-- [ ] `docs/guides/k8s-ee-config-reference.md` created with full schema docs
-- [ ] Example configurations for common scenarios documented
+- [x] `docs/guides/k8s-ee-config-reference.md` created with full schema docs (completed in US-032)
+- [x] Example configurations for common scenarios documented (completed in US-032)
 - [ ] Migration guide for existing users (if applicable)
 - [ ] README updated with new onboarding instructions
 

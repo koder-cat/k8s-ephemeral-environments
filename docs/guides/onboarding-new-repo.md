@@ -26,6 +26,8 @@ databases:
   # mariadb: false
 ```
 
+> **See [Configuration Reference](./k8s-ee-config-reference.md) for all available options.**
+
 ### 2. Workflow File (`.github/workflows/pr-environment.yml`)
 
 ```yaml

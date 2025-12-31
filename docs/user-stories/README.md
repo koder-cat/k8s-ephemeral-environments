@@ -8,7 +8,7 @@ This document provides an index of all user stories derived from the PRD.
 |--------|-------|
 | Total Epics | 8 |
 | Total User Stories | 33 |
-| **Completed** | **31** ✅ |
+| **Completed** | **32** ✅ |
 | Must Have | 18 |
 | Should Have | 12 |
 | Could Have | 3 |
@@ -95,7 +95,7 @@ This document provides an index of all user stories derived from the PRD.
 | [US-029](./epic-8-simplified-onboarding/US-029-generic-app-chart.md) | Create Generic Application Chart | Must | 8 | ✅ Done |
 | [US-030](./epic-8-simplified-onboarding/US-030-composite-actions.md) | Create Reusable Composite Actions | Must | 13 | ✅ Done |
 | [US-031](./epic-8-simplified-onboarding/US-031-reusable-workflow.md) | Create Reusable Workflow | Must | 8 | ✅ Done |
-| [US-032](./epic-8-simplified-onboarding/US-032-config-schema.md) | Define Configuration Schema | Must | 5 | Draft |
+| [US-032](./epic-8-simplified-onboarding/US-032-config-schema.md) | Define Configuration Schema | Must | 5 | ✅ Done |
 | [US-033](./epic-8-simplified-onboarding/US-033-documentation-dogfood.md) | Update Documentation & Dogfood | Should | 5 | Draft |
 
 ---
