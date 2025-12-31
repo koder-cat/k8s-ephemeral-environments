@@ -399,7 +399,7 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
           path: charts/demo-app/charts
-          key: helm-deps-${{ hashFiles('charts/demo-app/Chart.yaml') }}
+          key: helm-deps-${{ hashFiles('charts/**/Chart.yaml', 'charts/**/values.yaml', 'charts/**/templates/**') }}
           restore-keys: |
             helm-deps-
 
