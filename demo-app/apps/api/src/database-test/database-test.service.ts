@@ -205,15 +205,15 @@ export class DatabaseTestService {
     const startTime = Date.now();
 
     // Run a query that simulates heavy load
-    // 1. pg_sleep for artificial delay
+    // 1. pg_sleep for artificial delay (in CTE to run only once)
     // 2. generate_series for row generation
     await this.database.query(
-      `SELECT
-         pg_sleep($1),
+      `WITH sleep AS (SELECT pg_sleep($1))
+       SELECT
          s.n,
          md5(s.n::text) as hash,
          NOW() as timestamp
-       FROM generate_series(1, $2) s(n)`,
+       FROM sleep, generate_series(1, $2) s(n)`,
       [config.sleepSeconds, config.rows],
       'heavy_query',
     );
