@@ -2,6 +2,52 @@
 
 A platform that automatically creates temporary preview environments for every Pull Request.
 
+## Quick Start
+
+Add ephemeral PR environments to your repository in 3 steps:
+
+### 1. Create `k8s-ee.yaml`
+
+```yaml
+projectId: myapp
+app:
+  # port: 3000  # default
+  healthPath: /health
+databases:
+  postgresql: true
+```
+
+### 2. Create `.github/workflows/pr-environment.yml`
+
+```yaml
+name: PR Environment
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+jobs:
+  pr-environment:
+    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-action: ${{ github.event.action }}
+      head-sha: ${{ github.event.pull_request.head.sha }}
+      head-ref: ${{ github.head_ref }}
+      repository: ${{ github.repository }}
+    secrets: inherit
+```
+
+### 3. Have a Dockerfile
+
+Your app needs a Dockerfile. The platform builds ARM64 images automatically.
+
+**Done!** Open a PR to get a preview URL.
+
+**Learn More:** [Configuration Reference](docs/guides/k8s-ee-config-reference.md) | [Onboarding Guide](docs/guides/onboarding-new-repo.md)
+
+---
+
 ## What is this?
 
 When a developer opens a Pull Request, this platform automatically spins up a complete, isolated environment with the application and its database. The environment gets a unique URL that anyone on the team can access to test and review the changes. When the PR is closed or merged, the environment is automatically destroyed.
@@ -63,10 +109,23 @@ All 21 user stories implemented across 6 epics:
 - Observability Enhancements (dashboards, alerts)
 - Kubernetes Best Practices (PriorityClasses, probes, lifecycle hooks)
 
-**Phase 2 (Future):** Migrating to AWS EKS for better scalability and integration with managed services.
+**Phase 2 (Epic 8):** ✅ Complete - Simplified Onboarding.
+
+6 user stories for easier onboarding:
+- MariaDB chart and OCI Helm registry
+- Generic k8s-ee-app Helm chart
+- Reusable composite GitHub Actions
+- Reusable workflow for PR environments
+- Configuration schema (k8s-ee.yaml)
+- Documentation and dogfooding (this repo uses its own platform!)
+
+**Phase 3 (Future):** Migrating to AWS EKS for better scalability and integration with managed services.
 
 ## Documentation
 
+- [Configuration Reference](docs/guides/k8s-ee-config-reference.md) - All k8s-ee.yaml options
+- [Onboarding Guide](docs/guides/onboarding-new-repo.md) - Add ephemeral environments to your repo
+- [Migration Guide](docs/guides/migration-guide.md) - Migrate from manual workflow setup
 - [Product Requirements Document](docs/PRD.md) - Detailed technical specifications
 - [User Stories](docs/user-stories/README.md) - Feature breakdown and progress
 - [VPS Access](docs/runbooks/vps-access.md) - Server connection details

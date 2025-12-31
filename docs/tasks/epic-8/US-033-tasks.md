@@ -1,6 +1,6 @@
 # Tasks for US-033: Update Documentation and Dogfood
 
-**Status:** Draft
+**Status:** Done
 
 ## Tasks
 
