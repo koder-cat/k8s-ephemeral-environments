@@ -3,11 +3,12 @@
 -- Date: 2025-12-30
 --
 -- NOTE: This is a REFERENCE FILE for documentation purposes.
--- The actual migration is applied via CloudNativePG's bootstrap.initSQL
+-- The actual migration is applied via CloudNativePG's bootstrap.postInitApplicationSQL
 -- configuration in charts/demo-app/values.yaml
 --
 -- When the PostgreSQL cluster is created for each PR environment,
--- CloudNativePG automatically runs the initSQL scripts during bootstrap.
+-- CloudNativePG automatically runs postInitApplicationSQL scripts on the
+-- application database after it's created.
 --
 -- IMPORTANT: Use named dollar-quote delimiters ($func$) instead of double
 -- dollar signs ($$) for function bodies. CloudNativePG's template processing

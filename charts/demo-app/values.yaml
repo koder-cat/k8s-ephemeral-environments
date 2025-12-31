@@ -125,8 +125,9 @@ postgresql:
       memory: 512Mi
       cpu: 500m
   # Bootstrap configuration with init SQL for test_records table
+  # Note: postInitApplicationSQL runs AFTER the app database is created
   bootstrap:
-    initSQL:
+    postInitApplicationSQL:
       - |
         -- Test records table for observability testing
         CREATE TABLE IF NOT EXISTS test_records (
