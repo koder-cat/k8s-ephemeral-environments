@@ -11,6 +11,7 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
 - [Common kubectl Commands](#common-kubectl-commands)
+- [Alert Demo Issues](#alert-demo-issues)
 
 ## Quick Diagnosis
 
@@ -484,6 +485,81 @@ kubectl get ingress -n $NS
 
 echo "=== Recent Events ==="
 kubectl get events -n $NS --sort-by='.lastTimestamp' | tail -10
+```
+
+## Alert Demo Issues
+
+### Alerts Not Triggering
+
+**Symptoms:**
+- Alert demo running but no alerts fire in Grafana/Alertmanager
+- Dashboard shows no error rate or latency spikes
+
+**Diagnosis:**
+```bash
+# Check alert demo is running
+curl https://k8s-ee-pr-{number}.k8s-ee.genesluna.dev/api/simulator/alert-demo/status
+
+# Verify metrics are being recorded (port-forward Prometheus)
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Query: http_requests_total{status_code="500", namespace="k8s-ee-pr-{number}"}
+
+# Check alert rules are loaded
+# In Prometheus UI: Status > Rules
+```
+
+**How Alert Demo Works:**
+
+The alert demo makes **actual HTTP requests** to the simulator endpoints to generate real metrics:
+
+| Alert Type | Endpoint Called | Metric Generated |
+|------------|-----------------|------------------|
+| high-error-rate | `/api/simulator/status/500` | `http_requests_total{status_code="500"}` |
+| high-latency | `/api/simulator/latency/slow` | `http_request_duration_seconds` (P99 > 500ms) |
+| slow-database | `/api/database-test/heavy-query/medium` | `db_query_duration_seconds` (P99 > 1s) |
+
+**Expected Timeline:**
+
+| Phase | Duration | What Happens |
+|-------|----------|--------------|
+| Start | 0s | Demo begins sending requests |
+| Metrics scraped | 30s | Prometheus collects first data points |
+| Rate calculation | 5m | Prometheus calculates 5-minute rates |
+| Alert fires | 5m 30s | Alert transitions to `firing` state |
+| Demo ends | 5m 30s | Demo stops automatically |
+
+**Note:** Alerts have a `for: 5m` duration, meaning the condition must be true for 5 minutes before firing. The demo runs for 5.5 minutes to ensure alerts have time to trigger.
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Prometheus not scraping | Check ServiceMonitor and targets in Prometheus UI |
+| Metrics not recorded | Verify HTTP requests are going through middleware |
+| Alert rules disabled | Check PrometheusRule CRD exists |
+| Network policy blocking | Verify observability namespace can reach app |
+
+**Verify Metrics are Being Recorded:**
+```bash
+# Port-forward Prometheus
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+# Example queries (in Prometheus UI at localhost:9090):
+# 1. Check 500 errors are being recorded:
+http_requests_total{status_code="500", namespace="k8s-ee-pr-{number}"}
+
+# 2. Check error rate calculation:
+sum(rate(http_requests_total{status_code=~"5..", namespace="k8s-ee-pr-{number}"}[5m])) / sum(rate(http_requests_total{namespace="k8s-ee-pr-{number}"}[5m])) * 100
+
+# 3. Check P99 latency:
+histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{namespace="k8s-ee-pr-{number}"}[5m]))
+```
+
+**Check Alert Status:**
+```bash
+# Port-forward Alertmanager
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-alertmanager 9093:9093
+# Visit localhost:9093 to see firing and pending alerts
 ```
 
 ## Related Documentation

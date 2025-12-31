@@ -1,6 +1,4 @@
-import { Injectable, Logger, Optional, OnModuleDestroy } from '@nestjs/common';
-import { SimulatorService } from './simulator.service';
-import { DatabaseTestService } from '../database-test/database-test.service';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 
 export type AlertType = 'high-error-rate' | 'high-latency' | 'slow-database';
 export const VALID_ALERT_TYPES: readonly AlertType[] = ['high-error-rate', 'high-latency', 'slow-database'] as const;
@@ -53,9 +51,15 @@ const ALERT_TYPES_INFO = Object.fromEntries(
 // Maximum concurrent pending operations to prevent resource exhaustion
 const MAX_PENDING_OPERATIONS = 10;
 
+// Request timeout in milliseconds (30s covers slow latency/database operations)
+const REQUEST_TIMEOUT_MS = 30000;
+
 @Injectable()
 export class AlertDemoService implements OnModuleDestroy {
   private readonly logger = new Logger(AlertDemoService.name);
+  // Uses localhost since the service calls its own API endpoints
+  // This works in Kubernetes because the pod's loopback interface is available
+  private readonly baseUrl = `http://localhost:${process.env.PORT || 3000}`;
 
   private running = false;
   private starting = false; // Mutex flag for start operation
@@ -66,11 +70,7 @@ export class AlertDemoService implements OnModuleDestroy {
   private pendingOperations = 0; // Track pending async operations
   private intervalId: NodeJS.Timeout | null = null;
   private timeoutId: NodeJS.Timeout | null = null;
-
-  constructor(
-    private readonly simulatorService: SimulatorService,
-    @Optional() private readonly databaseTestService?: DatabaseTestService,
-  ) {}
+  private abortController: AbortController | null = null;
 
   /**
    * Clean up timers when module is destroyed (hot-reload, shutdown)
@@ -145,6 +145,7 @@ export class AlertDemoService implements OnModuleDestroy {
       this.endsAt = new Date(Date.now() + config.durationMs);
       this.requestsSent = 0;
       this.pendingOperations = 0;
+      this.abortController = new AbortController();
 
       // Start the interval to send requests
       this.intervalId = setInterval(() => {
@@ -185,6 +186,11 @@ export class AlertDemoService implements OnModuleDestroy {
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
+    // Cancel any in-flight HTTP requests
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
 
     const finalStatus = this.getStatus();
 
@@ -207,20 +213,51 @@ export class AlertDemoService implements OnModuleDestroy {
   }
 
   /**
-   * Execute the action for the given alert type
-   * Note: For high-error-rate, we call getStatusResponse() which increments the counter
-   * but doesn't go through HTTP middleware. The metrics are still recorded because
-   * the service tracks them. For latency/database operations, the async calls
-   * will record their own metrics when they complete.
+   * Make an HTTP request with timeout and abort support.
+   * Errors are logged but not thrown (fire-and-forget pattern).
+   */
+  private fetchWithTimeout(
+    url: string,
+    errorMessage: string,
+    method: 'GET' | 'POST' = 'GET',
+  ): Promise<Response | null> {
+    // Don't start new requests if demo is stopped
+    if (!this.abortController) {
+      return Promise.resolve(null);
+    }
+
+    // Combine stop signal with timeout signal for proper cancellation
+    const signal = AbortSignal.any([
+      this.abortController.signal,
+      AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    ]);
+
+    return fetch(url, { method, signal }).catch((err) => {
+      // Ignore abort errors (expected when demo is stopped or request times out)
+      if (err instanceof Error && err.name === 'AbortError') {
+        return null;
+      }
+      this.logger.error({
+        message: errorMessage,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    });
+  }
+
+  /**
+   * Execute the action for the given alert type.
+   * Makes actual HTTP requests to generate Prometheus metrics via the middleware.
    */
   private executeAlertAction(alertType: AlertType): void {
     switch (alertType) {
       case 'high-error-rate':
-        // Generate a 500 error response - this increments the error counter
-        // Note: This records the response but doesn't go through HTTP middleware
-        // For actual HTTP metrics, users should use the UI status buttons
+        // Make actual HTTP request to generate 500 error metrics
         this.requestsSent++;
-        this.simulatorService.getStatusResponse(500);
+        this.fetchWithTimeout(
+          `${this.baseUrl}/api/simulator/status/500`,
+          'Error rate simulation request failed',
+        );
         break;
 
       case 'high-latency':
@@ -230,22 +267,16 @@ export class AlertDemoService implements OnModuleDestroy {
           return;
         }
 
-        // Increment only after skip check passes
         this.requestsSent++;
         this.pendingOperations++;
 
-        // Simulate a slow response (don't await - let it run in background)
-        this.simulatorService
-          .simulateLatency('slow')
-          .catch((err) => {
-            this.logger.error({
-              message: 'Latency simulation failed',
-              error: err.message,
-            });
-          })
-          .finally(() => {
-            this.pendingOperations--;
-          });
+        // Make actual HTTP request to generate latency metrics
+        this.fetchWithTimeout(
+          `${this.baseUrl}/api/simulator/latency/slow`,
+          'Latency simulation request failed',
+        ).finally(() => {
+          this.pendingOperations--;
+        });
         break;
 
       case 'slow-database':
@@ -255,37 +286,17 @@ export class AlertDemoService implements OnModuleDestroy {
           return;
         }
 
-        // Increment only after skip check passes
         this.requestsSent++;
         this.pendingOperations++;
 
-        // Run heavy database query
-        if (this.databaseTestService) {
-          this.databaseTestService
-            .runHeavyQuery('medium')
-            .catch((err) => {
-              this.logger.error({
-                message: 'Heavy query failed',
-                error: err.message,
-              });
-            })
-            .finally(() => {
-              this.pendingOperations--;
-            });
-        } else {
-          // Fallback to latency simulation if DB service not available
-          this.simulatorService
-            .simulateLatency('slow')
-            .catch((err) => {
-              this.logger.error({
-                message: 'Slow database simulation failed',
-                error: err.message,
-              });
-            })
-            .finally(() => {
-              this.pendingOperations--;
-            });
-        }
+        // Make actual HTTP POST request to generate database query metrics
+        this.fetchWithTimeout(
+          `${this.baseUrl}/api/db-test/heavy-query/medium`,
+          'Heavy query request failed',
+          'POST',
+        ).finally(() => {
+          this.pendingOperations--;
+        });
         break;
     }
   }
