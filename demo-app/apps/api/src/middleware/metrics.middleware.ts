@@ -31,6 +31,7 @@ export class MetricsMiddleware implements NestMiddleware {
     res.on('finish', () => {
       try {
         const duration = Number(process.hrtime.bigint() - startTime) / 1e9;
+        const durationMs = duration * 1000;
         // Use route pattern if available, otherwise normalize the path
         const route = req.route?.path || this.normalizePath(req.path.split('?')[0]);
         const labels = {
@@ -41,6 +42,17 @@ export class MetricsMiddleware implements NestMiddleware {
 
         this.metricsService.httpRequestDuration.observe(labels, duration);
         this.metricsService.httpRequestTotal.inc(labels);
+
+        // Record for summary stats (skip metrics endpoints to avoid skewing data)
+        if (!req.path.startsWith('/metrics')) {
+          this.metricsService.recordRequest(
+            req.method,
+            route,
+            res.statusCode,
+            durationMs,
+            res.statusMessage,
+          );
+        }
       } catch {
         // Silently ignore metrics recording errors - they should never break requests
       }
