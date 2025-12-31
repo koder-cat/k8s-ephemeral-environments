@@ -57,6 +57,21 @@ outputs:
   mariadb-enabled:
     description: 'MariaDB enabled flag'
     value: ${{ steps.parse.outputs.mariadb-enabled }}
+  postgresql-config:
+    description: 'Full PostgreSQL configuration as JSON'
+    value: ${{ steps.parse.outputs.postgresql-config }}
+  mongodb-config:
+    description: 'Full MongoDB configuration as JSON'
+    value: ${{ steps.parse.outputs.mongodb-config }}
+  redis-config:
+    description: 'Full Redis configuration as JSON'
+    value: ${{ steps.parse.outputs.redis-config }}
+  minio-config:
+    description: 'Full MinIO configuration as JSON'
+    value: ${{ steps.parse.outputs.minio-config }}
+  mariadb-config:
+    description: 'Full MariaDB configuration as JSON'
+    value: ${{ steps.parse.outputs.mariadb-config }}
 
 runs:
   using: 'composite'
@@ -277,6 +292,34 @@ runs:
         echo "redis-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.redis == true then "true" elif .databases.redis == false then "false" elif (.databases.redis | type) == "object" then (if .databases.redis.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
         echo "minio-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.minio == true then "true" elif .databases.minio == false then "false" elif (.databases.minio | type) == "object" then (if .databases.minio.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
         echo "mariadb-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.mariadb == true then "true" elif .databases.mariadb == false then "false" elif (.databases.mariadb | type) == "object" then (if .databases.mariadb.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
+
+        # Extract full database configuration as JSON (for passing additional options like bootstrap SQL)
+        # Boolean true becomes {"enabled": true}, object form passes through, false/null becomes {"enabled": false}
+        {
+          echo "postgresql-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c 'if .databases.postgresql == true then {"enabled": true} elif (.databases.postgresql | type) == "object" then .databases.postgresql + {"enabled": (if .databases.postgresql.enabled == false then false else true end)} else {"enabled": false} end'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "mongodb-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c 'if .databases.mongodb == true then {"enabled": true} elif (.databases.mongodb | type) == "object" then .databases.mongodb + {"enabled": (if .databases.mongodb.enabled == false then false else true end)} else {"enabled": false} end'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "redis-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c 'if .databases.redis == true then {"enabled": true} elif (.databases.redis | type) == "object" then .databases.redis + {"enabled": (if .databases.redis.enabled == false then false else true end)} else {"enabled": false} end'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "minio-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c 'if .databases.minio == true then {"enabled": true} elif (.databases.minio | type) == "object" then .databases.minio + {"enabled": (if .databases.minio.enabled == false then false else true end)} else {"enabled": false} end'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "mariadb-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c 'if .databases.mariadb == true then {"enabled": true} elif (.databases.mariadb | type) == "object" then .databases.mariadb + {"enabled": (if .databases.mariadb.enabled == false then false else true end)} else {"enabled": false} end'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
 
         echo ""
         echo "=== Configuration Summary ==="

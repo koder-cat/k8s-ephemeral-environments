@@ -75,6 +75,26 @@ inputs:
     description: 'Enable MariaDB database'
     required: false
     default: 'false'
+  postgresql-config:
+    description: 'Full PostgreSQL configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  mongodb-config:
+    description: 'Full MongoDB configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  redis-config:
+    description: 'Full Redis configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  minio-config:
+    description: 'Full MinIO configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  mariadb-config:
+    description: 'Full MariaDB configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
 
 outputs:
   preview-url:
@@ -242,6 +262,11 @@ runs:
         REDIS_ENABLED: ${{ inputs.redis-enabled }}
         MINIO_ENABLED: ${{ inputs.minio-enabled }}
         MARIADB_ENABLED: ${{ inputs.mariadb-enabled }}
+        POSTGRESQL_CONFIG: ${{ inputs.postgresql-config }}
+        MONGODB_CONFIG: ${{ inputs.mongodb-config }}
+        REDIS_CONFIG: ${{ inputs.redis-config }}
+        MINIO_CONFIG: ${{ inputs.minio-config }}
+        MARIADB_CONFIG: ${{ inputs.mariadb-config }}
       run: |
         set -euo pipefail
 
@@ -272,21 +297,21 @@ runs:
           HELM_ARGS+=("--set" "image.digest=$IMAGE_DIGEST")
         fi
 
-        # Database configuration
+        # Database configuration (pass full config as JSON for bootstrap SQL, storage, etc.)
         if [ "$POSTGRESQL_ENABLED" = "true" ]; then
-          HELM_ARGS+=("--set" "postgresql.enabled=true")
+          HELM_ARGS+=("--set-json" "postgresql=$POSTGRESQL_CONFIG")
         fi
         if [ "$MONGODB_ENABLED" = "true" ]; then
-          HELM_ARGS+=("--set" "mongodb.enabled=true")
+          HELM_ARGS+=("--set-json" "mongodb=$MONGODB_CONFIG")
         fi
         if [ "$REDIS_ENABLED" = "true" ]; then
-          HELM_ARGS+=("--set" "redis.enabled=true")
+          HELM_ARGS+=("--set-json" "redis=$REDIS_CONFIG")
         fi
         if [ "$MINIO_ENABLED" = "true" ]; then
-          HELM_ARGS+=("--set" "minio.enabled=true")
+          HELM_ARGS+=("--set-json" "minio=$MINIO_CONFIG")
         fi
         if [ "$MARIADB_ENABLED" = "true" ]; then
-          HELM_ARGS+=("--set" "mariadb.enabled=true")
+          HELM_ARGS+=("--set-json" "mariadb=$MARIADB_CONFIG")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")

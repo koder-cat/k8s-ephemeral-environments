@@ -103,6 +103,11 @@ jobs:
       redis-enabled: ${{ steps.validate.outputs.redis-enabled }}
       minio-enabled: ${{ steps.validate.outputs.minio-enabled }}
       mariadb-enabled: ${{ steps.validate.outputs.mariadb-enabled }}
+      postgresql-config: ${{ steps.validate.outputs.postgresql-config }}
+      mongodb-config: ${{ steps.validate.outputs.mongodb-config }}
+      redis-config: ${{ steps.validate.outputs.redis-config }}
+      minio-config: ${{ steps.validate.outputs.minio-config }}
+      mariadb-config: ${{ steps.validate.outputs.mariadb-config }}
 
     steps:
       - name: Checkout calling repository
@@ -280,6 +285,11 @@ jobs:
           redis-enabled: ${{ needs.validate-config.outputs.redis-enabled }}
           minio-enabled: ${{ needs.validate-config.outputs.minio-enabled }}
           mariadb-enabled: ${{ needs.validate-config.outputs.mariadb-enabled }}
+          postgresql-config: ${{ needs.validate-config.outputs.postgresql-config }}
+          mongodb-config: ${{ needs.validate-config.outputs.mongodb-config }}
+          redis-config: ${{ needs.validate-config.outputs.redis-config }}
+          minio-config: ${{ needs.validate-config.outputs.minio-config }}
+          mariadb-config: ${{ needs.validate-config.outputs.mariadb-config }}
 
   # ============================================================================
   # PR COMMENT (DEPLOY)

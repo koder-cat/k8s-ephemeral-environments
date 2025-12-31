@@ -23,7 +23,34 @@ image:
 # Database configuration - enables PostgreSQL for this environment
 # Connection string injected as DATABASE_URL environment variable
 databases:
-  postgresql: true
+  postgresql:
+    enabled: true
+    bootstrap:
+      postInitApplicationSQL:
+        - |
+          CREATE TABLE IF NOT EXISTS test_records (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            data JSONB DEFAULT '{}',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_test_records_created_at ON test_records(created_at DESC);
+          CREATE INDEX IF NOT EXISTS idx_test_records_name ON test_records(name);
+          CREATE OR REPLACE FUNCTION update_updated_at_column()
+          RETURNS TRIGGER AS $func$
+          BEGIN
+            NEW.updated_at = NOW();
+            RETURN NEW;
+          END;
+          $func$ language 'plpgsql';
+          DROP TRIGGER IF EXISTS update_test_records_updated_at ON test_records;
+          CREATE TRIGGER update_test_records_updated_at
+            BEFORE UPDATE ON test_records
+            FOR EACH ROW
+            EXECUTE FUNCTION update_updated_at_column();
+          GRANT ALL PRIVILEGES ON test_records TO app;
+          GRANT USAGE, SELECT ON SEQUENCE test_records_id_seq TO app;
 
 # Enable Prometheus metrics scraping via ServiceMonitor
 metrics:
