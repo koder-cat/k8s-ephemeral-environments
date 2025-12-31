@@ -291,6 +291,8 @@ runs:
       shell: bash
       env:
         NAMESPACE: ${{ inputs.namespace }}
+        PROJECT_ID: ${{ inputs.project-id }}
+        PR_NUMBER: ${{ inputs.pr-number }}
         HEALTH_PATH: ${{ inputs.health-path }}
         APP_PORT: ${{ inputs.app-port }}
       run: |
@@ -299,10 +301,11 @@ runs:
         echo "Running in-cluster health check..."
 
         # Find a pod that is actually Ready and not terminating
+        # Use k8s-ee labels set by the Helm chart based on config values
         echo "Finding a Ready pod..."
         POD_NAME=""
         for i in {1..30}; do
-          POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=app \
+          POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l "k8s-ee/project-id=${PROJECT_ID},k8s-ee/pr-number=${PR_NUMBER}" \
             --field-selector=status.phase=Running \
             -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.deletionTimestamp}{" "}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' | \
             grep -E "^[^ ]+  True$" | head -1 | awk '{print $1}') || true

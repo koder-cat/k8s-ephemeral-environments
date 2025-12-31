@@ -151,7 +151,7 @@ Individual containers: max 512Mi memory, 500m CPU.
 
 ### Deployment failed
 
-- Check pod logs: `kubectl logs -n {namespace} -l app.kubernetes.io/name={projectId}`
+- Check pod logs: `kubectl logs -n {namespace} -l k8s-ee/project-id={projectId}`
 - Verify health endpoint returns 200
 - Check resource limits fit within quota
 
