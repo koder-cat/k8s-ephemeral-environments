@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException, NotFoundException } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { DatabaseTestController } from './database-test.controller';
 import { DatabaseTestService, TestRecord } from './database-test.service';
 
@@ -17,14 +18,19 @@ describe('DatabaseTestController', () => {
     getHeavyQueryPresets: ReturnType<typeof vi.fn>;
     runHeavyQuery: ReturnType<typeof vi.fn>;
   };
+  let mockLogger: {
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
   let mockRequest: { correlationId: string };
 
   const mockRecord: TestRecord = {
     id: 1,
     name: 'Test Record',
     data: { foo: 'bar' },
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
   };
 
   beforeEach(() => {
@@ -39,9 +45,17 @@ describe('DatabaseTestController', () => {
       getHeavyQueryPresets: vi.fn(),
       runHeavyQuery: vi.fn(),
     };
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
     mockRequest = { correlationId: 'test-123' };
 
-    controller = new DatabaseTestController(mockService as unknown as DatabaseTestService);
+    controller = new DatabaseTestController(
+      mockService as unknown as DatabaseTestService,
+      mockLogger as unknown as PinoLogger,
+    );
   });
 
   describe('findAll', () => {

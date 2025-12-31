@@ -18,15 +18,7 @@ app:
 
 # Enable databases as needed
 databases:
-  postgresql: true    # Simple enable
-  # Or with bootstrap SQL:
-  # postgresql:
-  #   enabled: true
-  #   bootstrap:
-  #     postInitApplicationSQL:
-  #       - |
-  #         CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(255));
-  #         GRANT ALL PRIVILEGES ON users TO app;
+  postgresql: true    # Connection details injected as DATABASE_URL
 ```
 
 **[Full Configuration Reference](./k8s-ee-config-reference.md)** - All available options with examples.
@@ -173,6 +165,10 @@ Individual containers: max 512Mi memory, 500m CPU.
 - Check your app's database client configuration
 - View app logs for connection errors: `kubectl logs -n {namespace} -l k8s-ee/project-id={projectId}`
 
+### Schema management
+
+For production applications with evolving schemas, use database migrations instead of bootstrap SQL. See [Database Migrations Guide](./database-migrations.md) for Drizzle ORM setup with automatic migrations at startup.
+
 ### PR comment not appearing
 
 - Verify `secrets: inherit` is set in workflow
@@ -183,5 +179,6 @@ Individual containers: max 512Mi memory, 500m CPU.
 ## See Also
 
 - [Configuration Reference](./k8s-ee-config-reference.md) - All configuration options
+- [Service Development Guide](./service-development.md) - Best practices for database/storage services
 - [Migration Guide](./migration-guide.md) - Migrate from manual workflow setup
 - [Troubleshooting Guide](./troubleshooting.md) - Detailed problem resolution

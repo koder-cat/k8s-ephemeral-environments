@@ -9,25 +9,27 @@ import {
   HttpCode,
   HttpStatus,
   HttpException,
-  Logger,
   Req,
 } from '@nestjs/common';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Request } from 'express';
 import { DatabaseTestService } from './database-test.service';
 import { CreateRecordDto, UpdateRecordDto } from './dto/record.dto';
 
 @Controller('db-test')
 export class DatabaseTestController {
-  private readonly logger = new Logger(DatabaseTestController.name);
-
-  constructor(private readonly dbTestService: DatabaseTestService) {}
+  constructor(
+    private readonly dbTestService: DatabaseTestService,
+    @InjectPinoLogger(DatabaseTestController.name)
+    private readonly logger: PinoLogger,
+  ) {}
 
   /**
    * Get all test records
    */
   @Get('records')
   async findAll(@Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'GET /db-test/records',
       correlationId: req.correlationId,
     });
@@ -62,7 +64,7 @@ export class DatabaseTestController {
   async findOne(@Param('id') idStr: string, @Req() req: Request) {
     const id = parseInt(idStr, 10);
 
-    this.logger.log({
+    this.logger.info({
       message: 'GET /db-test/records/:id',
       id,
       correlationId: req.correlationId,
@@ -88,7 +90,7 @@ export class DatabaseTestController {
    */
   @Post('records')
   async create(@Body() dto: CreateRecordDto, @Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'POST /db-test/records',
       name: dto.name,
       correlationId: req.correlationId,
@@ -96,7 +98,7 @@ export class DatabaseTestController {
 
     try {
       const record = await this.dbTestService.create(dto);
-      this.logger.log({
+      this.logger.info({
         message: 'Record created',
         id: record.id,
         correlationId: req.correlationId,
@@ -129,7 +131,7 @@ export class DatabaseTestController {
   ) {
     const id = parseInt(idStr, 10);
 
-    this.logger.log({
+    this.logger.info({
       message: 'PUT /db-test/records/:id',
       id,
       updates: dto,
@@ -150,7 +152,7 @@ export class DatabaseTestController {
 
     try {
       const record = await this.dbTestService.update(id, dto);
-      this.logger.log({
+      this.logger.info({
         message: 'Record updated',
         id,
         correlationId: req.correlationId,
@@ -183,7 +185,7 @@ export class DatabaseTestController {
   async remove(@Param('id') idStr: string, @Req() req: Request) {
     const id = parseInt(idStr, 10);
 
-    this.logger.log({
+    this.logger.info({
       message: 'DELETE /db-test/records/:id',
       id,
       correlationId: req.correlationId,
@@ -203,7 +205,7 @@ export class DatabaseTestController {
 
     try {
       const result = await this.dbTestService.remove(id);
-      this.logger.log({
+      this.logger.info({
         message: 'Record deleted',
         id,
         correlationId: req.correlationId,
@@ -234,14 +236,14 @@ export class DatabaseTestController {
    */
   @Delete('records')
   async removeAll(@Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'DELETE /db-test/records (all)',
       correlationId: req.correlationId,
     });
 
     try {
       const result = await this.dbTestService.removeAll();
-      this.logger.log({
+      this.logger.info({
         message: 'All records deleted',
         count: result.deleted,
         correlationId: req.correlationId,
@@ -268,7 +270,7 @@ export class DatabaseTestController {
    */
   @Get('stats')
   async getStats(@Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'GET /db-test/stats',
       correlationId: req.correlationId,
     });
@@ -296,7 +298,7 @@ export class DatabaseTestController {
    */
   @Get('heavy-query')
   getHeavyQueryPresets(@Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'GET /db-test/heavy-query (presets)',
       correlationId: req.correlationId,
     });
@@ -313,7 +315,7 @@ export class DatabaseTestController {
   @Post('heavy-query/:preset')
   @HttpCode(HttpStatus.OK)
   async runHeavyQuery(@Param('preset') preset: string, @Req() req: Request) {
-    this.logger.log({
+    this.logger.info({
       message: 'POST /db-test/heavy-query/:preset',
       preset,
       correlationId: req.correlationId,
@@ -321,7 +323,7 @@ export class DatabaseTestController {
 
     try {
       const result = await this.dbTestService.runHeavyQuery(preset);
-      this.logger.log({
+      this.logger.info({
         message: 'Heavy query completed',
         preset,
         durationMs: result.durationMs,

@@ -36,16 +36,17 @@ spec:
       {{- if or .Values.postgresql.enabled .Values.mongodb.enabled .Values.redis.enabled .Values.minio.enabled .Values.mariadb.enabled }}
       initContainers:
         {{- if .Values.postgresql.enabled }}
+        # Uses pg_isready for true readiness check (not just port availability)
         - name: wait-for-postgresql
-          image: busybox:1.36
+          image: postgres:16-alpine
           command:
             - sh
             - -c
             - |
-              echo "Waiting for PostgreSQL (timeout: 120s)..."
+              echo "Waiting for PostgreSQL to accept connections..."
               TIMEOUT=120
               ELAPSED=0
-              while ! nc -z {{ include "postgresql.serviceName" .Subcharts.postgresql }} 5432; do
+              until pg_isready -h {{ include "postgresql.serviceName" .Subcharts.postgresql }} -p 5432 -U app -t 2 2>/dev/null; do
                 if [ $ELAPSED -ge $TIMEOUT ]; then
                   echo "ERROR: Timed out waiting for PostgreSQL"
                   exit 1
@@ -66,16 +67,17 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
         {{- end }}
         {{- if .Values.mongodb.enabled }}
+        # Uses mongosh ping for true readiness check (not just port availability)
         - name: wait-for-mongodb
-          image: busybox:1.36
+          image: mongo:7-jammy
           command:
             - sh
             - -c
             - |
-              echo "Waiting for MongoDB (timeout: 120s)..."
+              echo "Waiting for MongoDB to accept connections..."
               TIMEOUT=120
               ELAPSED=0
-              while ! nc -z {{ include "mongodb.serviceName" .Subcharts.mongodb }} 27017; do
+              until mongosh --host {{ include "mongodb.serviceName" .Subcharts.mongodb }} --eval "db.adminCommand('ping')" --quiet 2>/dev/null; do
                 if [ $ELAPSED -ge $TIMEOUT ]; then
                   echo "ERROR: Timed out waiting for MongoDB"
                   exit 1
@@ -88,24 +90,26 @@ spec:
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
-            limits:
-              cpu: 50m
               memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
         {{- end }}
         {{- if .Values.redis.enabled }}
+        # Uses redis-cli ping for true readiness check (not just port availability)
         - name: wait-for-redis
-          image: busybox:1.36
+          image: redis:7-alpine
           command:
             - sh
             - -c
             - |
-              echo "Waiting for Redis (timeout: 60s)..."
+              echo "Waiting for Redis to accept connections..."
               TIMEOUT=60
               ELAPSED=0
-              while ! nc -z {{ include "redis.serviceName" .Subcharts.redis }} 6379; do
+              # REDISCLI_AUTH env var is automatically used by redis-cli when auth is enabled
+              until redis-cli -h {{ include "redis.serviceName" .Subcharts.redis }} ping 2>/dev/null | grep -q PONG; do
                 if [ $ELAPSED -ge $TIMEOUT ]; then
                   echo "ERROR: Timed out waiting for Redis"
                   exit 1
@@ -115,6 +119,15 @@ spec:
                 ELAPSED=$((ELAPSED + 2))
               done
               echo "Redis is ready!"
+          {{- if .Values.redis.auth.enabled }}
+          env:
+            # REDISCLI_AUTH is automatically used by redis-cli (no password in process args)
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "redis.secretName" .Subcharts.redis }}
+                  key: password
+          {{- end }}
           resources:
             requests:
               cpu: 10m
@@ -126,16 +139,17 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
         {{- end }}
         {{- if .Values.minio.enabled }}
+        # Uses MinIO health endpoint for true readiness check (not just port availability)
         - name: wait-for-minio
-          image: busybox:1.36
+          image: curlimages/curl:8.5.0
           command:
             - sh
             - -c
             - |
-              echo "Waiting for MinIO (timeout: 120s)..."
+              echo "Waiting for MinIO to accept connections..."
               TIMEOUT=120
               ELAPSED=0
-              while ! nc -z {{ include "minio.serviceName" .Subcharts.minio }} 9000; do
+              until curl -sf http://{{ include "minio.serviceName" .Subcharts.minio }}:9000/minio/health/live 2>/dev/null; do
                 if [ $ELAPSED -ge $TIMEOUT ]; then
                   echo "ERROR: Timed out waiting for MinIO"
                   exit 1
@@ -156,16 +170,18 @@ spec:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
         {{- end }}
         {{- if .Values.mariadb.enabled }}
+        # Uses mariadb-admin ping for true readiness check (not just port availability)
         - name: wait-for-mariadb
-          image: busybox:1.36
+          image: mariadb:11
           command:
             - sh
             - -c
             - |
-              echo "Waiting for MariaDB (timeout: 120s)..."
+              echo "Waiting for MariaDB to accept connections..."
               TIMEOUT=120
               ELAPSED=0
-              while ! nc -z {{ include "mariadb.serviceName" .Subcharts.mariadb }} 3306; do
+              # MYSQL_PWD is automatically used by mariadb-admin (no password in process args)
+              until mariadb-admin ping -h {{ include "mariadb.serviceName" .Subcharts.mariadb }} -u root --silent 2>/dev/null; do
                 if [ $ELAPSED -ge $TIMEOUT ]; then
                   echo "ERROR: Timed out waiting for MariaDB"
                   exit 1
@@ -175,13 +191,20 @@ spec:
                 ELAPSED=$((ELAPSED + 2))
               done
               echo "MariaDB is ready!"
+          env:
+            # MYSQL_PWD is automatically used by mariadb-admin (no password in process args)
+            - name: MYSQL_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mariadb.secretName" .Subcharts.mariadb }}
+                  key: root-password
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
-            limits:
-              cpu: 50m
               memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
         {{- end }}

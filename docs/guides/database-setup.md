@@ -264,31 +264,31 @@ env:
 
 ## Database Initialization
 
-### Running Migrations
+### Migrations vs Bootstrap SQL
 
-Option 1: **Init Container** (recommended for production-like behavior)
+| Approach | Best For | Schema Versioning | Supports Changes |
+|----------|----------|-------------------|------------------|
+| **Drizzle ORM Migrations** | Production apps, evolving schemas | Yes | Yes |
+| **Bootstrap SQL** | Simple demos, static schemas | No | No |
 
-```yaml
-# deployment.yaml
-initContainers:
-  - name: migrate
-    image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-    command: ["npm", "run", "migrate"]
-    env:
-      {{- include "postgresql.envVars" .Subcharts.postgresql | nindent 6 }}
+**Recommendation:** Use migrations for production-grade applications. See [Database Migrations Guide](./database-migrations.md) for full documentation.
+
+### Running Migrations (Recommended)
+
+Use Drizzle ORM for type-safe, versioned migrations:
+
+```typescript
+// Run migrations at app startup
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+
+await migrate(db, { migrationsFolder: './drizzle' });
 ```
 
-Option 2: **Application Startup** (simpler for ephemeral environments)
+See [Database Migrations Guide](./database-migrations.md) and [Database Seeding Guide](./database-seeding.md) for complete setup instructions.
 
-```javascript
-// Run migrations on app start
-const { migrate } = require('./db/migrate');
-await migrate();
-```
+### Database Bootstrap SQL (Simple Cases Only)
 
-### Database Bootstrap SQL
-
-For ephemeral PR environments, use CloudNativePG's bootstrap configuration to run SQL during cluster initialization:
+For simple demos with static schemas that never change, use CloudNativePG's bootstrap configuration:
 
 ```yaml
 # values.yaml

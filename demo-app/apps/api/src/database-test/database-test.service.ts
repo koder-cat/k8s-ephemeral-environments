@@ -1,14 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { eq, desc, count } from 'drizzle-orm';
 import { DatabaseService } from '../database.service';
+import { testRecords, TestRecord } from '../db/schema';
 import { CreateRecordDto, UpdateRecordDto } from './dto/record.dto';
 
-export interface TestRecord {
-  id: number;
-  name: string;
-  data: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
+// Re-export TestRecord type for consumers
+export type { TestRecord } from '../db/schema';
 
 export interface HeavyQueryResult {
   preset: string;
@@ -26,26 +24,25 @@ const HEAVY_QUERY_PRESETS: Record<string, { sleepSeconds: number; rows: number }
 
 @Injectable()
 export class DatabaseTestService {
-  private readonly logger = new Logger(DatabaseTestService.name);
-
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    @InjectPinoLogger(DatabaseTestService.name)
+    private readonly logger: PinoLogger,
+  ) {}
 
   /**
-   * Get all test records
+   * Get all test records using Drizzle ORM
    */
   async findAll(): Promise<TestRecord[]> {
-    this.logger.log('Fetching all test records');
+    this.logger.info('Fetching all test records');
 
-    const records = await this.database.query<TestRecord>(
-      `SELECT id, name, data, created_at, updated_at
-       FROM test_records
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      undefined,
-      'read_record',
-    );
+    const records = await this.database.db
+      .select()
+      .from(testRecords)
+      .orderBy(desc(testRecords.createdAt))
+      .limit(100);
 
-    this.logger.log(`Found ${records.length} test records`);
+    this.logger.info(`Found ${records.length} test records`);
     return records;
   }
 
@@ -53,15 +50,12 @@ export class DatabaseTestService {
    * Get a single test record by ID
    */
   async findOne(id: number): Promise<TestRecord> {
-    this.logger.log({ id }, 'Fetching test record');
+    this.logger.info({ id }, 'Fetching test record');
 
-    const records = await this.database.query<TestRecord>(
-      `SELECT id, name, data, created_at, updated_at
-       FROM test_records
-       WHERE id = $1`,
-      [id],
-      'read_record',
-    );
+    const records = await this.database.db
+      .select()
+      .from(testRecords)
+      .where(eq(testRecords.id, id));
 
     if (records.length === 0) {
       this.logger.warn({ id }, 'Test record not found');
@@ -75,17 +69,21 @@ export class DatabaseTestService {
    * Create a new test record
    */
   async create(dto: CreateRecordDto): Promise<TestRecord> {
-    this.logger.log({ name: dto.name }, 'Creating test record');
+    this.logger.info({ name: dto.name }, 'Creating test record');
 
-    const records = await this.database.query<TestRecord>(
-      `INSERT INTO test_records (name, data)
-       VALUES ($1, $2)
-       RETURNING id, name, data, created_at, updated_at`,
-      [dto.name, JSON.stringify(dto.data || {})],
-      'create_record',
-    );
+    const records = await this.database.db
+      .insert(testRecords)
+      .values({
+        name: dto.name,
+        data: dto.data || {},
+      })
+      .returning();
 
-    this.logger.log({ id: records[0].id, name: dto.name }, 'Test record created');
+    if (records.length === 0) {
+      throw new Error('Insert did not return a record');
+    }
+
+    this.logger.info({ id: records[0].id, name: dto.name }, 'Test record created');
     return records[0];
   }
 
@@ -93,43 +91,41 @@ export class DatabaseTestService {
    * Update an existing test record
    */
   async update(id: number, dto: UpdateRecordDto): Promise<TestRecord> {
-    this.logger.log({ id, updates: dto }, 'Updating test record');
+    this.logger.info({ id, updates: dto }, 'Updating test record');
 
-    // Build dynamic update query
-    const updates: string[] = [];
-    const params: unknown[] = [];
-    let paramIndex = 1;
+    // Build update object dynamically with updatedAt
+    const updateData: Partial<{
+      name: string;
+      data: Record<string, unknown>;
+      updatedAt: Date;
+    }> = {};
 
     if (dto.name !== undefined) {
-      updates.push(`name = $${paramIndex++}`);
-      params.push(dto.name);
+      updateData.name = dto.name;
     }
     if (dto.data !== undefined) {
-      updates.push(`data = $${paramIndex++}`);
-      params.push(JSON.stringify(dto.data));
+      updateData.data = dto.data;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return this.findOne(id);
     }
 
-    params.push(id);
+    // Always update the updatedAt timestamp
+    updateData.updatedAt = new Date();
 
-    const records = await this.database.query<TestRecord>(
-      `UPDATE test_records
-       SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
-       RETURNING id, name, data, created_at, updated_at`,
-      params,
-      'update_record',
-    );
+    const records = await this.database.db
+      .update(testRecords)
+      .set(updateData)
+      .where(eq(testRecords.id, id))
+      .returning();
 
     if (records.length === 0) {
       this.logger.warn({ id }, 'Test record not found for update');
       throw new NotFoundException(`Record with ID ${id} not found`);
     }
 
-    this.logger.log({ id }, 'Test record updated');
+    this.logger.info({ id }, 'Test record updated');
     return records[0];
   }
 
@@ -137,20 +133,19 @@ export class DatabaseTestService {
    * Delete a test record
    */
   async remove(id: number): Promise<{ deleted: boolean; id: number }> {
-    this.logger.log({ id }, 'Deleting test record');
+    this.logger.info({ id }, 'Deleting test record');
 
-    const result = await this.database.query<{ id: number }>(
-      `DELETE FROM test_records WHERE id = $1 RETURNING id`,
-      [id],
-      'delete_record',
-    );
+    const deleted = await this.database.db
+      .delete(testRecords)
+      .where(eq(testRecords.id, id))
+      .returning({ id: testRecords.id });
 
-    if (result.length === 0) {
+    if (deleted.length === 0) {
       this.logger.warn({ id }, 'Test record not found for deletion');
       throw new NotFoundException(`Record with ID ${id} not found`);
     }
 
-    this.logger.log({ id }, 'Test record deleted');
+    this.logger.info({ id }, 'Test record deleted');
     return { deleted: true, id };
   }
 
@@ -158,35 +153,26 @@ export class DatabaseTestService {
    * Delete all test records
    */
   async removeAll(): Promise<{ deleted: number }> {
-    this.logger.log('Deleting all test records');
+    this.logger.info('Deleting all test records');
 
-    const result = await this.database.query<{ count: string }>(
-      `WITH deleted AS (DELETE FROM test_records RETURNING *)
-       SELECT COUNT(*) as count FROM deleted`,
-      undefined,
-      'delete_record',
-    );
+    const deleted = await this.database.db.delete(testRecords).returning({ id: testRecords.id });
 
-    const count = parseInt(result[0]?.count || '0', 10);
-    this.logger.log({ count }, 'All test records deleted');
-    return { deleted: count };
+    this.logger.info({ count: deleted.length }, 'All test records deleted');
+    return { deleted: deleted.length };
   }
 
   /**
-   * Get record count
+   * Get record count using Drizzle
    */
   async count(): Promise<{ count: number }> {
-    const result = await this.database.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM test_records`,
-      undefined,
-      'read_record',
-    );
+    const result = await this.database.db.select({ count: count() }).from(testRecords);
 
-    return { count: parseInt(result[0]?.count || '0', 10) };
+    return { count: Number(result[0]?.count || 0) };
   }
 
   /**
-   * Run a heavy query to simulate slow database operations
+   * Run a heavy query to simulate slow database operations.
+   * Uses raw SQL for PostgreSQL-specific functions (pg_sleep, generate_series).
    */
   async runHeavyQuery(preset: string): Promise<HeavyQueryResult> {
     const config = HEAVY_QUERY_PRESETS[preset];
@@ -197,16 +183,14 @@ export class DatabaseTestService {
       );
     }
 
-    this.logger.log(
+    this.logger.info(
       { preset, sleepSeconds: config.sleepSeconds, rows: config.rows },
       'Starting heavy query',
     );
 
     const startTime = Date.now();
 
-    // Run a query that simulates heavy load
-    // 1. pg_sleep for artificial delay (in CTE to run only once)
-    // 2. generate_series for row generation
+    // Use raw SQL for PostgreSQL-specific functions
     await this.database.query(
       `WITH sleep AS (SELECT pg_sleep($1))
        SELECT
@@ -220,10 +204,7 @@ export class DatabaseTestService {
 
     const durationMs = Date.now() - startTime;
 
-    this.logger.log(
-      { preset, durationMs, rowCount: config.rows },
-      'Heavy query completed',
-    );
+    this.logger.info({ preset, durationMs, rowCount: config.rows }, 'Heavy query completed');
 
     return {
       preset,
@@ -251,6 +232,7 @@ export class DatabaseTestService {
     const poolStats = this.database.getPoolStats();
     const countResult = await this.count();
 
+    // Use raw SQL for PostgreSQL-specific function
     const sizeResult = await this.database.query<{ size: string }>(
       `SELECT pg_size_pretty(pg_total_relation_size('test_records')) as size`,
       undefined,

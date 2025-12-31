@@ -5,7 +5,7 @@ import { Request } from 'express';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseService } from './database.service';
+import { DatabaseModule } from './database.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { SimulatorModule } from './simulator/simulator.module';
 import { DatabaseTestModule } from './database-test/database-test.module';
@@ -40,11 +40,12 @@ import { MetricsMiddleware } from './middleware/metrics.middleware';
       },
     }),
     MetricsModule,
+    DatabaseModule,
     SimulatorModule,
     DatabaseTestModule,
   ],
   controllers: [AppController],
-  providers: [AppService, DatabaseService],
+  providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

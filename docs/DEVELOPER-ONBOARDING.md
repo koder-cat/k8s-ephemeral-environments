@@ -291,6 +291,7 @@ To add PR preview environments to your own repository, see the [Onboarding Guide
 Now that you're set up, explore these resources:
 
 - [Onboarding Guide](guides/onboarding-new-repo.md) - Add PR environments to your repo
+- [Service Development Guide](guides/service-development.md) - Best practices for database/storage services
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
 - [Troubleshooting Guide](guides/troubleshooting.md) - Debug common issues
 - [Grafana Dashboards Runbook](runbooks/grafana-dashboards.md) - Dashboard operations

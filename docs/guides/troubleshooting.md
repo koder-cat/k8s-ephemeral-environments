@@ -5,9 +5,11 @@ This guide helps diagnose and resolve common issues with PR environments.
 ## Table of Contents
 
 - [Quick Diagnosis](#quick-diagnosis)
+- [Initialization Race Conditions](#initialization-race-conditions)
 - [PR Namespace Issues](#pr-namespace-issues)
 - [Deployment Failures](#deployment-failures)
 - [Database Issues](#database-issues)
+- [Migration Issues](#migration-issues)
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
 - [Common kubectl Commands](#common-kubectl-commands)
@@ -29,6 +31,66 @@ Is the namespace created?
             ├── No → See "Database Issues"
             └── Yes → See "Health Check Failures"
 ```
+
+## Initialization Race Conditions
+
+Race conditions occur when the app starts before dependencies (database, storage) are fully ready. This is one of the most common issues in Kubernetes environments.
+
+### Symptoms
+- "Migration failed" errors immediately at startup
+- "Database not connected" errors on first requests
+- App works after manual pod restart
+- Logs show connection errors followed by app starting anyway
+
+### Root Cause
+
+Even with proper init containers using native client tools (`pg_isready`, etc.), a small timing window can exist between init container success and app startup:
+
+```
+1. PostgreSQL pod starts and initializes
+2. Init container (pg_isready) confirms readiness → SUCCESS
+3. App pod starts (small timing gap here)
+4. onModuleInit() runs immediately
+5. Transient connection issue → MIGRATION FAILS
+6. App starts with broken database state
+```
+
+This is rare (~1% of deployments) but the app should handle it with short retry logic.
+
+### Diagnosis
+
+```bash
+# Check if this is a race condition (look for timing)
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId} | grep -E "(not ready|retry|connection refused)"
+
+# Check init container logs
+kubectl logs -n k8s-ee-pr-{number} <pod-name> -c wait-for-postgresql
+
+# Verify database pod readiness
+kubectl get pods -n k8s-ee-pr-{number} -l cnpg.io/cluster -o wide
+```
+
+### Resolution
+
+**Immediate fix:** Restart the pod after database is ready:
+```bash
+kubectl rollout restart deployment -n k8s-ee-pr-{number} <app-deployment>
+```
+
+**Permanent fix:** Ensure your service implements retry logic:
+```typescript
+// In onModuleInit(), wait for database before migrations
+await this.waitForDatabase();  // Retries 3 times, 1s delay (handles init container timing gap)
+await this.runMigrations();    // Only after connection confirmed
+```
+
+### Prevention
+
+1. **Application-level retry**: Implement `waitForDatabase()` with exponential backoff
+2. **Proper init containers**: Use native client tools (`pg_isready`, `redis-cli ping`)
+3. **Follow patterns**: See [Service Development Guide](./service-development.md)
+
+**Best practice:** Both init containers AND application retry should be implemented (defense in depth).
 
 ## PR Namespace Issues
 
@@ -378,6 +440,102 @@ kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} 
 ```
 
 **Prevention:** Always include GRANT statements in your `postInitApplicationSQL`.
+
+## Migration Issues
+
+### Migration Failed at Startup
+
+**Symptoms:**
+- App crashes immediately with migration error
+- Logs show "Migration failed" or SQL errors
+- Pod in CrashLoopBackOff with migration stack traces
+
+**Diagnosis:**
+```bash
+# Check app logs for migration errors
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId}
+
+# Connect to database directly to check state
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c \
+  'SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 5;'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Database not ready | App tried to migrate before DB was available |
+| Conflicting migration | Schema change conflicts with existing state |
+| Missing drizzle folder | Migrations not included in Docker build |
+| Network policy blocking | App can't reach PostgreSQL service |
+
+**Resolution:**
+```bash
+# Option 1: For ephemeral environments, close and reopen PR
+# This recreates the namespace with fresh database
+
+# Option 2: Check migration status
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dt'
+
+# Option 3: Verify drizzle folder exists in container
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l k8s-ee/project-id={projectId} -o name | head -1) -- ls -la /app/drizzle
+```
+
+### Schema Out of Sync
+
+**Symptoms:**
+- TypeScript errors in IDE for database queries
+- Runtime errors: "column does not exist"
+- Query results missing expected fields
+
+**Diagnosis:**
+```bash
+# Compare schema to actual database
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\d test_records'
+```
+
+**Resolution:**
+```bash
+# Generate new migration locally
+pnpm db:generate --name=fix_schema
+
+# Commit and push - new migration will run on next deployment
+git add drizzle/
+git commit -m "fix: add missing column migration"
+git push
+```
+
+### Seeding Failed
+
+**Symptoms:**
+- App logs show "Seeding failed" errors
+- No initial data in database after deployment
+- Seed script throws type errors
+
+**Diagnosis:**
+```bash
+# Check app startup logs
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId} | grep -i seed
+
+# Verify table exists before seeding
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c \
+  'SELECT COUNT(*) FROM test_records;'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Migration didn't complete | Seeding runs after migrations - check migration first |
+| Schema mismatch | Seed script columns don't match schema |
+| Data already exists | Seeding skips if table has data |
+
+**Note:** Seeding is designed to be non-blocking - the app continues even if seeding fails. Check logs but this shouldn't crash your application.
 
 ## Network Policy Issues
 
