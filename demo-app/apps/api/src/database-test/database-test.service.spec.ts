@@ -3,16 +3,62 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import { DatabaseTestService } from './database-test.service';
 import { DatabaseService } from '../database.service';
+import { PinoLogger } from 'nestjs-pino';
+
+// Mock record data
+const mockRecord = {
+  id: 1,
+  name: 'Test',
+  data: {},
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
 
 describe('DatabaseTestService', () => {
   let service: DatabaseTestService;
   let mockDatabase: {
+    db: {
+      select: ReturnType<typeof vi.fn>;
+      insert: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+    };
     query: ReturnType<typeof vi.fn>;
     getPoolStats: ReturnType<typeof vi.fn>;
   };
+  let mockLogger: {
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+  };
+
+  // Helper to create chainable mock for Drizzle queries
+  const createChainableMock = (result: unknown) => {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+    chain.from = vi.fn().mockReturnValue(chain);
+    chain.where = vi.fn().mockReturnValue(chain);
+    chain.orderBy = vi.fn().mockReturnValue(chain);
+    chain.limit = vi.fn().mockResolvedValue(result);
+    chain.values = vi.fn().mockReturnValue(chain);
+    chain.set = vi.fn().mockReturnValue(chain);
+    chain.returning = vi.fn().mockResolvedValue(result);
+    return chain;
+  };
 
   beforeEach(() => {
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
     mockDatabase = {
+      db: {
+        select: vi.fn(),
+        insert: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
       query: vi.fn(),
       getPoolStats: vi.fn().mockReturnValue({
         total: 10,
@@ -22,45 +68,44 @@ describe('DatabaseTestService', () => {
       }),
     };
 
-    service = new DatabaseTestService(mockDatabase as unknown as DatabaseService);
+    service = new DatabaseTestService(
+      mockDatabase as unknown as DatabaseService,
+      mockLogger as unknown as PinoLogger,
+    );
   });
 
   describe('findAll', () => {
     it('should return all test records', async () => {
-      const mockRecords = [
-        { id: 1, name: 'Test 1', data: {}, created_at: '2024-01-01', updated_at: '2024-01-01' },
-        { id: 2, name: 'Test 2', data: {}, created_at: '2024-01-02', updated_at: '2024-01-02' },
-      ];
-      mockDatabase.query.mockResolvedValue(mockRecords);
+      const mockRecords = [mockRecord, { ...mockRecord, id: 2, name: 'Test 2' }];
+      const chain = createChainableMock(mockRecords);
+      mockDatabase.db.select.mockReturnValue(chain);
 
       const result = await service.findAll();
 
       expect(result).toEqual(mockRecords);
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT id, name, data'),
-        undefined,
-        'read_record',
-      );
+      expect(mockDatabase.db.select).toHaveBeenCalled();
+      expect(chain.from).toHaveBeenCalled();
+      expect(chain.orderBy).toHaveBeenCalled();
+      expect(chain.limit).toHaveBeenCalledWith(100);
     });
   });
 
   describe('findOne', () => {
     it('should return a single record', async () => {
-      const mockRecord = { id: 1, name: 'Test', data: {}, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      const chain = createChainableMock([mockRecord]);
+      // For findOne, we need to mock the full chain without limit
+      chain.where = vi.fn().mockResolvedValue([mockRecord]);
+      mockDatabase.db.select.mockReturnValue(chain);
 
       const result = await service.findOne(1);
 
       expect(result).toEqual(mockRecord);
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE id = $1'),
-        [1],
-        'read_record',
-      );
     });
 
     it('should throw NotFoundException when record not found', async () => {
-      mockDatabase.query.mockResolvedValue([]);
+      const chain = createChainableMock([]);
+      chain.where = vi.fn().mockResolvedValue([]);
+      mockDatabase.db.select.mockReturnValue(chain);
 
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
     });
@@ -68,73 +113,71 @@ describe('DatabaseTestService', () => {
 
   describe('create', () => {
     it('should create a new record', async () => {
-      const mockRecord = { id: 1, name: 'Test', data: { foo: 'bar' }, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      const chain = createChainableMock([mockRecord]);
+      mockDatabase.db.insert.mockReturnValue(chain);
 
       const result = await service.create({ name: 'Test', data: { foo: 'bar' } });
 
       expect(result).toEqual(mockRecord);
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO test_records'),
-        ['Test', JSON.stringify({ foo: 'bar' })],
-        'create_record',
-      );
+      expect(mockDatabase.db.insert).toHaveBeenCalled();
+      expect(chain.values).toHaveBeenCalled();
+      expect(chain.returning).toHaveBeenCalled();
     });
 
     it('should handle empty data', async () => {
-      const mockRecord = { id: 1, name: 'Test', data: {}, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      const chain = createChainableMock([mockRecord]);
+      mockDatabase.db.insert.mockReturnValue(chain);
 
       await service.create({ name: 'Test' });
 
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO test_records'),
-        ['Test', '{}'],
-        'create_record',
-      );
+      expect(chain.values).toHaveBeenCalledWith({ name: 'Test', data: {} });
+    });
+
+    it('should throw error when insert returns empty', async () => {
+      const chain = createChainableMock([]);
+      mockDatabase.db.insert.mockReturnValue(chain);
+
+      await expect(service.create({ name: 'Test' })).rejects.toThrow('Insert did not return a record');
     });
   });
 
   describe('update', () => {
     it('should update a record with name', async () => {
-      const mockRecord = { id: 1, name: 'Updated', data: {}, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      const updatedRecord = { ...mockRecord, name: 'Updated' };
+      const chain = createChainableMock([updatedRecord]);
+      mockDatabase.db.update.mockReturnValue(chain);
 
       const result = await service.update(1, { name: 'Updated' });
 
-      expect(result).toEqual(mockRecord);
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE test_records'),
-        ['Updated', 1],
-        'update_record',
-      );
+      expect(result).toEqual(updatedRecord);
+      expect(mockDatabase.db.update).toHaveBeenCalled();
     });
 
     it('should update a record with data', async () => {
-      const mockRecord = { id: 1, name: 'Test', data: { foo: 'baz' }, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      const updatedRecord = { ...mockRecord, data: { foo: 'baz' } };
+      const chain = createChainableMock([updatedRecord]);
+      mockDatabase.db.update.mockReturnValue(chain);
 
       const result = await service.update(1, { data: { foo: 'baz' } });
 
-      expect(result).toEqual(mockRecord);
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE test_records'),
-        [JSON.stringify({ foo: 'baz' }), 1],
-        'update_record',
-      );
+      expect(result).toEqual(updatedRecord);
     });
 
     it('should return existing record when no updates provided', async () => {
-      const mockRecord = { id: 1, name: 'Test', data: {}, created_at: '2024-01-01', updated_at: '2024-01-01' };
-      mockDatabase.query.mockResolvedValue([mockRecord]);
+      // For empty updates, it calls findOne
+      const chain = createChainableMock([mockRecord]);
+      chain.where = vi.fn().mockResolvedValue([mockRecord]);
+      mockDatabase.db.select.mockReturnValue(chain);
 
       const result = await service.update(1, {});
 
       expect(result).toEqual(mockRecord);
+      expect(mockDatabase.db.update).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when record not found', async () => {
-      mockDatabase.query.mockResolvedValue([]);
+      const chain = createChainableMock([]);
+      mockDatabase.db.update.mockReturnValue(chain);
 
       await expect(service.update(999, { name: 'Updated' })).rejects.toThrow(NotFoundException);
     });
@@ -142,20 +185,17 @@ describe('DatabaseTestService', () => {
 
   describe('remove', () => {
     it('should delete a record', async () => {
-      mockDatabase.query.mockResolvedValue([{ id: 1 }]);
+      const chain = createChainableMock([{ id: 1 }]);
+      mockDatabase.db.delete.mockReturnValue(chain);
 
       const result = await service.remove(1);
 
       expect(result).toEqual({ deleted: true, id: 1 });
-      expect(mockDatabase.query).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM test_records'),
-        [1],
-        'delete_record',
-      );
     });
 
     it('should throw NotFoundException when record not found', async () => {
-      mockDatabase.query.mockResolvedValue([]);
+      const chain = createChainableMock([]);
+      mockDatabase.db.delete.mockReturnValue(chain);
 
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
@@ -163,25 +203,22 @@ describe('DatabaseTestService', () => {
 
   describe('removeAll', () => {
     it('should delete all records', async () => {
-      mockDatabase.query.mockResolvedValue([{ count: '5' }]);
+      const chain = createChainableMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      mockDatabase.db.delete.mockReturnValue(chain);
 
       const result = await service.removeAll();
 
-      expect(result).toEqual({ deleted: 5 });
-    });
-
-    it('should handle empty result', async () => {
-      mockDatabase.query.mockResolvedValue([{}]);
-
-      const result = await service.removeAll();
-
-      expect(result).toEqual({ deleted: 0 });
+      expect(result).toEqual({ deleted: 3 });
     });
   });
 
   describe('count', () => {
     it('should return record count', async () => {
-      mockDatabase.query.mockResolvedValue([{ count: '42' }]);
+      // count() uses db.select({ count }).from() - from is the terminal call
+      const chain = {
+        from: vi.fn().mockResolvedValue([{ count: 42 }]),
+      };
+      mockDatabase.db.select.mockReturnValue(chain);
 
       const result = await service.count();
 
@@ -219,9 +256,14 @@ describe('DatabaseTestService', () => {
 
   describe('getStats', () => {
     it('should return database stats', async () => {
-      mockDatabase.query
-        .mockResolvedValueOnce([{ count: '10' }])
-        .mockResolvedValueOnce([{ size: '8 kB' }]);
+      // count() uses db.select({ count }).from() - from is the terminal call
+      const countChain = {
+        from: vi.fn().mockResolvedValue([{ count: 10 }]),
+      };
+      mockDatabase.db.select.mockReturnValue(countChain);
+
+      // Mock raw SQL query for table size
+      mockDatabase.query.mockResolvedValue([{ size: '8 kB' }]);
 
       const result = await service.getStats();
 
@@ -236,9 +278,11 @@ describe('DatabaseTestService', () => {
     });
 
     it('should handle unknown table size', async () => {
-      mockDatabase.query
-        .mockResolvedValueOnce([{ count: '0' }])
-        .mockResolvedValueOnce([]);
+      const countChain = {
+        from: vi.fn().mockResolvedValue([{ count: 0 }]),
+      };
+      mockDatabase.db.select.mockReturnValue(countChain);
+      mockDatabase.query.mockResolvedValue([]);
 
       const result = await service.getStats();
 

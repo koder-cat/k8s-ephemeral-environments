@@ -1,7 +1,13 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { Pool, PoolClient } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { resolve } from 'node:path';
 import { MetricsService } from './metrics/metrics.service';
+import { DrizzleDB } from './db';
+import * as schema from './db/schema';
+import { seedDatabase } from './db/seed';
 
 /**
  * Valid operation types for database query metrics.
@@ -16,7 +22,9 @@ export type DbOperation =
   | 'read_record'
   | 'update_record'
   | 'delete_record'
-  | 'heavy_query';
+  | 'heavy_query'
+  | 'migration'
+  | 'seed';
 
 /**
  * Database pool statistics
@@ -31,6 +39,7 @@ export interface PoolStats {
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool | null = null;
+  private _db: DrizzleDB | null = null;
   private isConnected = false;
 
   constructor(
@@ -41,6 +50,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   get enabled(): boolean {
     return !!process.env.DATABASE_URL;
+  }
+
+  /**
+   * Get the Drizzle database instance for type-safe queries.
+   * @throws Error if database is not connected
+   */
+  get db(): DrizzleDB {
+    if (!this._db) {
+      throw new Error('Database not connected');
+    }
+    return this._db;
   }
 
   private updatePoolMetrics() {
@@ -65,6 +85,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         connectionTimeoutMillis: 5000,
       });
 
+      // Initialize Drizzle with the pool
+      this._db = drizzle(this.pool, { schema });
+
+      // Run migrations at startup (for ephemeral environments)
+      await this.runMigrations();
+
+      // Seed database if empty (auto-seed on first run)
+      await this.runSeeding();
+
       // Test connection
       const client = await this.pool.connect();
       await client.query('SELECT 1');
@@ -76,6 +105,63 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error({ error }, 'Failed to connect to database');
       this.isConnected = false;
+    }
+  }
+
+  /**
+   * Run database migrations at startup.
+   * For ephemeral PR environments, this ensures schema is always up-to-date.
+   */
+  private async runMigrations(): Promise<void> {
+    if (!this._db || !this.pool) return;
+
+    const endTimer = this.metrics.dbQueryDuration.startTimer({
+      operation: 'migration',
+    });
+    let success = true;
+
+    try {
+      this.logger.info('Running database migrations...');
+
+      // Migrations folder is relative to the compiled output
+      // In production: dist/drizzle, in development: drizzle
+      const migrationsFolder = resolve(__dirname, '../drizzle');
+
+      await migrate(this._db, { migrationsFolder });
+
+      this.logger.info('Migrations completed successfully');
+    } catch (error) {
+      success = false;
+      this.logger.error({ error }, 'Migration failed');
+      throw error;
+    } finally {
+      endTimer({ success: String(success) });
+    }
+  }
+
+  /**
+   * Seed the database with initial data if empty.
+   * This runs automatically after migrations on first startup.
+   */
+  private async runSeeding(): Promise<void> {
+    if (!this.pool) return;
+
+    const endTimer = this.metrics.dbQueryDuration.startTimer({
+      operation: 'seed',
+    });
+    let success = true;
+
+    try {
+      const result = await seedDatabase(this.pool);
+      if (result.seeded) {
+        this.logger.info({ count: result.count }, 'Database seeded successfully');
+      }
+    } catch (error) {
+      success = false;
+      this.logger.error({ error }, 'Seeding failed');
+      // Don't throw - seeding failure shouldn't prevent app startup
+    } finally {
+      endTimer({ success: String(success) });
     }
   }
 
@@ -120,7 +206,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Execute a database query with metrics instrumentation.
+   * Execute a raw database query with metrics instrumentation.
+   * Use this for complex queries that can't be expressed with Drizzle,
+   * or when you need explicit metrics categorization.
    *
    * @param text - SQL query string
    * @param params - Query parameters for parameterized queries

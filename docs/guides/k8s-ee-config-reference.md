@@ -350,6 +350,8 @@ Object properties:
 
 **Important:** Bootstrap SQL runs as `postgres` superuser, but your app connects as `app` user. You must include `GRANT` statements for table access. Use `$func$` instead of `$$` for function delimiters.
 
+**Note:** For production applications with evolving schemas, use [Drizzle ORM migrations](./database-migrations.md) instead of bootstrap SQL. Migrations provide versioning, are reversible, and work with existing data.
+
 #### databases.mongodb
 
 | Property | Value |

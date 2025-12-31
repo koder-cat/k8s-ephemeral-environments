@@ -8,6 +8,7 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [PR Namespace Issues](#pr-namespace-issues)
 - [Deployment Failures](#deployment-failures)
 - [Database Issues](#database-issues)
+- [Migration Issues](#migration-issues)
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
 - [Common kubectl Commands](#common-kubectl-commands)
@@ -378,6 +379,102 @@ kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} 
 ```
 
 **Prevention:** Always include GRANT statements in your `postInitApplicationSQL`.
+
+## Migration Issues
+
+### Migration Failed at Startup
+
+**Symptoms:**
+- App crashes immediately with migration error
+- Logs show "Migration failed" or SQL errors
+- Pod in CrashLoopBackOff with migration stack traces
+
+**Diagnosis:**
+```bash
+# Check app logs for migration errors
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId}
+
+# Connect to database directly to check state
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c \
+  'SELECT * FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 5;'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Database not ready | App tried to migrate before DB was available |
+| Conflicting migration | Schema change conflicts with existing state |
+| Missing drizzle folder | Migrations not included in Docker build |
+| Network policy blocking | App can't reach PostgreSQL service |
+
+**Resolution:**
+```bash
+# Option 1: For ephemeral environments, close and reopen PR
+# This recreates the namespace with fresh database
+
+# Option 2: Check migration status
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dt'
+
+# Option 3: Verify drizzle folder exists in container
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l k8s-ee/project-id={projectId} -o name | head -1) -- ls -la /app/drizzle
+```
+
+### Schema Out of Sync
+
+**Symptoms:**
+- TypeScript errors in IDE for database queries
+- Runtime errors: "column does not exist"
+- Query results missing expected fields
+
+**Diagnosis:**
+```bash
+# Compare schema to actual database
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\d test_records'
+```
+
+**Resolution:**
+```bash
+# Generate new migration locally
+pnpm db:generate --name=fix_schema
+
+# Commit and push - new migration will run on next deployment
+git add drizzle/
+git commit -m "fix: add missing column migration"
+git push
+```
+
+### Seeding Failed
+
+**Symptoms:**
+- App logs show "Seeding failed" errors
+- No initial data in database after deployment
+- Seed script throws type errors
+
+**Diagnosis:**
+```bash
+# Check app startup logs
+kubectl logs -n k8s-ee-pr-{number} -l k8s-ee/project-id={projectId} | grep -i seed
+
+# Verify table exists before seeding
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c \
+  'SELECT COUNT(*) FROM test_records;'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Migration didn't complete | Seeding runs after migrations - check migration first |
+| Schema mismatch | Seed script columns don't match schema |
+| Data already exists | Seeding skips if table has data |
+
+**Note:** Seeding is designed to be non-blocking - the app continues even if seeding fails. Check logs but this shouldn't crash your application.
 
 ## Network Policy Issues
 
