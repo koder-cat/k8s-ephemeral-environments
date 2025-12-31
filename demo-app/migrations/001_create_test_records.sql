@@ -8,6 +8,10 @@
 --
 -- When the PostgreSQL cluster is created for each PR environment,
 -- CloudNativePG automatically runs the initSQL scripts during bootstrap.
+--
+-- IMPORTANT: Use named dollar-quote delimiters ($func$) instead of double
+-- dollar signs ($$) for function bodies. CloudNativePG's template processing
+-- consumes $$ and causes SQL syntax errors.
 
 -- Test records table for CRUD operations
 CREATE TABLE IF NOT EXISTS test_records (
@@ -26,12 +30,12 @@ CREATE INDEX IF NOT EXISTS idx_test_records_name ON test_records(name);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $func$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ language 'plpgsql';
+$func$ language 'plpgsql';
 
 -- Trigger to automatically update updated_at
 DROP TRIGGER IF EXISTS update_test_records_updated_at ON test_records;

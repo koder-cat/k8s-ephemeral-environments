@@ -140,12 +140,12 @@ postgresql:
         CREATE INDEX IF NOT EXISTS idx_test_records_name ON test_records(name);
         -- Function to update updated_at timestamp
         CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $$
+        RETURNS TRIGGER AS $func$
         BEGIN
           NEW.updated_at = NOW();
           RETURN NEW;
         END;
-        $$ language 'plpgsql';
+        $func$ language 'plpgsql';
         -- Trigger to automatically update updated_at
         DROP TRIGGER IF EXISTS update_test_records_updated_at ON test_records;
         CREATE TRIGGER update_test_records_updated_at
