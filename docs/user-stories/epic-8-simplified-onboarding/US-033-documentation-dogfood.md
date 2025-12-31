@@ -1,6 +1,6 @@
 # US-033: Update Documentation and Dogfood
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,13 +10,13 @@
 
 ## Acceptance Criteria
 
-- [ ] `k8s-ee.yaml` added to this repository (dogfooding)
-- [ ] PR environment workflow updated to use reusable workflow
-- [ ] `docs/guides/onboarding-new-repo.md` simplified to new process
+- [x] `k8s-ee.yaml` added to this repository (dogfooding)
+- [x] PR environment workflow updated to use reusable workflow
+- [x] `docs/guides/onboarding-new-repo.md` simplified to new process
 - [x] `docs/guides/k8s-ee-config-reference.md` created with full schema docs (completed in US-032)
 - [x] Example configurations for common scenarios documented (completed in US-032)
-- [ ] Migration guide for existing users (if applicable)
-- [ ] README updated with new onboarding instructions
+- [x] Migration guide for existing users (if applicable)
+- [x] README updated with new onboarding instructions
 
 ## Priority
 
