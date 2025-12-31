@@ -68,9 +68,53 @@ cat /etc/rancher/k3s/k3s.yaml | base64 -w0
 # Add as GitHub secret: KUBECONFIG
 ```
 
-## Step 3: Create Your Helm Chart
+## Step 3: Choose Your Helm Chart Strategy
 
-### Minimum Structure
+### Option A: Use the Generic k8s-ee-app Chart (Recommended)
+
+The platform provides a generic application chart that works for most applications. Pull it directly from the OCI registry:
+
+```bash
+# Pull the generic chart
+helm pull oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app --version 1.0.0
+
+# Install with your configuration
+helm install myapp k8s-ee-app \
+  --namespace myproject-pr-42 \
+  --set projectId=myproject \
+  --set prNumber=42 \
+  --set image.repository=ghcr.io/your-org/your-app \
+  --set image.tag=abc123 \
+  --set app.port=3000 \
+  --set app.healthPath=/health \
+  --set postgresql.enabled=true
+```
+
+**Features included:**
+- Deployment with configurable resources and health probes
+- Service (ClusterIP) and Ingress (Traefik + TLS)
+- Init containers for database readiness
+- Environment variable injection from database subcharts
+- ServiceMonitor for Prometheus metrics (optional)
+- Security hardened (runAsNonRoot, seccompProfile, capabilities dropped)
+
+**Supported databases (all conditional):**
+- PostgreSQL (`postgresql.enabled=true`)
+- MongoDB (`mongodb.enabled=true`)
+- Redis (`redis.enabled=true`)
+- MinIO (`minio.enabled=true`)
+- MariaDB (`mariadb.enabled=true`)
+
+**Custom environment variables:**
+```yaml
+env:
+  MY_VAR: "value"
+  ANOTHER_VAR: "value2"
+```
+
+### Option B: Create Your Own Helm Chart
+
+For applications requiring custom templates, create your own chart:
 
 ```
 charts/
@@ -173,22 +217,53 @@ Or install kubectl directly in your workflow steps.
 
 ## Step 6: Add Database (Optional)
 
-### PostgreSQL (CloudNativePG)
+### Using k8s-ee-app Chart (Recommended)
 
-To include a PostgreSQL database per PR, copy the chart:
+If using the generic k8s-ee-app chart, simply enable databases via Helm values:
 
+```bash
+helm install myapp k8s-ee-app \
+  --set postgresql.enabled=true \
+  --set redis.enabled=true
 ```
-charts/postgresql/     # CloudNativePG wrapper
-```
 
-Add as dependency in your `Chart.yaml`:
+### Using Custom Chart with OCI Dependencies
+
+Add database charts as OCI dependencies in your `Chart.yaml`:
 
 ```yaml
 dependencies:
-  - name: postgresql
-    version: "1.0.0"
-    repository: "file://../postgresql"
+  - name: k8s-ee-postgresql
+    alias: postgresql
+    version: "1.1.0"
+    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
     condition: postgresql.enabled
+  - name: k8s-ee-mongodb
+    alias: mongodb
+    version: "1.1.0"
+    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    condition: mongodb.enabled
+  - name: k8s-ee-redis
+    alias: redis
+    version: "1.1.0"
+    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    condition: redis.enabled
+  - name: k8s-ee-minio
+    alias: minio
+    version: "1.1.0"
+    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    condition: minio.enabled
+  - name: k8s-ee-mariadb
+    alias: mariadb
+    version: "1.0.0"
+    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    condition: mariadb.enabled
+```
+
+Build dependencies before deploying:
+
+```bash
+helm dependency build charts/your-app
 ```
 
 Enable in `values.yaml`:
@@ -202,14 +277,29 @@ postgresql:
   owner: app
   storage:
     size: 1Gi
+
+mongodb:
+  enabled: false
+
+redis:
+  enabled: false
+
+minio:
+  enabled: false
+
+mariadb:
+  enabled: false
 ```
 
-### Other Databases
+### Available Database Charts
 
-Similar charts are available for:
-- MongoDB (`charts/mongodb/`)
-- Redis (`charts/redis/`)
-- MinIO (`charts/minio/`)
+| Database | Chart | Version | Operator |
+|----------|-------|---------|----------|
+| PostgreSQL | k8s-ee-postgresql | 1.1.0 | CloudNativePG |
+| MongoDB | k8s-ee-mongodb | 1.1.0 | MongoDB Community |
+| Redis | k8s-ee-redis | 1.1.0 | Simple deployment |
+| MinIO | k8s-ee-minio | 1.1.0 | MinIO Operator |
+| MariaDB | k8s-ee-mariadb | 1.0.0 | Simple deployment |
 
 ## Step 7: Configure Image Build
 
@@ -309,14 +399,14 @@ jobs:
 | Item | Required | Notes |
 |------|----------|-------|
 | Unique `PROJECT_ID` | Yes | Must not conflict with existing projects |
-| Helm chart | Yes | With ingress using `traefik` class |
+| Helm chart | Yes | Use k8s-ee-app from OCI or create custom chart |
 | ARM64 images | Yes | Build for `linux/arm64` |
 | Resource limits | Yes | Within LimitRange (512Mi memory max) |
 | Health endpoint | Yes | For readiness/liveness probes |
 | GHCR access | Yes | Package permissions on the repo |
 | K8s templates | Yes | Copy from `k8s/ephemeral/` |
 | PR comment bot | Optional | Copy the github-script steps |
-| Database | Optional | Enable PostgreSQL/MongoDB/Redis as needed |
+| Database | Optional | Enable PostgreSQL/MongoDB/Redis/MinIO/MariaDB as needed |
 
 ## DNS for Custom Domains
 

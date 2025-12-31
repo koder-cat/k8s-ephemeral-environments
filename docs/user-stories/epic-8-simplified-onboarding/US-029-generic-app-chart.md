@@ -1,6 +1,6 @@
 # US-029: Create Generic Application Chart
 
-**Status:** Draft
+**Status:** Done
 
 ## User Story
 
@@ -10,14 +10,14 @@
 
 ## Acceptance Criteria
 
-- [ ] Generic `k8s-ee-app` chart created with configurable values
-- [ ] Chart dependencies reference OCI registry (not `file://`)
-- [ ] Deployment template supports configurable port and health endpoints
-- [ ] Ingress template generates correct preview URLs
-- [ ] ServiceMonitor template for Prometheus metrics (optional)
-- [ ] Environment variable injection from config
-- [ ] Init containers for database readiness (conditional)
-- [ ] Chart published to GHCR alongside database charts
+- [x] Generic `k8s-ee-app` chart created with configurable values
+- [x] Chart dependencies reference OCI registry (not `file://`)
+- [x] Deployment template supports configurable port and health endpoints
+- [x] Ingress template generates correct preview URLs
+- [x] ServiceMonitor template for Prometheus metrics (optional)
+- [x] Environment variable injection from config
+- [x] Init containers for database readiness (conditional)
+- [x] Chart published to GHCR alongside database charts
 
 ## Priority
 
@@ -40,4 +40,51 @@
 
 ## Implementation
 
-_To be documented upon completion._
+### Chart Created
+
+`charts/k8s-ee-app/` - Generic application chart with:
+
+| File | Description |
+|------|-------------|
+| `Chart.yaml` | OCI dependencies for all 5 databases |
+| `values.yaml` | Fully configurable with sensible defaults |
+| `templates/_helpers.tpl` | Name, label, hostname functions |
+| `templates/deployment.yaml` | Generic deployment with init containers |
+| `templates/service.yaml` | ClusterIP service |
+| `templates/ingress.yaml` | Traefik ingress with TLS |
+| `templates/configmap.yaml` | User-defined environment variables |
+| `templates/servicemonitor.yaml` | Optional Prometheus metrics |
+| `templates/NOTES.txt` | Post-install instructions |
+
+### Key Features
+
+- **OCI Dependencies**: Uses `oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts` for all database subcharts
+- **Required Validation**: Fails fast if `image.repository`, `image.tag`, or `projectId` missing
+- **Security Hardened**: runAsNonRoot, seccompProfile, readOnlyRootFilesystem, capabilities dropped
+- **Database Support**: PostgreSQL, MongoDB, Redis, MinIO, MariaDB (all conditional)
+- **Environment Injection**: Database credentials auto-injected via subchart helpers
+- **Configurable Health**: app.healthPath and app.metricsPath configurable
+
+### Usage
+
+```bash
+# Pull chart
+helm pull oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app --version 1.0.0
+
+# Install
+helm install myapp k8s-ee-app \
+  --set projectId=myproject \
+  --set prNumber=42 \
+  --set image.repository=ghcr.io/org/app \
+  --set image.tag=abc123 \
+  --set postgresql.enabled=true
+```
+
+### demo-app Improvements
+
+As part of this work, demo-app was updated for consistency:
+
+- Added MariaDB init container for database readiness
+- Added environment variable injection for all 5 databases (was PostgreSQL only)
+- Added MariaDB section to values.yaml
+- Added seccompProfile to securityContext for security hardening

@@ -1,0 +1,185 @@
+# =============================================================================
+# k8s-ee-app: Generic Application Chart for Ephemeral PR Environments
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Name Overrides
+# -----------------------------------------------------------------------------
+# Override the chart name (default: k8s-ee-app)
+nameOverride: ""
+# Override the full resource names (default: {projectId}-pr-{prNumber}-app)
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Image Configuration
+# -----------------------------------------------------------------------------
+image:
+  # Repository URL (required) - e.g., ghcr.io/org/app
+  repository: ""
+  # Image tag (required) - typically commit SHA or version
+  tag: ""
+  # Digest for immutable image reference (optional, takes precedence over tag)
+  digest: ""
+  # Pull policy - Always recommended for PR environments
+  pullPolicy: Always
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+# - name: ghcr-secret
+
+# -----------------------------------------------------------------------------
+# PR Environment Configuration (set by workflow)
+# -----------------------------------------------------------------------------
+# Unique identifier for this project in multi-tenant clusters
+projectId: ""
+# PR number for namespace naming
+prNumber: ""
+# Git commit SHA for traceability
+commitSha: ""
+# Git branch name
+branchName: ""
+# Base domain for preview URLs
+previewDomain: "k8s-ee.genesluna.dev"
+
+# -----------------------------------------------------------------------------
+# Application Settings
+# -----------------------------------------------------------------------------
+app:
+  # Container port your application listens on
+  port: 3000
+  # Health check endpoint path (for liveness/readiness probes)
+  healthPath: /health
+  # Metrics endpoint path (for Prometheus scraping)
+  metricsPath: /metrics
+
+# -----------------------------------------------------------------------------
+# User-Defined Environment Variables
+# -----------------------------------------------------------------------------
+# Add custom environment variables as key-value pairs
+env: {}
+#  NODE_ENV: "production"
+#  LOG_LEVEL: "info"
+#  MY_CUSTOM_VAR: "value"
+
+# -----------------------------------------------------------------------------
+# Resource Configuration (fits within default LimitRange)
+# -----------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 384Mi
+
+# -----------------------------------------------------------------------------
+# Health Probes
+# -----------------------------------------------------------------------------
+# Liveness probe - restarts container if unhealthy
+livenessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Readiness probe - removes from service if not ready
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe - prevents liveness from killing slow-starting pods
+startupProbe:
+  initialDelaySeconds: 5
+  failureThreshold: 30
+  periodSeconds: 2
+
+# -----------------------------------------------------------------------------
+# Graceful Shutdown
+# -----------------------------------------------------------------------------
+# Allow time for load balancer to drain connections before terminating
+terminationGracePeriodSeconds: 30
+
+# Priority class for scheduling (lower than platform components)
+priorityClassName: default-app
+
+# Lifecycle hooks for graceful shutdown
+lifecycle:
+  preStop:
+    exec:
+      # Sleep allows in-flight requests to complete and load balancer to remove pod
+      command: ["/bin/sh", "-c", "sleep 5"]
+
+# -----------------------------------------------------------------------------
+# Ingress Configuration
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt-prod
+
+# -----------------------------------------------------------------------------
+# Security Context (hardened defaults)
+# -----------------------------------------------------------------------------
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -----------------------------------------------------------------------------
+# Prometheus Metrics
+# -----------------------------------------------------------------------------
+metrics:
+  # Enable ServiceMonitor for Prometheus scraping
+  enabled: false
+  # Scrape interval
+  interval: 30s
+  # Scrape timeout
+  scrapeTimeout: 10s
+
+# -----------------------------------------------------------------------------
+# Database Configuration (all disabled by default)
+# -----------------------------------------------------------------------------
+# PostgreSQL (CloudNativePG)
+postgresql:
+  enabled: false
+  # Additional postgresql values can be set here
+  # See charts/postgresql/values.yaml for all options
+
+# MongoDB (MongoDB Community Operator)
+mongodb:
+  enabled: false
+  # Additional mongodb values can be set here
+  # See charts/mongodb/values.yaml for all options
+
+# Redis (simple deployment)
+redis:
+  enabled: false
+  # Additional redis values can be set here
+  # See charts/redis/values.yaml for all options
+
+# MinIO (MinIO Operator)
+minio:
+  enabled: false
+  # Additional minio values can be set here
+  # See charts/minio/values.yaml for all options
+
+# MariaDB (simple deployment)
+mariadb:
+  enabled: false
+  # Additional mariadb values can be set here
+  # See charts/mariadb/values.yaml for all options

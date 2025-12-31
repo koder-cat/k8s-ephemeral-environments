@@ -1,18 +1,20 @@
+{{- $_ := required "image.repository is required" .Values.image.repository -}}
+{{- $_ := required "image.tag or image.digest is required" (or .Values.image.tag .Values.image.digest) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "demo-app.fullname" . }}
+  name: {{ include "k8s-ee-app.fullname" . }}
   labels:
-    {{- include "demo-app.labels" . | nindent 4 }}
+    {{- include "k8s-ee-app.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "demo-app.selectorLabels" . | nindent 6 }}
+      {{- include "k8s-ee-app.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "demo-app.labels" . | nindent 8 }}
+        {{- include "k8s-ee-app.labels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
@@ -185,7 +187,7 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: app
           {{- if .Values.image.digest }}
           image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
           {{- else }}
@@ -214,15 +216,30 @@ spec:
             {{- end }}
           envFrom:
             - configMapRef:
-                name: {{ include "demo-app.fullname" . }}-config
+                name: {{ include "k8s-ee-app.fullname" . }}-config
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            httpGet:
+              path: {{ .Values.app.healthPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
-          {{- with .Values.startupProbe }}
+            httpGet:
+              path: {{ .Values.app.healthPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           startupProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            httpGet:
+              path: {{ .Values.app.healthPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
           {{- with .Values.lifecycle }}
           lifecycle:
             {{- toYaml . | nindent 12 }}
