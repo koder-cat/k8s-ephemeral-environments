@@ -42,6 +42,21 @@ outputs:
   image-dockerfile:
     description: 'Dockerfile path'
     value: ${{ steps.parse.outputs.image-dockerfile }}
+  postgresql-enabled:
+    description: 'PostgreSQL enabled flag'
+    value: ${{ steps.parse.outputs.postgresql-enabled }}
+  mongodb-enabled:
+    description: 'MongoDB enabled flag'
+    value: ${{ steps.parse.outputs.mongodb-enabled }}
+  redis-enabled:
+    description: 'Redis enabled flag'
+    value: ${{ steps.parse.outputs.redis-enabled }}
+  minio-enabled:
+    description: 'MinIO enabled flag'
+    value: ${{ steps.parse.outputs.minio-enabled }}
+  mariadb-enabled:
+    description: 'MariaDB enabled flag'
+    value: ${{ steps.parse.outputs.mariadb-enabled }}
 
 runs:
   using: 'composite'
@@ -229,11 +244,11 @@ runs:
           .env = (.env // {}) |
           .envFrom = (.envFrom // []) |
           .databases = (.databases // {}) |
-          .databases.postgresql = (.databases.postgresql // false) |
-          .databases.mongodb = (.databases.mongodb // false) |
-          .databases.redis = (.databases.redis // false) |
-          .databases.minio = (.databases.minio // false) |
-          .databases.mariadb = (.databases.mariadb // false) |
+          .databases.postgresql = (if .databases.postgresql == null then false else .databases.postgresql end) |
+          .databases.mongodb = (if .databases.mongodb == null then false else .databases.mongodb end) |
+          .databases.redis = (if .databases.redis == null then false else .databases.redis end) |
+          .databases.minio = (if .databases.minio == null then false else .databases.minio end) |
+          .databases.mariadb = (if .databases.mariadb == null then false else .databases.mariadb end) |
           .ingress = (.ingress // {}) |
           .ingress.enabled = (.ingress.enabled // true) |
           .metrics = (.metrics // {}) |
@@ -254,6 +269,14 @@ runs:
         echo "health-path=$HEALTH_PATH" >> "$GITHUB_OUTPUT"
         echo "image-context=$IMAGE_CONTEXT" >> "$GITHUB_OUTPUT"
         echo "image-dockerfile=$IMAGE_DOCKERFILE" >> "$GITHUB_OUTPUT"
+
+        # Extract database configuration flags (handles both boolean and object forms)
+        # Object form defaults to enabled unless explicitly disabled (enabled: false)
+        echo "postgresql-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.postgresql == true then "true" elif .databases.postgresql == false then "false" elif (.databases.postgresql | type) == "object" then (if .databases.postgresql.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
+        echo "mongodb-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.mongodb == true then "true" elif .databases.mongodb == false then "false" elif (.databases.mongodb | type) == "object" then (if .databases.mongodb.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
+        echo "redis-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.redis == true then "true" elif .databases.redis == false then "false" elif (.databases.redis | type) == "object" then (if .databases.redis.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
+        echo "minio-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.minio == true then "true" elif .databases.minio == false then "false" elif (.databases.minio | type) == "object" then (if .databases.minio.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
+        echo "mariadb-enabled=$(echo "$FINAL_CONFIG" | jq -r 'if .databases.mariadb == true then "true" elif .databases.mariadb == false then "false" elif (.databases.mariadb | type) == "object" then (if .databases.mariadb.enabled == false then "false" else "true" end) else "false" end')" >> "$GITHUB_OUTPUT"
 
         echo ""
         echo "=== Configuration Summary ==="

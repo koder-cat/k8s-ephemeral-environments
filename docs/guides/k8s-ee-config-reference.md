@@ -299,6 +299,8 @@ envFrom:
 
 Database configuration. All databases are disabled by default (opt-in).
 
+When enabled, databases are automatically deployed to your PR environment and connection details are injected as environment variables (e.g., `DATABASE_URL` for PostgreSQL).
+
 Each database can be configured as:
 - **Boolean:** `true` to enable with defaults, `false` to disable
 - **Object:** Enable with custom configuration

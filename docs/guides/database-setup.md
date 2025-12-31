@@ -2,6 +2,28 @@
 
 This guide explains how to add database support to your project using the k8s-ephemeral-environments platform.
 
+## Quick Start (Recommended)
+
+If you're using the reusable workflow with `k8s-ee.yaml`, enabling a database is simple:
+
+```yaml
+# k8s-ee.yaml
+projectId: myapp
+
+databases:
+  postgresql: true    # Enable PostgreSQL
+  # mongodb: true     # Enable MongoDB
+  # redis: true       # Enable Redis
+  # minio: true       # Enable MinIO (S3-compatible storage)
+  # mariadb: true     # Enable MariaDB
+```
+
+Connection details are automatically injected as environment variables (e.g., `DATABASE_URL` for PostgreSQL).
+
+See the [Configuration Reference](./k8s-ee-config-reference.md#databases) for all options.
+
+---
+
 ## Overview
 
 The platform provides a database-agnostic approach where:

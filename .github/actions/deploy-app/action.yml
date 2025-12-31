@@ -55,6 +55,26 @@ inputs:
     description: 'Application container port'
     required: false
     default: '3000'
+  postgresql-enabled:
+    description: 'Enable PostgreSQL database'
+    required: false
+    default: 'false'
+  mongodb-enabled:
+    description: 'Enable MongoDB database'
+    required: false
+    default: 'false'
+  redis-enabled:
+    description: 'Enable Redis database'
+    required: false
+    default: 'false'
+  minio-enabled:
+    description: 'Enable MinIO object storage'
+    required: false
+    default: 'false'
+  mariadb-enabled:
+    description: 'Enable MariaDB database'
+    required: false
+    default: 'false'
 
 outputs:
   preview-url:
@@ -217,6 +237,11 @@ runs:
         TIMEOUT: ${{ inputs.timeout }}
         HEALTH_PATH: ${{ inputs.health-path }}
         APP_PORT: ${{ inputs.app-port }}
+        POSTGRESQL_ENABLED: ${{ inputs.postgresql-enabled }}
+        MONGODB_ENABLED: ${{ inputs.mongodb-enabled }}
+        REDIS_ENABLED: ${{ inputs.redis-enabled }}
+        MINIO_ENABLED: ${{ inputs.minio-enabled }}
+        MARIADB_ENABLED: ${{ inputs.mariadb-enabled }}
       run: |
         set -euo pipefail
 
@@ -245,6 +270,23 @@ runs:
         # Add digest if provided
         if [ -n "$IMAGE_DIGEST" ]; then
           HELM_ARGS+=("--set" "image.digest=$IMAGE_DIGEST")
+        fi
+
+        # Database configuration
+        if [ "$POSTGRESQL_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set" "postgresql.enabled=true")
+        fi
+        if [ "$MONGODB_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set" "mongodb.enabled=true")
+        fi
+        if [ "$REDIS_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set" "redis.enabled=true")
+        fi
+        if [ "$MINIO_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set" "minio.enabled=true")
+        fi
+        if [ "$MARIADB_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set" "mariadb.enabled=true")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")

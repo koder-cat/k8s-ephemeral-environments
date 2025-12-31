@@ -155,6 +155,20 @@ Individual containers: max 512Mi memory, 500m CPU.
 - Verify health endpoint returns 200
 - Check resource limits fit within quota
 
+### Database not deployed
+
+- Verify `databases.postgresql: true` (or other DB) is set in `k8s-ee.yaml`
+- Check database pod status: `kubectl get pods -n {namespace} -l app=postgresql`
+- View database logs: `kubectl logs -n {namespace} -l app=postgresql`
+- Connection details are injected as `DATABASE_URL` environment variable
+
+### App can't connect to database
+
+- Database pods may take 30-60 seconds to become ready
+- Verify `DATABASE_URL` is correctly parsed by your app
+- Check your app's database client configuration
+- View app logs for connection errors: `kubectl logs -n {namespace} -l k8s-ee/project-id={projectId}`
+
 ### PR comment not appearing
 
 - Verify `secrets: inherit` is set in workflow

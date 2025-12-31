@@ -185,6 +185,45 @@ kubectl run debug --rm -it --image=busybox -n k8s-ee-pr-{number} -- \
 
 ## Database Issues
 
+### Database Not Deployed (k8s-ee.yaml)
+
+**Symptoms:**
+- No database pod exists in the namespace
+- App logs show connection refused to database
+- `kubectl get pods -n k8s-ee-pr-{number}` shows no PostgreSQL/MongoDB/etc. pod
+
+**Diagnosis:**
+```bash
+# Check if database is enabled in Helm values
+helm get values app -n k8s-ee-pr-{number} | grep -A5 postgresql
+
+# Verify k8s-ee.yaml has database enabled
+cat k8s-ee.yaml | grep -A5 databases
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| `databases.postgresql: false` in k8s-ee.yaml | Change to `databases.postgresql: true` |
+| Missing databases section | Add `databases:` section with enabled databases |
+| Object form without `enabled` | Use `postgresql: { enabled: true }` or just `postgresql: true` |
+
+**Resolution:**
+
+Update your `k8s-ee.yaml`:
+```yaml
+databases:
+  postgresql: true  # Simple boolean form
+  # OR object form with custom settings:
+  # postgresql:
+  #   enabled: true
+  #   version: "16"
+  #   storage: 2Gi
+```
+
+Push the change to trigger a new deployment.
+
 ### Connection Refused
 
 **Symptoms:**
