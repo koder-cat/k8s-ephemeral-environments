@@ -68,6 +68,8 @@ bootstrap:
 
   # SQL to run on the application database after it's created
   # Use this for creating tables, functions, triggers, etc.
+  # IMPORTANT: Use named dollar-quote delimiters ($func$) instead of $$
+  # for function bodies - CloudNativePG's template processing consumes $$
   postInitApplicationSQL: []
   # Example:
   # postInitApplicationSQL:

@@ -125,6 +125,7 @@ postgresql:
       memory: 512Mi
       cpu: 500m
   # Bootstrap configuration with init SQL for test_records table
+  # See demo-app/migrations/001_create_test_records.sql for documented version
   # Note: postInitApplicationSQL runs AFTER the app database is created
   bootstrap:
     postInitApplicationSQL:

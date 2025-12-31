@@ -264,19 +264,31 @@ const { migrate } = require('./db/migrate');
 await migrate();
 ```
 
-### Seeding Test Data
+### Database Bootstrap SQL
 
-For ephemeral PR environments, you may want test data:
+For ephemeral PR environments, use CloudNativePG's bootstrap configuration to run SQL during cluster initialization:
 
 ```yaml
 # values.yaml
 postgresql:
   enabled: true
-  seed:
-    enabled: true
-    script: |
-      INSERT INTO users (name, email) VALUES ('Test User', 'test@example.com');
+  bootstrap:
+    # Run on application database after it's created
+    postInitApplicationSQL:
+      - |
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255)
+        );
+        INSERT INTO users (name) VALUES ('Test User');
+    # Run on postgres database (for extensions, etc.)
+    initSQL:
+      - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 ```
+
+**Important:** Use named dollar-quote delimiters (`$func$`) instead of `$$` for function bodies - CloudNativePG's template processing consumes `$$`.
+
+See `demo-app/migrations/` for documented SQL reference files.
 
 ## Resource Limits
 
