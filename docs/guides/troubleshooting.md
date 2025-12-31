@@ -248,6 +248,48 @@ kubectl run psql --rm -it --image=postgres:16 -n k8s-ee-pr-{number} -- \
   -n k8s-ee-pr-{number} -o jsonpath='{.data.password}' | base64 -d)@k8s-ee-pr-{number}-postgresql-rw:5432/app"
 ```
 
+### Bootstrap SQL Not Applied
+
+**Symptoms:**
+- Tables from `postInitApplicationSQL` don't exist
+- Database schema is empty after deployment
+- Bootstrap SQL changes not reflected in database
+
+**Diagnosis:**
+```bash
+# Check if table exists
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dt'
+
+# Check initdb pod logs for bootstrap execution
+kubectl logs -n k8s-ee-pr-{number} -l job-name --tail=100
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Cluster existed before SQL change | Delete cluster to trigger re-init |
+| Using `initSQL` instead of `postInitApplicationSQL` | `initSQL` runs on `postgres` database, not app database |
+| Dollar-quote syntax error | Use `$func$` instead of `$$` for function bodies |
+
+**Important:** Bootstrap SQL only runs during initial cluster creation. Modifying `postInitApplicationSQL` in values.yaml won't affect existing clusters.
+
+**Resolution:**
+```bash
+# Delete the PostgreSQL cluster (data will be lost!)
+kubectl delete cluster -n k8s-ee-pr-{number} -l app.kubernetes.io/instance
+
+# Trigger redeploy via GitHub Actions
+# (push new commit or re-run workflow)
+
+# OR manually apply SQL to existing database
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -f /path/to/sql
+```
+
+**Note:** For PR environments, simply closing and reopening the PR will recreate the namespace with fresh bootstrap SQL.
+
 ## Network Policy Issues
 
 ### Traffic Blocked

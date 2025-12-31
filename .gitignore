@@ -34,3 +34,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Helm
+charts/*/charts/
