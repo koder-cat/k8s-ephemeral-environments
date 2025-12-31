@@ -40,6 +40,47 @@ The web app is a single-page application (SPA) built with React 19 and Vite. It 
 - **Connected** - Displays PR information
 - **Error** - Shows connection error message
 
+## Observability Testing
+
+The app includes an interactive observability testing section with the following components:
+
+### Components
+
+| Component | Description |
+|-----------|-------------|
+| `MetricsSummary` | Real-time metrics dashboard showing requests, error rate, latency, memory usage |
+| `SimulatorPanel` | Collapsible panel wrapper with accent colors |
+| `HttpStatusSimulator` | Buttons to trigger HTTP status codes (2xx, 4xx, 5xx) |
+| `LatencySimulator` | Test latency with presets (fast, normal, slow) or custom delay |
+| `DatabaseTester` | CRUD operations and heavy query simulation |
+| `StressTester` | CPU and memory stress testing with configurable parameters |
+| `AlertTrigger` | Trigger sustained load to fire Prometheus alerts in Grafana |
+| `ResponseDisplay` | JSON response viewer for API responses |
+
+### AlertTrigger Component
+
+The AlertTrigger component allows users to trigger sustained load to fire Prometheus alerts:
+
+- **High Error Rate** - Generates 5xx errors at 2 req/s to trigger `APIHighErrorRate` alert
+- **High Latency** - Creates slow responses (P99 >2s) to trigger `APIHighLatency` alert
+- **Slow Database** - Executes heavy DB queries to trigger `DatabaseQuerySlow` alert
+
+Each demo runs for ~5.5 minutes to exceed the 5-minute `for` duration required by alert rules. The UI shows:
+- Real-time progress bar
+- Remaining time countdown
+- Request count
+- Link to Grafana alerts page
+
+### Accessibility
+
+All components include proper ARIA attributes:
+- `role="region"` with `aria-label` for main sections
+- `role="alert"` for error messages
+- `aria-live="polite"` for dynamic content updates
+- `role="progressbar"` with `aria-valuenow` for progress indicators
+- `aria-busy` for loading states
+- `aria-hidden="true"` for decorative icons
+
 ## Development
 
 ### Running Locally

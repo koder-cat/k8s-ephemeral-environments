@@ -307,60 +307,28 @@
       "type": "bargauge"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": { "type": "linear" },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": { "group": "A", "mode": "none" },
-            "thresholdsStyle": { "mode": "off" }
-          },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
+      "datasource": { "type": "datasource", "uid": "-- Grafana --" },
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 4 },
-      "id": 6,
+      "id": 20,
       "options": {
-        "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true, "width": 280 },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"$namespace\"}[5m])) by (pod)",
-          "legendFormat": "{{pod}} ↓",
-          "refId": "A"
+        "alertInstanceLabelFilter": "namespace=~\"$namespace|\"",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 10,
+        "sortOrder": 1,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": false,
+          "normal": false,
+          "pending": true
         },
-        {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"$namespace\"}[5m])) by (pod)",
-          "legendFormat": "{{pod}} ↑",
-          "refId": "B"
-        }
-      ],
-      "title": "Network I/O",
-      "type": "timeseries"
+        "viewMode": "list"
+      },
+      "title": "Active Alerts",
+      "type": "alertlist"
     },
     {
       "collapsed": false,

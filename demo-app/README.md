@@ -171,6 +171,65 @@ See [charts/demo-app/README.md](../charts/demo-app/README.md) for full configura
 k8s-ee-pr-{number}.k8s-ee.genesluna.dev
 ```
 
+## Observability Testing
+
+The demo app includes a comprehensive **Observability Testing** section that allows you to simulate various scenarios and observe the results in Grafana dashboards.
+
+### HTTP Status Simulator
+Test error rates and status code distributions:
+- **Success (2xx):** 200, 201, 204
+- **Client Error (4xx):** 400, 401, 403, 404, 422, 429
+- **Server Error (5xx):** 500, 502, 503, 504
+
+### Latency Simulator
+Test latency metrics and timeout scenarios:
+- **Presets:** Fast (0-100ms), Normal (~500ms), Slow (~2s), Very Slow (~5s), Timeout Risk (~10s)
+- **Custom:** User-defined delay up to 15 seconds
+
+### Database Operations
+Test database metrics with CRUD operations:
+- Create, read, update, delete test records
+- Heavy query simulation (with configurable complexity)
+- Connection pool statistics
+
+### Resource Stress Testing
+Test CPU and memory metrics:
+- **CPU Stress:** Configurable intensity (1-100%) and duration (up to 30s)
+- **Memory Stress:** Configurable allocation size (up to 256MB) and duration
+
+### Alert Trigger
+Trigger sustained load to fire Prometheus alerts in Grafana. Each demo runs for ~10.5 minutes to allow alerts to transition from "pending" to "firing" (requires rate[5m] + for:5m):
+- **High Error Rate:** Generates 5xx errors at 2 req/s to trigger `APIHighErrorRate` alert
+- **High Latency:** Creates P99 latency >2s to trigger `APIHighLatency` alert
+- **Slow Database:** Executes slow DB queries to trigger `DatabaseQuerySlow` alert
+
+The UI shows real-time progress, remaining time, and request count. A link to Grafana alerts page appears when a demo is running.
+
+### Metrics Summary
+Real-time metrics displayed in the UI:
+- Total requests and requests per minute
+- Error rate and average latency
+- Memory usage and uptime
+- Recent errors log
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/simulator/status/:code` | GET | Simulate HTTP status code |
+| `/api/simulator/latency/:preset` | GET | Simulate latency |
+| `/api/simulator/stress/cpu` | POST | Start CPU stress test |
+| `/api/simulator/stress/memory` | POST | Start memory stress test |
+| `/api/db-test/records` | GET/POST/DELETE | CRUD operations |
+| `/api/db-test/records/:id` | GET/PUT/DELETE | Single record operations |
+| `/api/db-test/heavy-query/:preset` | POST | Heavy query simulation |
+| `/api/db-test/stats` | GET | Database statistics |
+| `/api/metrics/summary` | GET | Aggregated metrics for UI |
+| `/api/simulator/alert-demo` | GET | List available alert types |
+| `/api/simulator/alert-demo/status` | GET | Get current demo status |
+| `/api/simulator/alert-demo/:alertType` | POST | Start alert demo |
+| `/api/simulator/alert-demo` | DELETE | Stop running demo |
+
 ## Observability
 
 The demo app exposes Prometheus metrics at `/metrics` for monitoring.

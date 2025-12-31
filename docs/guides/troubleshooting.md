@@ -11,6 +11,8 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
 - [Common kubectl Commands](#common-kubectl-commands)
+- [Metrics Issues](#metrics-issues)
+- [Alert Demo Issues](#alert-demo-issues)
 
 ## Quick Diagnosis
 
@@ -248,6 +250,85 @@ kubectl run psql --rm -it --image=postgres:16 -n k8s-ee-pr-{number} -- \
   -n k8s-ee-pr-{number} -o jsonpath='{.data.password}' | base64 -d)@k8s-ee-pr-{number}-postgresql-rw:5432/app"
 ```
 
+### Bootstrap SQL Not Applied
+
+**Symptoms:**
+- Tables from `postInitApplicationSQL` don't exist
+- Database schema is empty after deployment
+- Bootstrap SQL changes not reflected in database
+
+**Diagnosis:**
+```bash
+# Check if table exists
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dt'
+
+# Check initdb pod logs for bootstrap execution
+kubectl logs -n k8s-ee-pr-{number} -l job-name --tail=100
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Cluster existed before SQL change | Delete cluster to trigger re-init |
+| Using `initSQL` instead of `postInitApplicationSQL` | `initSQL` runs on `postgres` database, not app database |
+| Dollar-quote syntax error | Use `$func$` instead of `$$` for function bodies |
+
+**Important:** Bootstrap SQL only runs during initial cluster creation. Modifying `postInitApplicationSQL` in values.yaml won't affect existing clusters.
+
+**Resolution:**
+```bash
+# Delete the PostgreSQL cluster (data will be lost!)
+kubectl delete cluster -n k8s-ee-pr-{number} -l app.kubernetes.io/instance
+
+# Trigger redeploy via GitHub Actions
+# (push new commit or re-run workflow)
+
+# OR manually apply SQL to existing database
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -f /path/to/sql
+```
+
+**Note:** For PR environments, simply closing and reopening the PR will recreate the namespace with fresh bootstrap SQL.
+
+### Permission Denied on Tables
+
+**Symptoms:**
+- App logs show `permission denied for table <table_name>`
+- Database operations fail despite table existing
+- CRUD endpoints return 500 errors
+
+**Diagnosis:**
+```bash
+# Check table ownership
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dt'
+
+# Check current grants
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c '\dp test_records'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Missing GRANT statements | Add `GRANT ALL PRIVILEGES ON <table> TO app;` to bootstrap SQL |
+| Missing sequence grants | Add `GRANT USAGE, SELECT ON SEQUENCE <table>_id_seq TO app;` |
+| Table created by postgres user | Bootstrap SQL runs as superuser, app connects as `app` user |
+
+**Resolution:**
+```bash
+# Apply grants manually for immediate fix
+kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} \
+  -l cnpg.io/cluster -o name | head -1) -- psql -U postgres -d app -c \
+  "GRANT ALL PRIVILEGES ON test_records TO app; \
+   GRANT USAGE, SELECT ON SEQUENCE test_records_id_seq TO app;"
+```
+
+**Prevention:** Always include GRANT statements in your `postInitApplicationSQL`.
+
 ## Network Policy Issues
 
 ### Traffic Blocked
@@ -407,9 +488,190 @@ echo "=== Recent Events ==="
 kubectl get events -n $NS --sort-by='.lastTimestamp' | tail -10
 ```
 
+## Metrics Issues
+
+### Metrics Not Appearing in Prometheus
+
+**Symptoms:**
+- Dashboard panels show "No Data"
+- Prometheus queries return empty results
+- ServiceMonitor exists but metrics missing
+
+**Diagnosis:**
+```bash
+# Check ServiceMonitor exists
+kubectl get servicemonitor -n k8s-ee-pr-{number}
+
+# Check Prometheus target status
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Visit localhost:9090/targets and look for your namespace
+
+# Check if app is exposing metrics
+curl https://k8s-ee-pr-{number}.k8s-ee.genesluna.dev/metrics
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| ServiceMonitor missing label | Ensure `release: prometheus` label exists |
+| App not exposing /metrics | Check MetricsModule is imported in app.module.ts |
+| Port mismatch | ServiceMonitor port must match service port name |
+| Network policy blocking | Verify observability namespace can reach app |
+
+### High Cardinality Metrics
+
+**Symptoms:**
+- Prometheus memory usage increasing
+- Queries becoming slow
+- "cardinality" warnings in Prometheus logs
+
+**Diagnosis:**
+```bash
+# Check cardinality by metric
+kubectl exec -n observability prometheus-prometheus-prometheus-0 -- \
+  wget -qO- 'http://localhost:9090/api/v1/query?query=count by (__name__)({__name__=~".+"})' | \
+  grep -o '"__name__":"[^"]*"' | sort | uniq -c | sort -rn | head -20
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Unique IDs in route labels | Middleware normalizes paths: `/status/500` → `/status/:code` |
+| Static asset paths | Static assets (`/assets/*`) are excluded from metrics |
+| UUID paths | UUIDs normalized to `:uuid` placeholder |
+
+**How Route Normalization Works:**
+
+The metrics middleware automatically normalizes paths to prevent high cardinality:
+
+| Original Path | Normalized Path |
+|---------------|-----------------|
+| `/api/simulator/status/500` | `/api/simulator/status/:code` |
+| `/api/simulator/latency/slow` | `/api/simulator/latency/:preset` |
+| `/api/db-test/heavy-query/medium` | `/api/db-test/heavy-query/:intensity` |
+| `/user/123` | `/user/:id` |
+| `/item/550e8400-e29b-...` | `/item/:uuid` |
+| `/assets/index-D4IGy2yB.css` | *(excluded from metrics)* |
+
+### Dashboard Namespace Dropdown Empty
+
+**Symptoms:**
+- Namespace dropdown shows no options
+- Dashboard panels all show "No Data"
+
+**Diagnosis:**
+```bash
+# Test the namespace variable query
+kubectl exec -n observability prometheus-prometheus-prometheus-0 -- \
+  wget -qO- 'http://localhost:9090/api/v1/query?query=kube_namespace_status_phase{namespace=~".*-pr-.*",phase="Active"}'
+```
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| No PR environments exist | Create a PR to generate a namespace |
+| Variable uses wrong metric | Use `kube_namespace_status_phase`, not `http_requests_total` |
+| kube-state-metrics down | Check kube-state-metrics pod is running |
+
+**Best Practice:** Dashboards should use `kube_namespace_status_phase` for namespace variables since it's always available from kube-state-metrics, even when no application metrics exist yet.
+
+## Alert Demo Issues
+
+### Alerts Not Triggering
+
+**Symptoms:**
+- Alert demo running but no alerts fire in Grafana/Alertmanager
+- Dashboard shows no error rate or latency spikes
+
+**Diagnosis:**
+```bash
+# Check alert demo is running
+curl https://k8s-ee-pr-{number}.k8s-ee.genesluna.dev/api/simulator/alert-demo/status
+
+# Verify metrics are being recorded (port-forward Prometheus)
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Query: http_requests_total{status_code="500", namespace="k8s-ee-pr-{number}"}
+
+# Check alert rules are loaded
+# In Prometheus UI: Status > Rules
+```
+
+**How Alert Demo Works:**
+
+The alert demo makes **actual HTTP requests** to the simulator endpoints to generate real metrics:
+
+| Alert Type | Endpoint Called | Metric Generated |
+|------------|-----------------|------------------|
+| high-error-rate | `/api/simulator/status/500` | `http_requests_total{status_code="500"}` |
+| high-latency | `/api/simulator/latency/slow` | `http_request_duration_seconds` (P99 > 500ms) |
+| slow-database | `/api/database-test/heavy-query/medium` | `db_query_duration_seconds` (P99 > 1s) |
+
+**Expected Timeline:**
+
+| Phase | Duration | What Happens |
+|-------|----------|--------------|
+| Start | 0s | Demo begins sending requests |
+| Metrics scraped | 30s | Prometheus collects first data points |
+| Rate calculation | ~2m | Prometheus has enough data for rate calculation |
+| Alert pending | ~2m | Alert condition becomes true, enters pending state |
+| Alert fires | ~7m | After 5m in pending state, alert fires |
+| Demo ends | 10m 30s | Demo stops automatically |
+
+**Note:** Alerts require `rate(...[5m])` for rate calculation plus `for: 5m` pending duration before firing (~10 minutes total). The demo runs for 10.5 minutes to ensure alerts transition from "pending" to "firing".
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| PrometheusRule not applied | Apply `kubectl apply -f k8s/observability/custom-alerts.yaml` |
+| Prometheus not scraping | Check ServiceMonitor and targets in Prometheus UI |
+| Metrics not recorded | Verify HTTP requests are going through middleware |
+| Alert rules disabled | Check PrometheusRule CRD exists |
+| Network policy blocking | Verify observability namespace can reach app |
+
+**First Troubleshooting Step - Verify PrometheusRule:**
+```bash
+# Check if custom alerts are applied
+kubectl get prometheusrule -n observability custom-alerts
+
+# If not found, apply them
+kubectl apply -f k8s/observability/custom-alerts.yaml
+
+# Verify all 15 alerts are loaded
+kubectl get prometheusrule -n observability custom-alerts \
+  -o jsonpath='{.spec.groups[0].rules[*].alert}' | tr ' ' '\n'
+```
+
+**Verify Metrics are Being Recorded:**
+```bash
+# Port-forward Prometheus
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+# Example queries (in Prometheus UI at localhost:9090):
+# 1. Check 500 errors are being recorded:
+http_requests_total{status_code="500", namespace="k8s-ee-pr-{number}"}
+
+# 2. Check error rate calculation:
+sum(rate(http_requests_total{status_code=~"5..", namespace="k8s-ee-pr-{number}"}[5m])) / sum(rate(http_requests_total{namespace="k8s-ee-pr-{number}"}[5m])) * 100
+
+# 3. Check P99 latency:
+histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{namespace="k8s-ee-pr-{number}"}[5m]))
+```
+
+**Check Alert Status:**
+```bash
+# Port-forward Alertmanager
+kubectl port-forward -n observability svc/prometheus-kube-prometheus-alertmanager 9093:9093
+# Visit localhost:9093 to see firing and pending alerts
+```
+
 ## Related Documentation
 
 - [Developer Onboarding](../DEVELOPER-ONBOARDING.md)
 - [Cluster Recovery Runbook](../runbooks/cluster-recovery.md)
 - [Network Policies Runbook](../runbooks/network-policies.md)
 - [Database Operators Runbook](../runbooks/database-operators.md)
+- [Custom Alerts Guide](../../k8s/observability/custom-alerts-README.md)

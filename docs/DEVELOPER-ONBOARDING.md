@@ -112,19 +112,28 @@ ssh ubuntu@168.138.151.63
 | `platform` | Shared platform components |
 | `k8s-ee-pr-{N}` | Ephemeral PR environments |
 
-## Grafana Dashboard Access
+## Observability Stack
 
-Access Grafana for logs and metrics:
+The cluster runs a full observability stack for monitoring, logging, and alerting.
 
-**URL:** `https://grafana.k8s-ee.genesluna.dev`
+### Access URLs
+
+| Service | URL |
+|---------|-----|
+| Grafana | `https://grafana.k8s-ee.genesluna.dev` |
+| Prometheus | `https://prometheus.k8s-ee.genesluna.dev` |
 
 ### Key Dashboards
 
 | Dashboard | Purpose |
 |-----------|---------|
-| Kubernetes / Pods | Pod resource usage |
-| Loki / Logs | Application and system logs |
-| Node Exporter | VPS system metrics |
+| Application Metrics | HTTP request rates, latency, error rates per PR |
+| SLO Dashboard | Service Level Objectives with error budgets |
+| Multi-PR Comparison | Side-by-side comparison of multiple PR environments |
+| Pod Resources | CPU, memory, network usage per pod |
+| Logs Dashboard | Application and system logs via Loki |
+| Node Exporter | VPS system metrics (CPU, disk, memory) |
+| Alert Overview | Active alerts and alert history |
 
 ### Viewing PR Environment Logs
 
@@ -135,6 +144,45 @@ Access Grafana for logs and metrics:
    {namespace="k8s-ee-pr-42"}
    ```
    Replace `42` with your PR number.
+
+### Viewing Metrics in Prometheus
+
+1. Open Prometheus → Graph
+2. Query application metrics:
+   ```promql
+   # Request rate by status code
+   sum(rate(http_requests_total{namespace="k8s-ee-pr-42"}[5m])) by (status_code)
+
+   # Average latency
+   histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace="k8s-ee-pr-42"}[5m]))
+   ```
+
+### Alert Demo Feature
+
+The demo app includes an alert demo feature to test Prometheus alerting:
+
+1. Open your PR preview URL
+2. Navigate to the Simulator page
+3. Click "Start Alert Demo" and choose an alert type:
+   - **High Error Rate** - Generates 5xx errors
+   - **High Latency** - Creates slow responses
+   - **Slow Database** - Runs heavy queries
+4. Wait 5+ minutes for alerts to fire
+5. View alerts in Grafana → Alerting → Alert rules
+
+### Application Metrics
+
+The demo app exposes Prometheus metrics at `/metrics`. Key metrics:
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `http_requests_total` | Counter | Total HTTP requests by method, route, status |
+| `http_request_duration_seconds` | Histogram | Request latency distribution |
+
+Route labels are normalized to prevent high cardinality:
+- `/api/simulator/status/500` → `/api/simulator/status/:code`
+- `/api/simulator/latency/slow` → `/api/simulator/latency/:preset`
+- `/api/users/123` → `/api/users/:id`
 
 ## Development Workflow
 
@@ -236,6 +284,7 @@ Now that you're set up, explore these resources:
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
 - [Troubleshooting Guide](guides/troubleshooting.md) - Debug common issues
+- [Grafana Dashboards Runbook](runbooks/grafana-dashboards.md) - Dashboard operations
 - [Security Guide](guides/security.md) - Security architecture
 - [Demo App README](../demo-app/README.md) - Application documentation
 - [PRD](PRD.md) - Product requirements and architecture

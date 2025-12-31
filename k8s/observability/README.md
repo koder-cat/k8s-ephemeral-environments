@@ -9,7 +9,9 @@ This directory contains the configuration for the k8s-ephemeral-environments obs
 | [kube-prometheus-stack](./kube-prometheus-stack/) | Prometheus, Grafana, Alertmanager | Deployed |
 | [loki](./loki/) | Log aggregation | Deployed |
 | [promtail](./promtail/) | Log collection | Deployed |
-| [custom-alerts.yaml](./custom-alerts.yaml) | PrometheusRule alerts | Deployed |
+| [custom-alerts.yaml](./custom-alerts.yaml) | PrometheusRule alerts | Manual (`kubectl apply`) |
+
+> **Note:** Custom alerts require manual deployment. See [custom-alerts-README.md](./custom-alerts-README.md) for installation instructions.
 
 ## Architecture
 

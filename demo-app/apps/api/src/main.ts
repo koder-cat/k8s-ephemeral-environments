@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -8,6 +9,18 @@ async function bootstrap() {
 
   // Use Pino logger for all NestJS logging
   app.useLogger(app.get(Logger));
+
+  // Enable global validation pipe for DTO validation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   // Security headers with CSP configured for SPA
   app.use(

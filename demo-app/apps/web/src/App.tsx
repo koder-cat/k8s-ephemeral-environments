@@ -1,4 +1,18 @@
 import { useEffect, useState } from 'react';
+import {
+  SimulatorPanel,
+  StatusIcon,
+  ClockIcon,
+  DatabaseIcon,
+  CpuIcon,
+  AlertIcon,
+  HttpStatusSimulator,
+  LatencySimulator,
+  DatabaseTester,
+  StressTester,
+  MetricsSummary,
+  AlertTrigger,
+} from './components';
 
 interface EnvInfo {
   pr: string;
@@ -243,6 +257,59 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Observability Testing Section */}
+              <section className="simulator-section">
+                <h2 className="section-title">Observability Testing</h2>
+                <p className="section-subtitle">
+                  Test endpoints and observe the results in Grafana dashboards
+                </p>
+
+                <MetricsSummary />
+
+                <div className="simulator-panels">
+                  <SimulatorPanel
+                    title="HTTP Status Codes"
+                    icon={<StatusIcon />}
+                    accentColor="cyan"
+                    defaultExpanded={true}
+                  >
+                    <HttpStatusSimulator />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Latency Testing"
+                    icon={<ClockIcon />}
+                    accentColor="amber"
+                  >
+                    <LatencySimulator />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Database Operations"
+                    icon={<DatabaseIcon />}
+                    accentColor="green"
+                  >
+                    <DatabaseTester />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Resource Stress"
+                    icon={<CpuIcon />}
+                    accentColor="red"
+                  >
+                    <StressTester />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Alert Trigger"
+                    icon={<AlertIcon />}
+                    accentColor="purple"
+                  >
+                    <AlertTrigger />
+                  </SimulatorPanel>
+                </div>
+              </section>
             </>
           )}
         </main>

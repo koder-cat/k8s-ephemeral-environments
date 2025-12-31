@@ -433,6 +433,20 @@ Add your dashboard to the ConfigMap and apply (see [Deployment](#deployment) sec
 - `db_pool_connections_*` - Database connection pool gauges
 - `db_query_duration_seconds` - Query duration with operation, success labels
 
+**Route Label Normalization:**
+
+The metrics middleware normalizes dynamic path segments to prevent high cardinality:
+
+| Actual Path | Normalized Route Label |
+|-------------|----------------------|
+| `/api/simulator/status/500` | `/api/simulator/status/:code` |
+| `/api/simulator/latency/slow` | `/api/simulator/latency/:preset` |
+| `/api/db-test/heavy-query/medium` | `/api/db-test/heavy-query/:intensity` |
+| `/api/users/123` | `/api/users/:id` |
+| `/api/items/550e8400-e29b-41d4-a716-446655440000` | `/api/items/:uuid` |
+
+Static assets (`/assets/*`) and the `/metrics` endpoint are excluded from metrics recording.
+
 See [demo-app API README](../../../demo-app/apps/api/README.md#prometheus-metrics) for full metrics documentation.
 
 ---

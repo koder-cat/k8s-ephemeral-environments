@@ -596,7 +596,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(http_requests_total{namespace=~\"$namespaces\"}[5m])) by (namespace)",
+          "expr": "sum(rate(http_requests_total{namespace=~\"$namespaces\"}[5m])) by (namespace) or vector(0)",
           "legendFormat": "{{namespace}}",
           "refId": "A"
         }

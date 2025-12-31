@@ -59,9 +59,29 @@ probes:
 
 # Bootstrap configuration
 bootstrap:
-  # SQL to run after database creation
+  # SQL to run on postgres database after initdb (before app database exists)
   initSQL: []
   # Example:
   # initSQL:
   #   - CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
   #   - CREATE EXTENSION IF NOT EXISTS "pgcrypto"
+
+  # SQL to run on the application database after it's created
+  # Use this for creating tables, functions, triggers, etc.
+  # IMPORTANT:
+  # 1. Use named dollar-quote delimiters ($func$) instead of $$
+  #    for function bodies - CloudNativePG's template processing consumes $$
+  # 2. Bootstrap SQL runs as 'postgres' superuser, but your app connects
+  #    as 'app' user. You MUST add GRANT statements for table access:
+  #    GRANT ALL PRIVILEGES ON <table> TO app;
+  #    GRANT USAGE, SELECT ON SEQUENCE <table>_id_seq TO app;
+  postInitApplicationSQL: []
+  # Example:
+  # postInitApplicationSQL:
+  #   - |
+  #     CREATE TABLE users (
+  #       id SERIAL PRIMARY KEY,
+  #       name VARCHAR(255)
+  #     );
+  #     GRANT ALL PRIVILEGES ON users TO app;
+  #     GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO app;

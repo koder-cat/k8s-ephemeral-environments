@@ -150,6 +150,27 @@ postgresql:
     log_min_duration_statement: "1000"
 ```
 
+### Database Bootstrap SQL
+
+Run SQL statements on the application database during cluster initialization:
+
+```yaml
+postgresql:
+  bootstrap:
+    postInitApplicationSQL:
+      - |
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255)
+        );
+```
+
+**Important notes:**
+- `postInitApplicationSQL` runs on the **application database** after it's created
+- Use `initSQL` for statements on the `postgres` database (extensions, etc.)
+- Use named dollar-quote delimiters (`$func$`) instead of `$$` for function bodies
+- See `demo-app/migrations/` for documented SQL reference files
+
 ### Connection String
 
 The chart automatically creates environment variables for database connection:

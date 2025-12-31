@@ -1,8 +1,10 @@
 # Custom Alerts
 
-Custom PrometheusRule alerts for cluster health monitoring.
+Custom PrometheusRule alerts for cluster health monitoring and application SLOs.
 
 ## Overview
+
+### Infrastructure Alerts
 
 | Alert | Condition | Severity | Duration |
 |-------|-----------|----------|----------|
@@ -13,6 +15,30 @@ Custom PrometheusRule alerts for cluster health monitoring.
 | PodCrashLooping | > 3 restarts in 10m | warning | 0m |
 | NodeNotReady | Node not ready | critical | 2m |
 
+### Application SLO Alerts
+
+| Alert | Condition | Severity | Duration |
+|-------|-----------|----------|----------|
+| APIHighLatency | P99 latency > 500ms | warning | 5m |
+| APIHighErrorRate | Error rate > 5% | warning | 5m |
+| DatabaseQuerySlow | P99 query latency > 1s | warning | 5m |
+| DatabasePoolExhausted | Queries waiting for connections | warning | 2m |
+
+### Observability Alerts
+
+| Alert | Condition | Severity | Duration |
+|-------|-----------|----------|----------|
+| PrometheusScrapeFailure | Scrape target down | warning | 5m |
+| PrometheusTargetMissing | No demo-app targets | info | 10m |
+| LokiIngestionErrors | Log ingestion stopped | warning | 10m |
+
+### Namespace Quota Alerts
+
+| Alert | Condition | Severity | Duration |
+|-------|-----------|----------|----------|
+| NamespaceQuotaCPUApproaching | CPU quota > 80% | warning | 5m |
+| NamespaceQuotaMemoryApproaching | Memory quota > 80% | warning | 5m |
+
 ## How It Works
 
 The PrometheusRule CRD is automatically discovered by Prometheus Operator because:
@@ -21,7 +47,13 @@ The PrometheusRule CRD is automatically discovered by Prometheus Operator becaus
 
 ## Installation
 
+**IMPORTANT:** This file must be manually applied to the cluster. It is NOT automatically deployed.
+
 ```bash
+# Apply custom alerts to the cluster
+kubectl apply -f k8s/observability/custom-alerts.yaml
+
+# After modifying the file, re-apply to update the rules
 kubectl apply -f k8s/observability/custom-alerts.yaml
 ```
 
@@ -31,9 +63,16 @@ kubectl apply -f k8s/observability/custom-alerts.yaml
 # Check PrometheusRule is created
 kubectl get prometheusrule -n observability custom-alerts
 
+# List all alert names in the rule
+kubectl get prometheusrule -n observability custom-alerts -o jsonpath='{.spec.groups[0].rules[*].alert}'
+
 # View alert rules in Prometheus
-kubectl port-forward -n observability svc/prometheus-kube-prometheus-prometheus 9090:9090
+kubectl port-forward -n observability svc/prometheus-prometheus 9090:9090
 # Open http://localhost:9090/rules and look for "custom.rules" group
+
+# Check alert states
+kubectl port-forward -n observability svc/prometheus-prometheus 9090:9090
+# Open http://localhost:9090/alerts
 ```
 
 ## Viewing Alerts
@@ -125,6 +164,104 @@ kubectl port-forward -n observability svc/prometheus-kube-prometheus-alertmanage
    - `free -m` (memory)
 3. Check for network issues
 4. Restart kubelet if needed: `sudo systemctl restart k3s`
+
+### APIHighLatency
+
+**Threshold:** P99 latency > 500ms for 5 minutes
+**Severity:** warning
+
+**Remediation:**
+1. Check which routes are slow: Look at `route` label in alert
+2. Check database query times: `kubectl logs -n <namespace> deployment/demo-app | grep "slow query"`
+3. Check resource usage: `kubectl top pods -n <namespace>`
+4. Review recent deployments for performance regressions
+5. Consider scaling if traffic increased
+
+### APIHighErrorRate
+
+**Threshold:** Error rate > 5% for 5 minutes
+**Severity:** warning
+
+**Remediation:**
+1. Check which routes have errors: Look at `route` label in alert
+2. Check application logs: `kubectl logs -n <namespace> deployment/demo-app --tail=100`
+3. Check if database is accessible: `kubectl exec -n <namespace> deployment/demo-app -- curl -s localhost:3000/api/health`
+4. Check for recent deployments that may have introduced bugs
+5. Review error details in Grafana logs dashboard
+
+### DatabaseQuerySlow
+
+**Threshold:** P99 query latency > 1s for 5 minutes
+**Severity:** warning
+
+**Remediation:**
+1. Check which operations are slow: Look at `operation` label in alert
+2. Check database connection pool: `kubectl logs -n <namespace> deployment/demo-app | grep "pool"`
+3. Check PostgreSQL status: `kubectl exec -n <namespace> demo-app-postgresql-rw-0 -- psql -c "SELECT * FROM pg_stat_activity;"`
+4. Review slow queries: Check Loki logs for query timing
+5. Consider adding indexes or optimizing queries
+
+### DatabasePoolExhausted
+
+**Threshold:** Queries waiting for connections for 2 minutes
+**Severity:** warning
+
+**Remediation:**
+1. Check pool stats: `kubectl logs -n <namespace> deployment/demo-app | grep "pool"`
+2. Check for long-running queries: `kubectl exec -n <namespace> demo-app-postgresql-rw-0 -- psql -c "SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state != 'idle' ORDER BY duration DESC;"`
+3. Check for connection leaks in application code
+4. Consider increasing pool size (current max: 5)
+
+## Troubleshooting Alerts
+
+### Alerts Not Firing
+
+If alert demos run but alerts don't appear in Grafana:
+
+1. **Verify PrometheusRule is applied:**
+   ```bash
+   kubectl get prometheusrule -n observability custom-alerts
+   ```
+   If not found, apply it:
+   ```bash
+   kubectl apply -f k8s/observability/custom-alerts.yaml
+   ```
+
+2. **Verify all alert rules are loaded:**
+   ```bash
+   kubectl get prometheusrule -n observability custom-alerts -o jsonpath='{.spec.groups[0].rules[*].alert}' | tr ' ' '\n'
+   ```
+   Should show 15 alerts including APIHighLatency, APIHighErrorRate, DatabaseQuerySlow.
+
+3. **Check Prometheus is scraping metrics:**
+   ```bash
+   kubectl port-forward -n observability svc/prometheus-prometheus 9090:9090
+   # Open http://localhost:9090/targets - look for demo-app targets
+   ```
+
+4. **Check alert state in Prometheus:**
+   ```bash
+   # Open http://localhost:9090/alerts
+   # Look for alerts in "pending" or "firing" state
+   ```
+
+5. **Verify metrics exist:**
+   ```bash
+   # In Prometheus UI, query:
+   http_requests_total{namespace=~"k8s-ee-pr-.*"}
+   http_request_duration_seconds_bucket{namespace=~"k8s-ee-pr-.*"}
+   ```
+
+6. **Check timing requirements:**
+   - Alert demos run for 10.5 minutes
+   - Alerts need `rate(...[5m])` data + `for: 5m` pending duration
+   - Total time to firing: ~7-10 minutes after demo start
+
+7. **Check NetworkPolicy allows scraping:**
+   ```bash
+   kubectl get networkpolicy -n <pr-namespace>
+   # Verify observability namespace can reach pod on port 3000
+   ```
 
 ## Silencing Alerts
 

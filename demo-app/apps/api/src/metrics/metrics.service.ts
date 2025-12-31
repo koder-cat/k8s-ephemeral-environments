@@ -1,9 +1,40 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as client from 'prom-client';
 
+export interface RecentError {
+  timestamp: string;
+  status: number;
+  method: string;
+  path: string;
+  message?: string;
+}
+
+export interface MetricsSummary {
+  requests: {
+    total: number;
+    perMinute: number;
+    errorRate: number;
+    avgLatencyMs: number;
+  };
+  system: {
+    uptimeSeconds: number;
+    memoryUsedMb: number;
+    memoryTotalMb: number;
+  };
+  recentErrors: RecentError[];
+  timestamp: string;
+}
+
 @Injectable()
 export class MetricsService implements OnModuleInit {
   private readonly registry: client.Registry;
+  private readonly startTime = Date.now();
+  private readonly recentErrors: RecentError[] = [];
+  private readonly maxRecentErrors = 10;
+  private requestCount = 0;
+  private errorCount = 0;
+  private totalLatencyMs = 0;
+  private lastMinuteRequests: number[] = [];
 
   // HTTP metrics
   public readonly httpRequestDuration: client.Histogram<string>;
@@ -80,5 +111,73 @@ export class MetricsService implements OnModuleInit {
 
   getContentType(): string {
     return this.registry.contentType;
+  }
+
+  /**
+   * Record a request for summary statistics
+   */
+  recordRequest(
+    method: string,
+    path: string,
+    status: number,
+    durationMs: number,
+    errorMessage?: string,
+  ): void {
+    this.requestCount++;
+    this.totalLatencyMs += durationMs;
+
+    // Track requests per minute
+    const now = Date.now();
+    this.lastMinuteRequests.push(now);
+    // Remove requests older than 1 minute
+    const oneMinuteAgo = now - 60000;
+    this.lastMinuteRequests = this.lastMinuteRequests.filter((t) => t > oneMinuteAgo);
+
+    // Track errors (4xx and 5xx)
+    if (status >= 400) {
+      this.errorCount++;
+      this.recentErrors.unshift({
+        timestamp: new Date().toISOString(),
+        status,
+        method,
+        path,
+        message: errorMessage,
+      });
+      // Keep only recent errors
+      if (this.recentErrors.length > this.maxRecentErrors) {
+        this.recentErrors.pop();
+      }
+    }
+  }
+
+  /**
+   * Get metrics summary for the frontend dashboard
+   */
+  getSummary(): MetricsSummary {
+    const memUsage = process.memoryUsage();
+    const uptimeSeconds = Math.floor((Date.now() - this.startTime) / 1000);
+    const perMinute = this.lastMinuteRequests.length;
+    const avgLatencyMs =
+      this.requestCount > 0 ? Math.round(this.totalLatencyMs / this.requestCount) : 0;
+    const errorRate =
+      this.requestCount > 0
+        ? Math.round((this.errorCount / this.requestCount) * 1000) / 10
+        : 0;
+
+    return {
+      requests: {
+        total: this.requestCount,
+        perMinute,
+        errorRate,
+        avgLatencyMs,
+      },
+      system: {
+        uptimeSeconds,
+        memoryUsedMb: Math.round(memUsage.heapUsed / 1024 / 1024),
+        memoryTotalMb: Math.round(memUsage.heapTotal / 1024 / 1024),
+      },
+      recentErrors: [...this.recentErrors],
+      timestamp: new Date().toISOString(),
+    };
   }
 }

@@ -64,6 +64,10 @@ spec:
       postInitSQL:
         {{- toYaml .Values.bootstrap.initSQL | nindent 8 }}
       {{- end }}
+      {{- if and .Values.bootstrap .Values.bootstrap.postInitApplicationSQL }}
+      postInitApplicationSQL:
+        {{- toYaml .Values.bootstrap.postInitApplicationSQL | nindent 8 }}
+      {{- end }}
 
   # Startup delay calculation
   {{- if .Values.probes }}

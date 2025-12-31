@@ -2,6 +2,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 
+// Mock metrics summary data
+const mockMetricsSummary = {
+  requests: { total: 100, perMinute: 10, errorRate: 0, avgLatencyMs: 50 },
+  system: { memoryUsedMb: 100, uptimeSeconds: 3600 },
+  recentErrors: [],
+};
+
+// Helper to create fetch mock that handles multiple endpoints
+const createFetchMock = (infoResponse: unknown, infoOk = true) => {
+  return vi.fn().mockImplementation((url: string) => {
+    if (url.includes('/api/metrics/summary')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(mockMetricsSummary),
+      });
+    }
+    if (url.includes('/api/info')) {
+      if (!infoOk) {
+        return Promise.resolve({ ok: false, status: 500 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(infoResponse),
+      });
+    }
+    return Promise.resolve({ ok: false, status: 404 });
+  });
+};
+
 describe('App', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -26,10 +55,7 @@ describe('App', () => {
       previewUrl: 'https://test.example.com',
     };
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockInfo),
-    });
+    global.fetch = createFetchMock(mockInfo);
 
     render(<App />);
 
@@ -42,7 +68,15 @@ describe('App', () => {
   });
 
   it('should render error state on fetch failure', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/metrics/summary')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockMetricsSummary),
+        });
+      }
+      return Promise.reject(new Error('Network error'));
+    });
 
     render(<App />);
 
@@ -82,9 +116,14 @@ describe('App', () => {
   });
 
   it('should handle HTTP error responses', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/metrics/summary')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockMetricsSummary),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 500 });
     });
 
     render(<App />);
@@ -105,10 +144,7 @@ describe('App', () => {
       previewUrl: 'https://example.com',
     };
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockInfo),
-    });
+    global.fetch = createFetchMock(mockInfo);
 
     render(<App />);
 

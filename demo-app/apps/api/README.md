@@ -89,6 +89,195 @@ Prometheus metrics endpoint for observability.
 
 **Response:** Prometheus text format with all application metrics.
 
+## Simulator Endpoints
+
+The simulator module provides endpoints for observability testing.
+
+### GET /api/simulator/status-codes
+
+Returns available HTTP status codes for simulation.
+
+### GET /api/simulator/status/:code
+
+Simulates an HTTP response with the specified status code.
+
+**Parameters:** `code` - HTTP status code (200, 201, 204, 400, 401, 403, 404, 422, 429, 500, 502, 503, 504)
+
+### GET /api/simulator/latency-presets
+
+Returns available latency presets.
+
+### GET /api/simulator/latency/:preset
+
+Simulates a response with the specified latency.
+
+**Parameters:** `preset` - Latency preset (fast, normal, slow, verySlow, timeout) or custom delay in ms
+
+### POST /api/simulator/stress/cpu
+
+Runs a CPU stress test.
+
+**Body:**
+```json
+{
+  "duration": 5000,
+  "intensity": 50
+}
+```
+
+### POST /api/simulator/stress/memory
+
+Runs a memory stress test.
+
+**Body:**
+```json
+{
+  "duration": 5000,
+  "sizeMb": 64
+}
+```
+
+## Alert Demo Endpoints
+
+The alert demo module triggers sustained load to fire Prometheus alerts in Grafana.
+
+### GET /api/simulator/alert-demo
+
+Returns available alert types.
+
+**Response:**
+```json
+{
+  "alertTypes": {
+    "high-error-rate": {
+      "description": "Generates 5xx errors to trigger APIHighErrorRate alert",
+      "durationMinutes": 11
+    },
+    "high-latency": {
+      "description": "Generates slow responses to trigger APIHighLatency alert",
+      "durationMinutes": 11
+    },
+    "slow-database": {
+      "description": "Runs heavy database queries to trigger DatabaseQuerySlow alert",
+      "durationMinutes": 11
+    }
+  },
+  "timestamp": "2025-01-01T00:00:00.000Z"
+}
+```
+
+### GET /api/simulator/alert-demo/status
+
+Returns current alert demo status.
+
+**Response:**
+```json
+{
+  "running": true,
+  "alertType": "high-error-rate",
+  "startedAt": "2025-01-01T00:00:00.000Z",
+  "endsAt": "2025-01-01T00:10:30.000Z",
+  "remainingSeconds": 480,
+  "requestsSent": 300,
+  "progress": 25,
+  "timestamp": "2025-01-01T00:02:30.000Z"
+}
+```
+
+### POST /api/simulator/alert-demo/:alertType
+
+Starts an alert demo.
+
+**Parameters:** `alertType` - Alert type (high-error-rate, high-latency, slow-database)
+
+**Response:** Same as status endpoint with additional `message` field.
+
+### DELETE /api/simulator/alert-demo
+
+Stops the running alert demo.
+
+## Database Test Endpoints
+
+The database test module provides CRUD operations for observability testing.
+
+### GET /api/db-test/records
+
+Returns all test records.
+
+### POST /api/db-test/records
+
+Creates a new test record.
+
+**Body:**
+```json
+{
+  "name": "Test Record",
+  "data": { "key": "value" }
+}
+```
+
+### GET /api/db-test/records/:id
+
+Returns a specific test record.
+
+### PUT /api/db-test/records/:id
+
+Updates a test record.
+
+### DELETE /api/db-test/records/:id
+
+Deletes a test record.
+
+### DELETE /api/db-test/records
+
+Deletes all test records.
+
+### GET /api/db-test/heavy-query-presets
+
+Returns available heavy query presets.
+
+### POST /api/db-test/heavy-query/:preset
+
+Runs a heavy database query for testing.
+
+**Parameters:** `preset` - Query preset (light, medium, heavy)
+
+### GET /api/db-test/stats
+
+Returns database statistics including pool stats and table size.
+
+## Metrics Summary Endpoint
+
+### GET /api/metrics/summary
+
+Returns aggregated metrics for the UI dashboard.
+
+**Response:**
+```json
+{
+  "requests": {
+    "total": 1000,
+    "perMinute": 50,
+    "errorRate": 2.5,
+    "avgLatencyMs": 150
+  },
+  "system": {
+    "uptimeSeconds": 3600,
+    "memoryUsedMb": 128,
+    "memoryTotalMb": 512
+  },
+  "recentErrors": [
+    {
+      "timestamp": "2025-01-01T00:00:00.000Z",
+      "status": 500,
+      "method": "GET",
+      "path": "/api/simulator/status/500"
+    }
+  ],
+  "timestamp": "2025-01-01T00:00:00.000Z"
+}
+```
+
 ## Prometheus Metrics
 
 The API exposes Prometheus metrics at `/metrics` for monitoring and alerting.

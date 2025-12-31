@@ -107,14 +107,25 @@ Option B: Create JSON manually (use existing dashboards as templates)
     "list": [
       {
         "name": "namespace",
-        "query": "label_values(kube_namespace_status_phase{namespace=~\".*-pr-.*\"}, namespace)"
+        "query": "label_values(kube_namespace_status_phase{namespace=~\".*-pr-.*\", phase=\"Active\"}, namespace)"
       }
     ]
   }
 }
 ```
 
-### 3. Datasource UIDs
+### 3. Namespace Variable Best Practices
+
+**Always use `kube_namespace_status_phase` for namespace dropdown variables**, not application-specific metrics.
+
+| Approach | Query | Reliability |
+|----------|-------|-------------|
+| ✅ Recommended | `label_values(kube_namespace_status_phase{namespace=~".*-pr-.*", phase="Active"}, namespace)` | Works immediately when namespace exists |
+| ❌ Avoid | `label_values(http_requests_total{namespace=~".*-pr-.*"}, namespace)` | Fails until app receives traffic |
+
+**Why?** Application metrics (like `http_requests_total`) only exist after the app receives traffic. Using them for namespace variables causes empty dropdowns during initial deployment. The `kube_namespace_status_phase` metric is exported by kube-state-metrics and available as soon as the namespace is created.
+
+### 4. Datasource UIDs
 
 All panels must use correct datasource references:
 
@@ -146,7 +157,7 @@ All panels must use correct datasource references:
 
 > **Critical:** Loki panels MUST use `${DS_LOKI}` variable, NOT hardcoded `"uid": "loki"`. Hardcoded UIDs will cause "No data" errors even when Explore works fine.
 
-### 4. Loki Datasource Variable (Required for log panels)
+### 5. Loki Datasource Variable (Required for log panels)
 
 Any dashboard with Loki log panels must include this variable in the `templating.list` array:
 
@@ -176,7 +187,7 @@ Any dashboard with Loki log panels must include this variable in the `templating
 - `query: "loki"` finds datasources of type loki
 - `type: "datasource"` makes it a datasource selector variable
 
-### 5. Deploy using steps above
+### 6. Deploy using steps above
 
 ---
 
