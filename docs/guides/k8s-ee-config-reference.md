@@ -524,6 +524,12 @@ metrics:
   interval: 15s
 ```
 
+#### Automatic Namespace Labeling
+
+When metrics are enabled, the ServiceMonitor automatically adds a `namespace` label to all scraped metrics using Prometheus relabeling. This enables Grafana dashboards to filter metrics by namespace without requiring your application to add this label.
+
+Your application metrics will include `namespace="myapp-pr-42"` automatically, matching the PR environment namespace.
+
 ---
 
 ## Common Scenarios
