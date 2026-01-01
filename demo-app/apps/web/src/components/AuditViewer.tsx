@@ -110,11 +110,11 @@ export function AuditViewer() {
             <span className="stat-label">Total</span>
           </div>
           <div className="stat-item">
-            <span className="stat-value active">{stats.eventsLast24h.toLocaleString()}</span>
+            <span className="stat-value active">{(stats.eventsLast24h ?? stats.totalEvents).toLocaleString()}</span>
             <span className="stat-label">Last 24h</span>
           </div>
           <div className="stat-item">
-            <span className="stat-value">{formatBytes(stats.storageBytes)}</span>
+            <span className="stat-value">{formatBytes(stats.storageBytes ?? 0)}</span>
             <span className="stat-label">Storage</span>
           </div>
           <div className="stat-item">

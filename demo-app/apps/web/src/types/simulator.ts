@@ -157,23 +157,27 @@ export interface AuditEventsResponse {
 
 export interface AuditStats {
   totalEvents: number;
-  eventsLast24h: number;
+  eventsLast24h?: number;
   eventsByType: Record<string, number>;
-  storageBytes: number;
-  oldestEvent: string | null;
-  newestEvent: string | null;
-  timestamp: string;
+  storageBytes?: number;
+  oldestEvent?: string | null;
+  newestEvent?: string | null;
+  timestamp?: string;
 }
 
 // Cache types
 export interface CacheStats {
+  enabled?: boolean;
+  connected?: boolean;
   hits: number;
   misses: number;
   hitRate: number;
-  keys: number;
-  memoryUsed: string;
-  uptime: number;
-  timestamp: string;
+  keys?: number;
+  keysCount?: number;
+  memoryUsed?: string;
+  memoryUsedBytes?: number;
+  uptime?: number;
+  timestamp?: string;
 }
 
 export interface CacheStatus {

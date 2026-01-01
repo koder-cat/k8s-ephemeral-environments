@@ -10,6 +10,14 @@ function formatUptime(seconds: number): string {
   return `${hours}h ${mins}m`;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
 export function CacheMonitor() {
   const [stats, setStats] = useState<CacheStats | null>(null);
   const [status, setStatus] = useState<CacheStatus | null>(null);
@@ -87,17 +95,19 @@ export function CacheMonitor() {
             <span className="stat-label">Hit Rate</span>
           </div>
           <div className="stat-item">
-            <span className="stat-value">{stats.keys.toLocaleString()}</span>
+            <span className="stat-value">{(stats.keys ?? stats.keysCount ?? 0).toLocaleString()}</span>
             <span className="stat-label">Keys</span>
           </div>
           <div className="stat-item">
-            <span className="stat-value">{stats.memoryUsed}</span>
+            <span className="stat-value">{stats.memoryUsed ?? formatBytes(stats.memoryUsedBytes ?? 0)}</span>
             <span className="stat-label">Memory</span>
           </div>
+          {stats.uptime !== undefined && (
           <div className="stat-item">
             <span className="stat-value">{formatUptime(stats.uptime)}</span>
             <span className="stat-label">Uptime</span>
           </div>
+          )}
         </div>
       )}
 
