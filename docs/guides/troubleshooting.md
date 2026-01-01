@@ -374,6 +374,52 @@ If you need to test against published OCI charts instead:
 - Chart changes are automatically tested without needing OCI publication
 - Ensure chart directory is included in sparse checkout for deploy-app job
 
+### Local Chart Dependency Build Failures
+
+**Symptoms:**
+- Deploy App step fails with "helm dependency build" error
+- Error: `the lock file (Chart.lock) is out of sync with the dependencies file (Chart.yaml)`
+
+**Root Cause:**
+When using local charts, the deploy-app action modifies `Chart.yaml` to use `file://` references instead of OCI URLs. The existing `Chart.lock` file still references the OCI URLs, causing a mismatch.
+
+**Resolution:**
+The deploy-app action automatically removes `Chart.lock` before building dependencies. If you see this error, ensure you're using the latest version of the action.
+
+**Technical Details:**
+The local chart build process:
+1. Backs up `Chart.yaml`
+2. Replaces OCI repository URLs with `file://../` paths
+3. Renames chart dependencies (e.g., `k8s-ee-postgresql` → `postgresql`)
+4. Removes `Chart.lock` to avoid sync issues
+5. Runs `helm dependency build`
+6. Restores original `Chart.yaml` on exit
+
+### Sparse Checkout Missing Charts Directory
+
+**Symptoms:**
+- Deploy App step fails with "charts/k8s-ee-app directory not found"
+- Local chart build cannot find chart files
+- Error: `Chart.yaml file is missing` during `helm dependency build`
+
+**Root Cause:**
+The deploy-app job uses sparse checkout to minimize repository data. The pattern `charts` alone may not include all subdirectories properly. Each chart directory must be explicitly listed.
+
+**Resolution:**
+Ensure the deploy-app job's checkout step includes all chart directories explicitly:
+
+```yaml
+sparse-checkout: |
+  .github/actions
+  charts/k8s-ee-app
+  charts/postgresql
+  charts/mongodb
+  charts/redis
+  charts/minio
+  charts/mariadb
+sparse-checkout-cone-mode: false
+```
+
 ## Database Issues
 
 ### Database Not Deployed (k8s-ee.yaml)
