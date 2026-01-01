@@ -292,6 +292,43 @@ kubectl describe pod -n k8s-ee-pr-{number} <pod-name>
 | Wrong service name | Check service DNS name |
 | Network policy blocking | Verify egress policy |
 
+### Init Container OOMKilled
+
+**Symptoms:**
+- Pod shows `Init:OOMKilled` status
+- Init container restarts repeatedly
+
+**Common Causes:**
+
+| Init Container | Issue | Solution |
+|----------------|-------|----------|
+| wait-for-mongodb | `mongo:7-jammy` image needs 256Mi | Increase memory limit to 256Mi |
+| wait-for-postgresql | Usually fine at 64Mi | Check for unusual workload |
+
+The MongoDB init container uses `mongosh` for readiness checks, which requires more memory than simple port checks.
+
+### MongoDB ServiceAccount Not Found
+
+**Symptoms:**
+- MongoDB StatefulSet fails to create pods
+- Error: `serviceaccount "mongodb-database" not found`
+
+**Diagnosis:**
+```bash
+kubectl get sa -n k8s-ee-pr-{number}
+kubectl get events -n k8s-ee-pr-{number} | grep mongodb
+```
+
+**Resolution:**
+The MongoDB chart should create this ServiceAccount automatically. If missing:
+```bash
+# Check if Helm deployed the MongoDB chart correctly
+helm get manifest app -n k8s-ee-pr-{number} | grep -A5 "kind: ServiceAccount"
+
+# Manual fix (temporary)
+kubectl create serviceaccount mongodb-database -n k8s-ee-pr-{number}
+```
+
 **Resolution:**
 ```bash
 # Check database cluster status

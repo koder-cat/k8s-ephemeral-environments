@@ -386,6 +386,19 @@ Use native client tools instead of netcat port checks:
   command: ["sh", "-c", "until curl -sf http://$HOST:9000/minio/health/live; do sleep 2; done"]
 ```
 
+### Init Container Resource Requirements
+
+Different init containers have different memory requirements based on their base images:
+
+| Init Container | Image | Memory Limit | Notes |
+|----------------|-------|--------------|-------|
+| wait-for-postgresql | postgres:16-alpine | 64Mi | Lightweight |
+| wait-for-mongodb | mongo:7-jammy | **256Mi** | `mongosh` requires more memory |
+| wait-for-redis | redis:7-alpine | 64Mi | Lightweight |
+| wait-for-minio | curlimages/curl | 32Mi | Minimal |
+
+**Important:** The MongoDB init container will OOMKill at 128Mi. Always allocate at least 256Mi for `mongosh`-based readiness checks.
+
 ### Why Both Layers?
 
 Even with proper init containers, you still need application-level retry because:

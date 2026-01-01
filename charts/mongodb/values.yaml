@@ -1,5 +1,8 @@
 # MongoDB Library Chart Values
 # Used as a sub-chart dependency by application charts
+#
+# NOTE: This chart automatically creates a ServiceAccount named 'mongodb-database'
+# required by the MongoDB Community Operator. See templates/serviceaccount.yaml.
 
 # Enable/disable MongoDB
 enabled: true
