@@ -99,6 +99,14 @@ inputs:
     description: 'Full MariaDB configuration as JSON'
     required: false
     default: '{"enabled": false}'
+  metrics-enabled:
+    description: 'Enable Prometheus metrics ServiceMonitor'
+    required: false
+    default: 'false'
+  metrics-config:
+    description: 'Full metrics configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
 
 outputs:
   preview-url:
@@ -323,6 +331,8 @@ runs:
         REDIS_CONFIG: ${{ inputs.redis-config }}
         MINIO_CONFIG: ${{ inputs.minio-config }}
         MARIADB_CONFIG: ${{ inputs.mariadb-config }}
+        METRICS_ENABLED: ${{ inputs.metrics-enabled }}
+        METRICS_CONFIG: ${{ inputs.metrics-config }}
         USE_LOCAL_CHARTS: ${{ inputs.use-local-charts }}
       run: |
         set -euo pipefail
@@ -382,6 +392,11 @@ runs:
         fi
         if [ "$MARIADB_ENABLED" = "true" ]; then
           HELM_ARGS+=("--set-json" "mariadb=$MARIADB_CONFIG")
+        fi
+
+        # Metrics configuration (ServiceMonitor for Prometheus)
+        if [ "$METRICS_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "metrics=$METRICS_CONFIG")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")

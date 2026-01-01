@@ -108,6 +108,8 @@ jobs:
       redis-config: ${{ steps.validate.outputs.redis-config }}
       minio-config: ${{ steps.validate.outputs.minio-config }}
       mariadb-config: ${{ steps.validate.outputs.mariadb-config }}
+      metrics-enabled: ${{ steps.validate.outputs.metrics-enabled }}
+      metrics-config: ${{ steps.validate.outputs.metrics-config }}
 
     steps:
       - name: Checkout calling repository
@@ -307,6 +309,8 @@ jobs:
           redis-config: ${{ needs.validate-config.outputs.redis-config }}
           minio-config: ${{ needs.validate-config.outputs.minio-config }}
           mariadb-config: ${{ needs.validate-config.outputs.mariadb-config }}
+          metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
+          metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
 
   # ============================================================================
   # PR COMMENT (DEPLOY)

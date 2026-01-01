@@ -189,6 +189,13 @@ For production applications with evolving schemas, use database migrations inste
 - Verify `secrets: inherit` is set in workflow
 - Check repository has Actions permissions
 
+### Metrics not being scraped
+
+- Verify `metrics.enabled: true` is set in `k8s-ee.yaml`
+- Check ServiceMonitor exists: `kubectl get servicemonitor -n {namespace}`
+- Verify your app exposes a `/metrics` endpoint (or custom path via `app.metricsPath`)
+- The ServiceMonitor automatically adds a `namespace` label for Grafana filtering
+
 ---
 
 ## See Also

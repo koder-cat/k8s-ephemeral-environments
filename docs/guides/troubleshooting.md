@@ -980,6 +980,8 @@ curl https://k8s-ee-pr-{number}.k8s-ee.genesluna.dev/metrics
 | App not exposing /metrics | Check MetricsModule is imported in app.module.ts |
 | Port mismatch | ServiceMonitor port must match service port name |
 | Network policy blocking | Verify observability namespace can reach app |
+| metrics.enabled not set | Verify `metrics.enabled: true` in k8s-ee.yaml |
+| Namespace label missing | ServiceMonitor adds namespace via relabeling (automatic in k8s-ee charts) |
 
 ### High Cardinality Metrics
 
