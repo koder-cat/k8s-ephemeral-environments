@@ -1,0 +1,33 @@
+{{- if .Values.enabled }}
+# Role and RoleBinding for MongoDB agent readiness probe
+# The agent needs to read secrets to verify automation config
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-database
+  labels:
+    {{- include "mongodb.labels" . | nindent 4 }}
+rules:
+  # Agent needs to read secrets for automation config verification
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  # Agent needs to read pods and patch annotations (agent version)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mongodb-database
+  labels:
+    {{- include "mongodb.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mongodb-database
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-database
+{{- end }}
