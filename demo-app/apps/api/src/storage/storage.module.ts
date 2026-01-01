@@ -15,6 +15,8 @@ import { StorageController } from './storage.controller';
  *
  * @Global() decorator makes StorageService available throughout the app
  * without needing to import StorageModule in every module.
+ *
+ * Note: AuditService is injected via @Global() AuditModule - no import needed.
  */
 @Global()
 @Module({

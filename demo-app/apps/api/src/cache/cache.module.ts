@@ -15,6 +15,8 @@ import { RateLimitGuard } from './rate-limit/rate-limit.guard';
  *
  * @Global() decorator makes CacheService available throughout the app
  * without needing to import CacheModule in every module.
+ *
+ * Note: AuditService is injected via @Global() AuditModule - no import needed.
  */
 @Global()
 @Module({

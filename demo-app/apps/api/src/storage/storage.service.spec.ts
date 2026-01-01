@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StorageService } from './storage.service';
 import { DatabaseService } from '../database.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { AuditService } from '../audit/audit.service';
 import { PinoLogger } from 'nestjs-pino';
 import { BadRequestException } from '@nestjs/common';
 
@@ -33,6 +34,7 @@ describe('StorageService', () => {
   let mockLogger: PinoLogger;
   let mockDatabase: DatabaseService;
   let mockMetrics: MetricsService;
+  let mockAudit: AuditService;
 
   beforeEach(() => {
     vi.stubEnv('MINIO_ENDPOINT', 'localhost');
@@ -96,7 +98,11 @@ describe('StorageService', () => {
       },
     } as unknown as MetricsService;
 
-    service = new StorageService(mockLogger, mockDatabase, mockMetrics);
+    mockAudit = {
+      logEvent: vi.fn(),
+    } as unknown as AuditService;
+
+    service = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
   });
 
   afterEach(() => {
@@ -110,7 +116,7 @@ describe('StorageService', () => {
 
     it('should return false when MinIO is not configured', () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       expect(newService.enabled).toBe(false);
     });
   });
@@ -126,7 +132,7 @@ describe('StorageService', () => {
 
     it('should skip initialization when disabled', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       await newService.onModuleInit();
       expect(mockLogger.info).toHaveBeenCalledWith(
         'MinIO not configured, storage features disabled',
@@ -137,7 +143,7 @@ describe('StorageService', () => {
   describe('getStatus', () => {
     it('should return disabled status when not configured', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       const status = await newService.getStatus();
       expect(status).toEqual({ enabled: false, connected: false });
     });
@@ -154,7 +160,7 @@ describe('StorageService', () => {
   describe('uploadFile', () => {
     it('should throw when not available', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       const file = {
         buffer: Buffer.from('test'),
         originalname: 'test.txt',
@@ -208,7 +214,7 @@ describe('StorageService', () => {
   describe('getPresignedUrl', () => {
     it('should throw when not available', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       await expect(newService.getPresignedUrl('test-id')).rejects.toThrow(
         BadRequestException,
       );
@@ -226,7 +232,7 @@ describe('StorageService', () => {
   describe('deleteFile', () => {
     it('should throw when not available', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       await expect(newService.deleteFile('test-id')).rejects.toThrow(BadRequestException);
     });
 
@@ -243,7 +249,7 @@ describe('StorageService', () => {
   describe('listFiles', () => {
     it('should return empty array when disabled', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       const files = await newService.listFiles({});
       expect(files).toEqual([]);
     });
@@ -258,7 +264,7 @@ describe('StorageService', () => {
   describe('getStats', () => {
     it('should return zero stats when disabled', async () => {
       vi.stubEnv('MINIO_ENDPOINT', '');
-      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics);
+      const newService = new StorageService(mockLogger, mockDatabase, mockMetrics, mockAudit);
       const stats = await newService.getStats();
       expect(stats.connected).toBe(false);
       expect(stats.fileCount).toBe(0);

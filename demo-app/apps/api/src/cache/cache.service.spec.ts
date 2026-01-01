@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CacheService } from './cache.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { AuditService } from '../audit/audit.service';
 import { PinoLogger } from 'nestjs-pino';
 
 // Mock ioredis
@@ -33,6 +34,7 @@ describe('CacheService', () => {
   let service: CacheService;
   let mockLogger: PinoLogger;
   let mockMetrics: MetricsService;
+  let mockAudit: AuditService;
 
   beforeEach(() => {
     vi.stubEnv('REDIS_URL', 'redis://localhost:6379');
@@ -58,7 +60,11 @@ describe('CacheService', () => {
       },
     } as unknown as MetricsService;
 
-    service = new CacheService(mockLogger, mockMetrics);
+    mockAudit = {
+      logEvent: vi.fn(),
+    } as unknown as AuditService;
+
+    service = new CacheService(mockLogger, mockMetrics, mockAudit);
   });
 
   afterEach(() => {
@@ -74,7 +80,7 @@ describe('CacheService', () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', 'redis-server');
       vi.stubEnv('REDIS_PORT', '6379');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       expect(newService.enabled).toBe(true);
     });
 
@@ -82,7 +88,7 @@ describe('CacheService', () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
       vi.stubEnv('REDIS_PORT', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       expect(newService.enabled).toBe(false);
     });
   });
@@ -97,7 +103,7 @@ describe('CacheService', () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
       vi.stubEnv('REDIS_PORT', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       await newService.onModuleInit();
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Redis not configured, caching features disabled',
@@ -109,7 +115,7 @@ describe('CacheService', () => {
     it('should return null when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       const result = await newService.get('test-key');
       expect(result).toBeNull();
     });
@@ -125,7 +131,7 @@ describe('CacheService', () => {
     it('should allow requests when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       const result = await newService.checkRateLimit('test', 10, 60);
       expect(result.allowed).toBe(true);
       expect(result.remaining).toBe(10);
@@ -143,7 +149,7 @@ describe('CacheService', () => {
     it('should return zero stats when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       const stats = await newService.getStats();
       expect(stats.connected).toBe(false);
       expect(stats.hits).toBe(0);
@@ -161,7 +167,7 @@ describe('CacheService', () => {
     it('should return disabled status when not configured', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       const status = await newService.getStatus();
       expect(status).toEqual({ enabled: false, connected: false });
     });
@@ -178,7 +184,7 @@ describe('CacheService', () => {
     it('should do nothing when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       await newService.flush();
       expect(mockLogger.info).not.toHaveBeenCalledWith('Cache flushed');
     });
@@ -194,7 +200,7 @@ describe('CacheService', () => {
     it('should return empty array when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
       vi.stubEnv('REDIS_HOST', '');
-      const newService = new CacheService(mockLogger, mockMetrics);
+      const newService = new CacheService(mockLogger, mockMetrics, mockAudit);
       const keys = await newService.listKeys();
       expect(keys).toEqual([]);
     });

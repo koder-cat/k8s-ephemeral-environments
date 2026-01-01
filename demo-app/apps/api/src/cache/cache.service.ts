@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import Redis from 'ioredis';
 import { MetricsService } from '../metrics/metrics.service';
+import { AuditService } from '../audit/audit.service';
 import { CacheStats, CacheStatus, RateLimitResult } from './dto/cache-stats.dto';
 
 /**
@@ -27,7 +28,27 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     @InjectPinoLogger(CacheService.name)
     private readonly logger: PinoLogger,
     private readonly metrics: MetricsService,
+    private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Log a cache operation to audit trail (fire-and-forget)
+   */
+  private logCacheOperation(
+    operation: string,
+    key?: string,
+    durationMs?: number,
+  ): void {
+    this.audit.logEvent({
+      type: 'cache_operation',
+      timestamp: new Date(),
+      metadata: {
+        operation,
+        key,
+        durationMs,
+      },
+    });
+  }
 
   /**
    * Check if Redis is configured (via URL or individual components)
@@ -180,6 +201,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const startTime = Date.now();
     const endTimer = this.metrics.cacheOperationDuration.startTimer({
       operation: 'set',
     });
@@ -188,6 +210,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       const serialized = JSON.stringify(value);
       await this.redis.setex(key, ttlSeconds, serialized);
+      this.logCacheOperation('SET', key, Date.now() - startTime);
     } catch (error) {
       success = false;
       this.logger.error({ error, key }, 'Failed to set cached value');
@@ -204,8 +227,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const startTime = Date.now();
+
     try {
       await this.redis.del(key);
+      this.logCacheOperation('DEL', key, Date.now() - startTime);
     } catch (error) {
       this.logger.error({ error, key }, 'Failed to delete cached value');
     }
@@ -219,9 +245,12 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const startTime = Date.now();
+
     try {
       await this.redis.flushdb();
       this.stats = { hits: 0, misses: 0 };
+      this.logCacheOperation('FLUSH', undefined, Date.now() - startTime);
       this.logger.info('Cache flushed');
     } catch (error) {
       this.logger.error({ error }, 'Failed to flush cache');

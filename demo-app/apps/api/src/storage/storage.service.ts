@@ -15,6 +15,7 @@ import { fileTypeFromBuffer } from 'file-type';
 import { eq, sql, desc, inArray } from 'drizzle-orm';
 import { DatabaseService } from '../database.service';
 import { MetricsService } from '../metrics/metrics.service';
+import { AuditService } from '../audit/audit.service';
 import { fileMetadata, testRecords } from '../db/schema';
 import {
   FileMetadataDto,
@@ -74,7 +75,31 @@ export class StorageService implements OnModuleInit {
     private readonly logger: PinoLogger,
     private readonly database: DatabaseService,
     private readonly metrics: MetricsService,
+    private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Log a file operation to audit trail (fire-and-forget)
+   */
+  private logFileOperation(
+    operation: string,
+    fileId?: string,
+    filename?: string,
+    size?: number,
+    durationMs?: number,
+  ): void {
+    this.audit.logEvent({
+      type: 'file_operation',
+      timestamp: new Date(),
+      metadata: {
+        operation,
+        fileId,
+        filename,
+        size,
+        durationMs,
+      },
+    });
+  }
 
   /**
    * Check if MinIO is configured
@@ -215,6 +240,7 @@ export class StorageService implements OnModuleInit {
       'File upload started',
     );
 
+    const startTime = Date.now();
     const endTimer = this.metrics.storageOperationDuration.startTimer({
       operation: 'upload',
     });
@@ -258,6 +284,9 @@ export class StorageService implements OnModuleInit {
         { fileId, filename, size: file.size },
         'File uploaded successfully',
       );
+
+      // Log to audit trail
+      this.logFileOperation('UPLOAD', fileId, file.originalname, file.size, Date.now() - startTime);
 
       return {
         fileId,
@@ -353,6 +382,7 @@ export class StorageService implements OnModuleInit {
       throw new BadRequestException('Storage service not available');
     }
 
+    const startTime = Date.now();
     const endTimer = this.metrics.storageOperationDuration.startTimer({
       operation: 'delete',
     });
@@ -383,6 +413,9 @@ export class StorageService implements OnModuleInit {
         .where(eq(fileMetadata.fileId, fileId));
 
       this.logger.info({ fileId }, 'File deleted');
+
+      // Log to audit trail
+      this.logFileOperation('DELETE', fileId, file.originalName, file.size, Date.now() - startTime);
     } catch (error) {
       success = false;
       throw error;
@@ -450,6 +483,7 @@ export class StorageService implements OnModuleInit {
       throw new BadRequestException('Storage service not available');
     }
 
+    const startTime = Date.now();
     const endTimer = this.metrics.storageOperationDuration.startTimer({
       operation: 'export',
     });
@@ -520,6 +554,9 @@ export class StorageService implements OnModuleInit {
       // Generate presigned URL
       const downloadUrl = await this.generatePresignedUrl(key);
       const expiresAt = new Date(Date.now() + this.DEFAULT_EXPIRY_SECONDS * 1000);
+
+      // Log to audit trail
+      this.logFileOperation('EXPORT', fileId, filename, size, Date.now() - startTime);
 
       return {
         fileId,
