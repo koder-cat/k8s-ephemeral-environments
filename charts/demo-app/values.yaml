@@ -111,8 +111,9 @@ metrics:
   scrapeTimeout: 10s
 
 # PostgreSQL database configuration (uses library chart)
+# Disabled when using MariaDB - only one SQL database should be enabled at a time
 postgresql:
-  enabled: true
+  enabled: false
   instances: 1
   version: "16"
   database: app
@@ -176,6 +177,6 @@ minio:
   enabled: true
 
 # MariaDB configuration (uses library chart)
-# Enable for applications requiring MariaDB
+# Enabled for testing MariaDB support - alternative to PostgreSQL
 mariadb:
-  enabled: false
+  enabled: true

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/genesluna/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json
 
 # k8s-ee.yaml - Ephemeral PR environment configuration
-# This repository dogfoods its own platform (demo-app uses NestJS with PostgreSQL)
+# This repository dogfoods its own platform (demo-app uses NestJS with MariaDB)
 #
 # See docs/guides/k8s-ee-config-reference.md for all available options
 
@@ -20,11 +20,11 @@ image:
   context: ./demo-app        # Docker build context directory
   dockerfile: Dockerfile     # Dockerfile path within context
 
-# Database configuration - enables PostgreSQL for this environment
-# Connection string injected as DATABASE_URL environment variable
+# Database configuration - enables MariaDB for this environment
+# Connection string injected as MYSQL_URL environment variable
 # Schema is managed by Drizzle ORM migrations at app startup (not bootstrap SQL)
 databases:
-  postgresql:
+  mariadb:
     enabled: true
   mongodb:
     enabled: true  # Activity audit logging with 7-day TTL

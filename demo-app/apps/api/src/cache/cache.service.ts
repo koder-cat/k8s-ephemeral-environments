@@ -376,7 +376,6 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const info = await this.redis.info('server');
       const memInfo = await this.redis.info('memory');
       const clientInfo = await this.redis.info('clients');
 

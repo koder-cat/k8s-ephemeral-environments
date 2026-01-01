@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1767217882981,
+      "tag": "0000_create_test_records",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1767236561884,
+      "tag": "0001_file_metadata",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,17 +1,28 @@
 # Docker Compose for local development
 # Usage:
-#   docker compose up -d                    # Start PostgreSQL only (default)
-#   docker compose --profile mongodb up -d  # Start PostgreSQL + MongoDB
-#   docker compose --profile redis up -d    # Start PostgreSQL + Redis
-#   docker compose --profile minio up -d    # Start PostgreSQL + MinIO
-#   docker compose --profile mariadb up -d  # Start PostgreSQL + MariaDB
-#   docker compose --profile all up -d      # Start all services
+#   docker compose up -d                      # Start MariaDB only (default)
+#   docker compose --profile mongodb up -d    # Start MariaDB + MongoDB
+#   docker compose --profile redis up -d      # Start MariaDB + Redis
+#   docker compose --profile minio up -d      # Start MariaDB + MinIO
+#   docker compose --profile postgresql up -d # Start MariaDB + PostgreSQL
+#   docker compose --profile all up -d        # Start all services
 #
 # For demo-app with all features (audit, cache, storage):
 #   docker compose --profile mongodb --profile redis --profile minio up -d
 #
+# Using PostgreSQL as primary database (instead of MariaDB):
+#   1. Start PostgreSQL: docker compose --profile postgresql up -d postgres
+#   2. Set environment in apps/api/.env:
+#      DATABASE_TYPE=postgresql
+#      DATABASE_URL=postgres://app:secret@localhost:5432/app
+#   3. Run migrations: pnpm db:migrate
+#   4. Start the app: pnpm dev
+#   Note: Only one SQL database (PostgreSQL OR MariaDB) should be enabled at a time
+#
 # Environment variables (add to apps/api/.env):
-#   DATABASE_URL=postgres://app:secret@localhost:5432/app
+#   DATABASE_TYPE=mariadb             # or "postgresql"
+#   MYSQL_URL=mysql://app:secret@localhost:3306/app        # for MariaDB
+#   DATABASE_URL=postgres://app:secret@localhost:5432/app  # for PostgreSQL
 #   MONGODB_URL=mongodb://app:secret@localhost:27017/app?authSource=admin
 #   REDIS_URL=redis://localhost:6379
 #   MINIO_ENDPOINT=localhost
@@ -21,11 +32,14 @@
 #   MINIO_BUCKET=demo-app
 
 services:
-  # PostgreSQL - Primary database (always runs)
+  # PostgreSQL - Optional (use --profile postgresql)
   postgres:
     image: postgres:16-alpine
     container_name: demo-postgres
     restart: unless-stopped
+    profiles:
+      - postgresql
+      - all
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: secret
@@ -103,14 +117,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # MariaDB - Optional (use --profile mariadb)
+  # MariaDB - Primary database (always runs)
   mariadb:
     image: mariadb:11
     container_name: demo-mariadb
     restart: unless-stopped
-    profiles:
-      - mariadb
-      - all
     environment:
       MARIADB_ROOT_PASSWORD: rootsecret
       MARIADB_USER: app

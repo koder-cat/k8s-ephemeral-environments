@@ -35,7 +35,7 @@ The app is automatically deployed to a preview environment for every Pull Reques
 | Frontend | React | 19.x |
 | Build Tool | Vite | 6.x |
 | Testing | Vitest | 3.x |
-| Database | PostgreSQL | 16 |
+| Database | PostgreSQL or MariaDB | 16 / 11 |
 | Audit Log | MongoDB | 7.x |
 | Cache | Redis | 7.x |
 | Storage | MinIO | Latest |
@@ -137,15 +137,35 @@ cp .env.example .env
 
 ### Database Operations
 
+The app supports both PostgreSQL (default) and MariaDB. Configure via `DATABASE_TYPE` environment variable.
+
 ```bash
-# Run migrations
-pnpm --filter @demo-app/api db:migrate
+# PostgreSQL (default)
+pnpm --filter @demo-app/api db:migrate           # Run migrations
+pnpm --filter @demo-app/api db:generate          # Generate migration
+pnpm --filter @demo-app/api db:studio            # Visual database browser
 
-# Generate new migration after schema changes
-pnpm --filter @demo-app/api db:generate
+# MariaDB
+pnpm --filter @demo-app/api db:migrate:mariadb   # Run migrations
+pnpm --filter @demo-app/api db:generate:mariadb  # Generate migration
+pnpm --filter @demo-app/api db:studio:mariadb    # Visual database browser
+```
 
-# Open Drizzle Studio (visual database browser)
-pnpm --filter @demo-app/api db:studio
+#### Using MariaDB Instead of PostgreSQL
+
+```bash
+# 1. Start MariaDB container
+docker compose --profile mariadb up -d mariadb
+
+# 2. Set environment variables in apps/api/.env
+DATABASE_TYPE=mariadb
+MYSQL_URL=mysql://app:secret@localhost:3306/app
+
+# 3. Run MariaDB migrations
+pnpm --filter @demo-app/api db:migrate:mariadb
+
+# 4. Start the app
+pnpm dev
 ```
 
 ### Stopping Services
@@ -371,7 +391,9 @@ For detailed metrics documentation, see [API README](apps/api/README.md#promethe
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | API server port | `3000` |
+| `DATABASE_TYPE` | Database dialect: `postgresql` or `mariadb` | `postgresql` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
+| `MYSQL_URL` | MariaDB connection string | - |
 | `MONGODB_URL` | MongoDB connection string | - |
 | `REDIS_URL` | Redis connection string | - |
 | `MINIO_ENDPOINT` | MinIO hostname | - |

@@ -5,6 +5,7 @@ import { DatabaseService } from '../database.service';
 import { CacheService } from '../cache/cache.service';
 import { AuditService } from '../audit/audit.service';
 import { testRecords, TestRecord } from '../db/schema';
+import { testRecords as mariadbTestRecords } from '../db/schema.mariadb';
 import { CreateRecordDto, UpdateRecordDto } from './dto/record.dto';
 
 /** Cache key for test records - exported for test verification */
@@ -43,6 +44,14 @@ export class DatabaseTestService {
     @InjectPinoLogger(DatabaseTestService.name)
     private readonly logger: PinoLogger,
   ) {}
+
+  /**
+   * Get the correct test records table reference based on database type.
+   * This is needed because Drizzle ORM uses different table definitions per dialect.
+   */
+  private get testRecordsTable() {
+    return this.database.dbType === 'mariadb' ? mariadbTestRecords : testRecords;
+  }
 
   /**
    * Log a database operation to audit trail (fire-and-forget)
@@ -126,10 +135,11 @@ export class DatabaseTestService {
 
     this.logger.info('Fetching all test records from database');
 
-    const records = await this.database.db
+    const table = this.testRecordsTable;
+    const records = await (this.database.db as any)
       .select()
-      .from(testRecords)
-      .orderBy(desc(testRecords.createdAt))
+      .from(table)
+      .orderBy(desc(table.createdAt))
       .limit(100);
 
     // Cache the results (fire-and-forget, won't block or fail the operation)
@@ -145,10 +155,11 @@ export class DatabaseTestService {
   async findOne(id: number): Promise<TestRecord> {
     this.logger.info({ id }, 'Fetching test record');
 
-    const records = await this.database.db
+    const table = this.testRecordsTable;
+    const records = await (this.database.db as any)
       .select()
-      .from(testRecords)
-      .where(eq(testRecords.id, id));
+      .from(table)
+      .where(eq(table.id, id));
 
     if (records.length === 0) {
       this.logger.warn({ id }, 'Test record not found');
@@ -167,15 +178,32 @@ export class DatabaseTestService {
     this.logger.info({ name: dto.name }, 'Creating test record');
 
     const startTime = Date.now();
+    let result: TestRecord[];
 
-    // Use raw SQL for insert to properly handle jsonb serialization
-    const result = await this.database.query<TestRecord>(
-      `INSERT INTO test_records (name, data)
-       VALUES ($1, $2::jsonb)
-       RETURNING id, name, data, created_at as "createdAt", updated_at as "updatedAt"`,
-      [dto.name, JSON.stringify(dto.data || {})],
-      'create_record',
-    );
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: Use ? placeholders and separate SELECT for the inserted record
+      await this.database.query(
+        `INSERT INTO test_records (name, data) VALUES (?, ?)`,
+        [dto.name, JSON.stringify(dto.data || {})],
+        'create_record',
+      );
+      // Get the last inserted record
+      result = await this.database.query<TestRecord>(
+        `SELECT id, name, data, created_at as createdAt, updated_at as updatedAt
+         FROM test_records WHERE id = LAST_INSERT_ID()`,
+        undefined,
+        'create_record',
+      );
+    } else {
+      // PostgreSQL: Use $1, $2 placeholders with RETURNING
+      result = await this.database.query<TestRecord>(
+        `INSERT INTO test_records (name, data)
+         VALUES ($1, $2::jsonb)
+         RETURNING id, name, data, created_at as "createdAt", updated_at as "updatedAt"`,
+        [dto.name, JSON.stringify(dto.data || {})],
+        'create_record',
+      );
+    }
 
     const durationMs = Date.now() - startTime;
 
@@ -223,19 +251,60 @@ export class DatabaseTestService {
     updateData.updatedAt = new Date();
 
     const startTime = Date.now();
+    let record: TestRecord;
+    const table = this.testRecordsTable;
 
-    const records = await this.database.db
-      .update(testRecords)
-      .set(updateData)
-      .where(eq(testRecords.id, id))
-      .returning();
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: doesn't support RETURNING, check affectedRows then fetch
+      // Build UPDATE dynamically to only update provided fields (matches PostgreSQL behavior)
+      const setClauses: string[] = [];
+      const params: unknown[] = [];
+
+      if (updateData.name !== undefined) {
+        setClauses.push('name = ?');
+        params.push(updateData.name);
+      }
+      if (updateData.data !== undefined) {
+        setClauses.push('data = ?');
+        params.push(JSON.stringify(updateData.data));
+      }
+      // Always update timestamp
+      setClauses.push('updated_at = ?');
+      params.push(updateData.updatedAt);
+      params.push(id);
+
+      const result = await this.database.query<{ affectedRows: number }>(
+        `UPDATE test_records SET ${setClauses.join(', ')} WHERE id = ?`,
+        params,
+        'update_record',
+      );
+
+      // MySQL2 returns affectedRows in the result header
+      // If 0 rows affected, record doesn't exist
+      const affectedRows = (result as unknown as { affectedRows?: number })?.affectedRows ?? 0;
+      if (affectedRows === 0) {
+        this.logger.warn({ id }, 'Test record not found for update');
+        throw new NotFoundException(`Record with ID ${id} not found`);
+      }
+
+      // Fetch the updated record
+      record = await this.findOne(id);
+    } else {
+      // PostgreSQL: use RETURNING for atomic update+fetch
+      const records = await (this.database.db as any)
+        .update(table)
+        .set(updateData)
+        .where(eq(table.id, id))
+        .returning();
+
+      if (records.length === 0) {
+        this.logger.warn({ id }, 'Test record not found for update');
+        throw new NotFoundException(`Record with ID ${id} not found`);
+      }
+      record = records[0];
+    }
 
     const durationMs = Date.now() - startTime;
-
-    if (records.length === 0) {
-      this.logger.warn({ id }, 'Test record not found for update');
-      throw new NotFoundException(`Record with ID ${id} not found`);
-    }
 
     // Invalidate cache after updating
     await this.invalidateCache();
@@ -244,7 +313,7 @@ export class DatabaseTestService {
     this.logDbOperation('UPDATE', 'test_records', id, durationMs);
 
     this.logger.info({ id, durationMs }, 'Test record updated');
-    return records[0];
+    return record;
   }
 
   /**
@@ -256,18 +325,36 @@ export class DatabaseTestService {
     this.logger.info({ id }, 'Deleting test record');
 
     const startTime = Date.now();
+    const table = this.testRecordsTable;
 
-    const deleted = await this.database.db
-      .delete(testRecords)
-      .where(eq(testRecords.id, id))
-      .returning({ id: testRecords.id });
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: Use DELETE and check affectedRows (single query, more atomic)
+      const result = await this.database.query<{ affectedRows: number }>(
+        `DELETE FROM test_records WHERE id = ?`,
+        [id],
+        'delete_record',
+      );
+
+      // MySQL2 returns affectedRows in the result header
+      const affectedRows = (result as unknown as { affectedRows?: number })?.affectedRows ?? 0;
+      if (affectedRows === 0) {
+        this.logger.warn({ id }, 'Test record not found for deletion');
+        throw new NotFoundException(`Record with ID ${id} not found`);
+      }
+    } else {
+      // PostgreSQL: use RETURNING to verify deletion
+      const deleted = await (this.database.db as any)
+        .delete(table)
+        .where(eq(table.id, id))
+        .returning({ id: table.id });
+
+      if (deleted.length === 0) {
+        this.logger.warn({ id }, 'Test record not found for deletion');
+        throw new NotFoundException(`Record with ID ${id} not found`);
+      }
+    }
 
     const durationMs = Date.now() - startTime;
-
-    if (deleted.length === 0) {
-      this.logger.warn({ id }, 'Test record not found for deletion');
-      throw new NotFoundException(`Record with ID ${id} not found`);
-    }
 
     // Invalidate cache after deleting
     await this.invalidateCache();
@@ -288,8 +375,19 @@ export class DatabaseTestService {
     this.logger.info('Deleting all test records');
 
     const startTime = Date.now();
+    let deletedCount: number;
+    const table = this.testRecordsTable;
 
-    const deleted = await this.database.db.delete(testRecords).returning({ id: testRecords.id });
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: Count first, then delete
+      const countResult = await this.count();
+      deletedCount = countResult.count;
+      await (this.database.db as any).delete(table);
+    } else {
+      // PostgreSQL: use RETURNING to get count
+      const deleted = await (this.database.db as any).delete(table).returning({ id: table.id });
+      deletedCount = deleted.length;
+    }
 
     const durationMs = Date.now() - startTime;
 
@@ -299,22 +397,25 @@ export class DatabaseTestService {
     // Log to audit trail with duration
     this.logDbOperation('DELETE_ALL', 'test_records', undefined, durationMs);
 
-    this.logger.info({ count: deleted.length, durationMs }, 'All test records deleted');
-    return { deleted: deleted.length };
+    this.logger.info({ count: deletedCount, durationMs }, 'All test records deleted');
+    return { deleted: deletedCount };
   }
 
   /**
    * Get record count using Drizzle
    */
   async count(): Promise<{ count: number }> {
-    const result = await this.database.db.select({ count: count() }).from(testRecords);
+    const table = this.testRecordsTable;
+    const result = await (this.database.db as any).select({ count: count() }).from(table);
 
     return { count: Number(result[0]?.count || 0) };
   }
 
   /**
    * Run a heavy query to simulate slow database operations.
-   * Uses raw SQL for PostgreSQL-specific functions (pg_sleep, generate_series).
+   * Uses raw SQL for database-specific functions.
+   * - PostgreSQL: pg_sleep, generate_series
+   * - MariaDB: SLEEP, recursive CTE
    */
   async runHeavyQuery(preset: string): Promise<HeavyQueryResult> {
     const config = HEAVY_QUERY_PRESETS[preset];
@@ -332,17 +433,47 @@ export class DatabaseTestService {
 
     const startTime = Date.now();
 
-    // Use raw SQL for PostgreSQL-specific functions
-    await this.database.query(
-      `WITH sleep AS (SELECT pg_sleep($1))
-       SELECT
-         s.n,
-         md5(s.n::text) as hash,
-         NOW() as timestamp
-       FROM sleep, generate_series(1, $2) s(n)`,
-      [config.sleepSeconds, config.rows],
-      'heavy_query',
-    );
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: Use SLEEP() and recursive CTE for generate_series equivalent
+      // First, set recursion depth if needed for extreme preset
+      if (config.rows > 1000) {
+        await this.database.query(
+          `SET SESSION cte_max_recursion_depth = ?`,
+          [config.rows + 1],
+          'heavy_query',
+        );
+      }
+
+      await this.database.query(
+        `WITH RECURSIVE
+           series AS (
+             SELECT 1 as n
+             UNION ALL
+             SELECT n + 1 FROM series WHERE n < ?
+           )
+         SELECT
+           (SELECT SLEEP(?)) as sleep_done,
+           s.n,
+           MD5(CAST(s.n AS CHAR)) as hash,
+           NOW() as timestamp
+         FROM series s
+         LIMIT ?`,
+        [config.rows, config.sleepSeconds, config.rows],
+        'heavy_query',
+      );
+    } else {
+      // PostgreSQL: Use pg_sleep and generate_series
+      await this.database.query(
+        `WITH sleep AS (SELECT pg_sleep($1))
+         SELECT
+           s.n,
+           md5(s.n::text) as hash,
+           NOW() as timestamp
+         FROM sleep, generate_series(1, $2) s(n)`,
+        [config.sleepSeconds, config.rows],
+        'heavy_query',
+      );
+    }
 
     const durationMs = Date.now() - startTime;
 
@@ -370,21 +501,36 @@ export class DatabaseTestService {
     poolStats: { total: number; idle: number; active: number; waiting: number };
     recordCount: number;
     tableSize: string;
+    dbType: string;
   }> {
     const poolStats = this.database.getPoolStats();
     const countResult = await this.count();
 
-    // Use raw SQL for PostgreSQL-specific function
-    const sizeResult = await this.database.query<{ size: string }>(
-      `SELECT pg_size_pretty(pg_total_relation_size('test_records')) as size`,
-      undefined,
-      'db_size',
-    );
+    let sizeResult: { size: string }[];
+
+    if (this.database.dbType === 'mariadb') {
+      // MariaDB: Use information_schema.TABLES
+      sizeResult = await this.database.query<{ size: string }>(
+        `SELECT CONCAT(ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024, 2), ' KB') as size
+         FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'test_records'`,
+        undefined,
+        'db_size',
+      );
+    } else {
+      // PostgreSQL: Use pg_size_pretty
+      sizeResult = await this.database.query<{ size: string }>(
+        `SELECT pg_size_pretty(pg_total_relation_size('test_records')) as size`,
+        undefined,
+        'db_size',
+      );
+    }
 
     return {
       poolStats,
       recordCount: countResult.count,
       tableSize: sizeResult[0]?.size || 'unknown',
+      dbType: this.database.dbType,
     };
   }
 }

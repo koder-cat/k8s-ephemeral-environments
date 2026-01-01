@@ -1,7 +1,7 @@
 /**
- * Drizzle Kit Configuration
+ * Drizzle Kit Configuration for PostgreSQL
  *
- * Configuration for drizzle-kit CLI tools:
+ * Configuration for drizzle-kit CLI tools with PostgreSQL dialect:
  * - `pnpm db:generate` - Generate SQL migrations from schema changes
  * - `pnpm db:migrate` - Apply pending migrations to database
  * - `pnpm db:studio` - Open Drizzle Studio for database inspection

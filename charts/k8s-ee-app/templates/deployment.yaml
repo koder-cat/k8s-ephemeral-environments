@@ -222,6 +222,14 @@ spec:
               containerPort: {{ .Values.app.port }}
               protocol: TCP
           env:
+            {{- /* DATABASE_TYPE: MariaDB takes precedence if enabled, otherwise PostgreSQL */ -}}
+            {{- if .Values.mariadb.enabled }}
+            - name: DATABASE_TYPE
+              value: mariadb
+            {{- else if .Values.postgresql.enabled }}
+            - name: DATABASE_TYPE
+              value: postgresql
+            {{- end }}
             {{- if .Values.postgresql.enabled }}
             {{- include "postgresql.envVars" .Subcharts.postgresql | nindent 12 }}
             {{- end }}
