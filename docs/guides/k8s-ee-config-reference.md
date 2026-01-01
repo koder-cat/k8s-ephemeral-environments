@@ -432,6 +432,35 @@ Object properties:
 - `version`: string (default: "11.4")
 - `storage`: string (default: "1Gi", pattern: `^[0-9]+(Mi|Gi|Ti)$`)
 
+#### Resource Requirements by Database
+
+The platform **automatically calculates** ResourceQuota based on enabled databases. Each PR namespace receives a quota sized for its specific configuration.
+
+| Service | CPU Limit | Memory Limit | Storage |
+|---------|-----------|--------------|---------|
+| Application (base) | 300m | 512Mi | 1Gi |
+| PostgreSQL | +500m | +512Mi | +2Gi |
+| MongoDB | +500m | +512Mi | +2Gi |
+| Redis | +200m | +128Mi | - |
+| MinIO | +500m | +512Mi | +2Gi |
+| MariaDB | +300m | +256Mi | +2Gi |
+
+**Example Calculated Quotas:**
+
+| Configuration | CPU Limit | Memory Limit | Storage |
+|---------------|-----------|--------------|---------|
+| App only | 300m | 512Mi | 1Gi |
+| App + PostgreSQL | 800m | 1Gi | 3Gi |
+| App + PostgreSQL + Redis | 1000m | 1.1Gi | 3Gi |
+| App + PostgreSQL + MongoDB | 1300m | 1.5Gi | 5Gi |
+| All databases enabled | 2100m | 2.4Gi | 9Gi |
+
+The quota is calculated at namespace creation time based on the `databases` section in your `k8s-ee.yaml`. No manual intervention is required.
+
+> **Note:** Quotas are calculated once at namespace creation. If you add databases to an existing PR environment, close and reopen the PR to recalculate quotas, or manually patch the ResourceQuota.
+
+> **Note:** These are approximate values. Actual consumption varies based on workload and operator versions.
+
 ---
 
 ### ingress
@@ -494,6 +523,12 @@ metrics:
   enabled: true
   interval: 15s
 ```
+
+#### Automatic Namespace Labeling
+
+When metrics are enabled, the ServiceMonitor automatically adds a `namespace` label to all scraped metrics using Prometheus relabeling. This enables Grafana dashboards to filter metrics by namespace without requiring your application to add this label.
+
+Your application metrics will include `namespace="myapp-pr-42"` automatically, matching the PR environment namespace.
 
 ---
 

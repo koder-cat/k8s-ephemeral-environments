@@ -7,8 +7,10 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [Quick Diagnosis](#quick-diagnosis)
 - [Initialization Race Conditions](#initialization-race-conditions)
 - [PR Namespace Issues](#pr-namespace-issues)
+  - [ResourceQuota Exceeded During Rolling Updates](#resourcequota-exceeded-during-rolling-updates)
 - [Deployment Failures](#deployment-failures)
 - [Database Issues](#database-issues)
+  - [MongoDB Authorization Errors](#mongodb-authorization-errors)
 - [Migration Issues](#migration-issues)
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
@@ -166,6 +168,9 @@ kubectl delete ns k8s-ee-pr-{number} --force --grace-period=0
 **Symptoms:**
 - Namespace created but pods pending
 - Events show quota exceeded errors
+- Error: `exceeded quota: pr-quota, requested: limits.cpu=200m, used: limits.cpu=900m, limited: limits.cpu=1`
+
+**Note:** The platform now **automatically calculates** quotas based on enabled databases. This issue should be rare with current configurations.
 
 **Diagnosis:**
 ```bash
@@ -173,15 +178,73 @@ kubectl describe resourcequota -n k8s-ee-pr-{number}
 kubectl get events -n k8s-ee-pr-{number} --sort-by='.lastTimestamp'
 ```
 
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Namespace created before quota fix | Close and reopen PR to recreate namespace with correct quota |
+| Previous pods not cleaned | Old resources still consuming quota |
+| Operator overhead higher than expected | See manual fix below |
+
+**Resource Consumption by Service:**
+
+| Service | Approx. CPU | Approx. Memory |
+|---------|-------------|----------------|
+| Application | 300m | 512Mi |
+| PostgreSQL | 500m | 512Mi |
+| MongoDB | 500m | 512Mi |
+| Redis | 200m | 128Mi |
+| MinIO | 500m | 512Mi |
+| MariaDB | 300m | 256Mi |
+
 **Resolution:**
 ```bash
-# Check resource usage
-kubectl top pods -n k8s-ee-pr-{number}
+# Check current usage vs. limits
+kubectl describe resourcequota pr-quota -n k8s-ee-pr-{number}
 
-# Clean up old PR namespaces
-kubectl get ns -l k8s-ee/pr-number --sort-by='.metadata.creationTimestamp'
-kubectl delete ns k8s-ee-pr-{old-number}
+# Option 1: Close and reopen PR to recreate with correct quota
+# This is the cleanest solution
+
+# Option 2: Manual patch (if Option 1 not feasible)
+kubectl patch resourcequota pr-quota -n k8s-ee-pr-{number} --type='merge' \
+  -p '{"spec":{"hard":{"limits.cpu":"3","limits.memory":"4Gi","requests.storage":"10Gi"}}}'
 ```
+
+See [Resource Requirements by Database](./k8s-ee-config-reference.md#resource-requirements-by-database) for how quotas are calculated.
+
+### ResourceQuota Exceeded During Rolling Updates
+
+**Symptoms:**
+- Deployment stuck with new ReplicaSet unable to create pods
+- Events show: `exceeded quota: pr-quota, requested: requests.memory=128Mi, used: requests.memory=1242593Ki, limited: requests.memory=1280Mi`
+- Rolling update fails while old pod still runs
+
+**Root Cause:**
+During rolling updates, Kubernetes runs both old and new pods simultaneously. The quota must accommodate this overlap:
+
+```
+Old pod: 128Mi memory requests (still running)
+New pod: 128Mi memory requests (trying to start)
+Total needed: 256Mi additional headroom
+```
+
+**Diagnosis:**
+```bash
+# Check if new ReplicaSet can't create pods
+kubectl get events -n k8s-ee-pr-{number} | grep -i exceeded
+
+# Check current quota usage vs limit
+kubectl describe resourcequota pr-quota -n k8s-ee-pr-{number}
+```
+
+**Resolution:**
+
+The platform now includes headroom buffer for rolling updates automatically:
+- CPU requests: +100m for app overlap
+- Memory requests: +256Mi for app overlap
+- CPU/Memory limits: +15% buffer
+
+If you see this on older namespaces, close and reopen the PR to recreate with updated quota.
 
 ## Deployment Failures
 
@@ -265,14 +328,132 @@ kubectl describe pod -n k8s-ee-pr-{number} <pod-name>
 | Wrong service name | Check service DNS name |
 | Network policy blocking | Verify egress policy |
 
-**Resolution:**
-```bash
-# Check database cluster status
-kubectl get clusters.postgresql.cnpg.io -n k8s-ee-pr-{number}
+### Init Container OOMKilled
 
-# Test connectivity from debug pod
-kubectl run debug --rm -it --image=busybox -n k8s-ee-pr-{number} -- \
-  nc -zv k8s-ee-pr-{number}-postgresql-rw 5432
+**Symptoms:**
+- Pod shows `Init:OOMKilled` status
+- Init container restarts repeatedly
+
+**Common Causes:**
+
+| Init Container | Issue | Solution |
+|----------------|-------|----------|
+| wait-for-mongodb | `mongo:7-jammy` image needs 256Mi | Increase memory limit to 256Mi |
+| wait-for-postgresql | Usually fine at 64Mi | Check for unusual workload |
+
+The MongoDB init container uses `mongosh` for readiness checks, which requires more memory than simple port checks.
+
+### MongoDB ServiceAccount Not Found
+
+**Symptoms:**
+- MongoDB StatefulSet fails to create pods
+- Error: `serviceaccount "mongodb-database" not found`
+
+**Diagnosis:**
+```bash
+kubectl get sa -n k8s-ee-pr-{number}
+kubectl get events -n k8s-ee-pr-{number} | grep mongodb
+```
+
+**Resolution:**
+The MongoDB chart should create this ServiceAccount automatically. If missing:
+```bash
+# Check if Helm deployed the MongoDB chart correctly
+helm get manifest app -n k8s-ee-pr-{number} | grep -A5 "kind: ServiceAccount"
+
+# Manual fix (temporary)
+kubectl create serviceaccount mongodb-database -n k8s-ee-pr-{number}
+```
+
+### Helm Chart Changes Not Taking Effect in PR
+
+**Symptoms:**
+- You modified a library chart (e.g., `charts/mongodb/`) but the change doesn't appear in the PR deployment
+- ServiceAccounts, ConfigMaps, or other resources from your chart changes are missing
+- Helm release uses old chart version
+
+**Root Cause:**
+Library charts (postgresql, mongodb, redis, minio, mariadb) are stored in an OCI registry (`oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts`). The PR workflow pulls charts from this registry, not from the local checkout. Chart changes are only published when merged to `main`.
+
+**Diagnosis:**
+```bash
+# Check which chart version is deployed
+helm list -n k8s-ee-pr-{number}
+
+# Compare with local chart version
+grep '^version:' charts/mongodb/Chart.yaml
+
+# Check if your change is in the OCI registry
+helm show chart oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-mongodb
+```
+
+**Resolution:**
+PR environments now use local charts by default (`use-local-charts: 'true'`). This means chart changes in the PR are automatically tested. If you're seeing this issue, it may be from an older workflow run.
+
+To verify local charts are being used, check the deploy logs for:
+```
+Using local charts from: ./charts/k8s-ee-app
+```
+
+If you need to test against published OCI charts instead:
+```yaml
+# In pr-environment-reusable.yml
+- name: Deploy application
+  uses: ./.github/actions/deploy-app
+  with:
+    use-local-charts: 'false'  # Use OCI registry charts
+    # ... other inputs
+```
+
+**Prevention:**
+- Local charts are now the default for all PR deployments
+- Chart changes are automatically tested without needing OCI publication
+- Ensure chart directory is included in sparse checkout for deploy-app job
+
+### Local Chart Dependency Build Failures
+
+**Symptoms:**
+- Deploy App step fails with "helm dependency build" error
+- Error: `the lock file (Chart.lock) is out of sync with the dependencies file (Chart.yaml)`
+
+**Root Cause:**
+When using local charts, the deploy-app action modifies `Chart.yaml` to use `file://` references instead of OCI URLs. The existing `Chart.lock` file still references the OCI URLs, causing a mismatch.
+
+**Resolution:**
+The deploy-app action automatically removes `Chart.lock` before building dependencies. If you see this error, ensure you're using the latest version of the action.
+
+**Technical Details:**
+The local chart build process:
+1. Backs up `Chart.yaml`
+2. Replaces OCI repository URLs with `file://../` paths
+3. Renames chart dependencies (e.g., `k8s-ee-postgresql` → `postgresql`)
+4. Removes `Chart.lock` to avoid sync issues
+5. Runs `helm dependency build`
+6. Restores original `Chart.yaml` on exit
+
+### Sparse Checkout Missing Charts Directory
+
+**Symptoms:**
+- Deploy App step fails with "charts/k8s-ee-app directory not found"
+- Local chart build cannot find chart files
+- Error: `Chart.yaml file is missing` during `helm dependency build`
+
+**Root Cause:**
+The deploy-app job uses sparse checkout to minimize repository data. The pattern `charts` alone may not include all subdirectories properly. Each chart directory must be explicitly listed.
+
+**Resolution:**
+Ensure the deploy-app job's checkout step includes all chart directories explicitly:
+
+```yaml
+sparse-checkout: |
+  .github/actions
+  charts/k8s-ee-app
+  charts/postgresql
+  charts/mongodb
+  charts/redis
+  charts/minio
+  charts/mariadb
+sparse-checkout-cone-mode: false
 ```
 
 ## Database Issues
@@ -315,6 +496,49 @@ databases:
 ```
 
 Push the change to trigger a new deployment.
+
+### MongoDB Authorization Errors
+
+**Symptoms:**
+- App logs show `not authorized on admin to execute command`
+- Audit service fails to log events
+- `/api/audit/events` returns 400 or 500 errors
+- Console shows "Cannot read properties of undefined (reading 'toLocaleString')"
+
+**Error Message:**
+```json
+{
+  "errmsg": "not authorized on admin to execute command { insert: \"audit_events\" ... $db: \"admin\" }",
+  "code": 13,
+  "codeName": "Unauthorized"
+}
+```
+
+**Root Cause:**
+The MongoDB connection string uses `/admin` for authentication (required by MongoDB), but the app was trying to use the `admin` database for storing data instead of the `app` database.
+
+**Diagnosis:**
+```bash
+# Check MongoDB connection string
+kubectl get secret -n k8s-ee-pr-{number} app-mongodb-admin-app \
+  -o jsonpath='{.data.connectionString\.standard}' | base64 -d
+
+# Look for /admin in the connection string - that's the auth database, not data database
+# mongodb://app:xxx@host:27017/admin?replicaSet=app-mongodb
+
+# Check app logs for auth errors
+kubectl logs -n k8s-ee-pr-{number} -l app.kubernetes.io/name=app | grep -i "not authorized"
+```
+
+**Resolution:**
+
+The audit service now explicitly specifies the database name:
+```typescript
+const dbName = process.env.MONGODB_DATABASE || 'app';
+this.db = this.client.db(dbName);
+```
+
+If you see this error on older deployments, redeploy the app to pick up the fix.
 
 ### Connection Refused
 
@@ -756,6 +980,8 @@ curl https://k8s-ee-pr-{number}.k8s-ee.genesluna.dev/metrics
 | App not exposing /metrics | Check MetricsModule is imported in app.module.ts |
 | Port mismatch | ServiceMonitor port must match service port name |
 | Network policy blocking | Verify observability namespace can reach app |
+| metrics.enabled not set | Verify `metrics.enabled: true` in k8s-ee.yaml |
+| Namespace label missing | ServiceMonitor adds namespace via relabeling (automatic in k8s-ee charts) |
 
 ### High Cardinality Metrics
 

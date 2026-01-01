@@ -1,6 +1,11 @@
-# ResourceQuota for PR environments
-# Limits per namespace as defined in PRD (RNF-13)
-# Variables to substitute: PROJECT_ID, PR_NUMBER
+# ResourceQuota for PR environments (REFERENCE ONLY)
+#
+# NOTE: This file is kept for reference. ResourceQuota is now dynamically
+# calculated in .github/actions/create-namespace/action.yml based on
+# enabled databases in k8s-ee.yaml. See docs/guides/k8s-ee-config-reference.md
+# for quota calculation details.
+#
+# Original static limits (superseded by dynamic calculation):
 apiVersion: v1
 kind: ResourceQuota
 metadata:

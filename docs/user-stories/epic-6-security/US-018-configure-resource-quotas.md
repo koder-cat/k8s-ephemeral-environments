@@ -35,18 +35,24 @@ Implemented as part of US-004 (Create Namespace on PR Open):
 
 | Resource | File |
 |----------|------|
-| ResourceQuota | `k8s/ephemeral/resource-quota.yaml` |
+| ResourceQuota | Dynamically calculated in `.github/actions/create-namespace/action.yml` |
 | LimitRange | `k8s/ephemeral/limit-range.yaml` |
 
-Applied limits per PR namespace:
-- CPU: 1 core limit, 500m requests
-- Memory: 2Gi limit, 1Gi requests
-- Storage: 5Gi
-- Pods: 10
-- PVCs: 3
+**Dynamic Quota Calculation:**
+
+Quotas are now **automatically calculated** based on enabled databases in `k8s-ee.yaml`:
+
+| Configuration | CPU Limit | Memory Limit | Storage |
+|---------------|-----------|--------------|---------|
+| App only | 300m | 512Mi | 1Gi |
+| App + PostgreSQL | 800m | 1Gi | 3Gi |
+| App + all databases | 2100m | 2.4Gi | 9Gi |
+
+See [Resource Requirements by Database](../../guides/k8s-ee-config-reference.md#resource-requirements-by-database) for details.
 
 ## Notes
 
-- Quotas applied automatically in PR environment workflow
+- Quotas calculated and applied automatically in PR environment workflow
+- Quota scales based on enabled databases (PostgreSQL, MongoDB, Redis, MinIO, MariaDB)
 - LimitRange sets default container limits if not specified
 - kube-prometheus-stack includes quota metrics for monitoring

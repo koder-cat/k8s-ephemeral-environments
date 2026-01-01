@@ -18,4 +18,8 @@ spec:
       path: /metrics
       interval: {{ .Values.metrics.interval | default "30s" }}
       scrapeTimeout: {{ .Values.metrics.scrapeTimeout | default "10s" }}
+      # Add namespace label to all scraped metrics for Grafana filtering
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
 {{- end }}

@@ -40,13 +40,17 @@ inputs:
     required: false
     default: '1.0.0'
   chart-repository:
-    description: 'OCI chart repository'
+    description: 'OCI chart repository or local path (use ./charts/k8s-ee-app for local)'
     required: false
     default: 'oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app'
+  use-local-charts:
+    description: 'Use local charts from checkout instead of OCI registry'
+    required: false
+    default: 'false'
   timeout:
     description: 'Helm deployment timeout'
     required: false
-    default: '6m'
+    default: '10m'
   health-path:
     description: 'Health check endpoint path'
     required: false
@@ -93,6 +97,14 @@ inputs:
     default: '{"enabled": false}'
   mariadb-config:
     description: 'Full MariaDB configuration as JSON'
+    required: false
+    default: '{"enabled": false}'
+  metrics-enabled:
+    description: 'Enable Prometheus metrics ServiceMonitor'
+    required: false
+    default: 'false'
+  metrics-config:
+    description: 'Full metrics configuration as JSON'
     required: false
     default: '{"enabled": false}'
 
@@ -238,6 +250,58 @@ runs:
           echo "Release status: $RELEASE_STATUS (no cleanup needed)"
         fi
 
+    - name: Build local chart dependencies
+      if: inputs.use-local-charts == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Building local chart dependencies..."
+
+        # Validate charts directory exists
+        if [ ! -d "charts/k8s-ee-app" ]; then
+          echo "ERROR: charts/k8s-ee-app directory not found"
+          echo "Ensure sparse-checkout includes 'charts' directory"
+          exit 1
+        fi
+
+        cd charts/k8s-ee-app
+
+        # Backup Chart.yaml before modification
+        cp Chart.yaml Chart.yaml.bak
+
+        # Restore on exit (success or failure)
+        trap 'mv Chart.yaml.bak Chart.yaml 2>/dev/null || true' EXIT
+
+        # Update Chart.yaml to use local file:// dependencies instead of OCI
+        # For file:// dependencies, the repository must be the full path to each chart
+        # The OCI format is: name: k8s-ee-<chart>, repository: oci://...
+        # The file:// format needs: name: <chart>, repository: file://../<chart>
+        sed -i 's|name: k8s-ee-postgresql|name: postgresql|g' Chart.yaml
+        sed -i 's|name: k8s-ee-mongodb|name: mongodb|g' Chart.yaml
+        sed -i 's|name: k8s-ee-redis|name: redis|g' Chart.yaml
+        sed -i 's|name: k8s-ee-minio|name: minio|g' Chart.yaml
+        sed -i 's|name: k8s-ee-mariadb|name: mariadb|g' Chart.yaml
+
+        # Now update each repository line that follows a specific name line
+        # This uses sed with hold space to match and replace the repository line after each name
+        for chart in postgresql mongodb redis minio mariadb; do
+          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
+        done
+
+        # Remove Chart.lock to avoid sync issues (will be regenerated)
+        rm -f Chart.lock
+
+        # Build dependencies from local charts
+        if ! helm dependency build .; then
+          echo "ERROR: Failed to build local chart dependencies"
+          echo "Modified Chart.yaml contents:"
+          cat Chart.yaml
+          exit 1
+        fi
+
+        echo "Local chart dependencies built successfully"
+
     - name: Deploy with Helm
       id: deploy
       shell: bash
@@ -267,6 +331,9 @@ runs:
         REDIS_CONFIG: ${{ inputs.redis-config }}
         MINIO_CONFIG: ${{ inputs.minio-config }}
         MARIADB_CONFIG: ${{ inputs.mariadb-config }}
+        METRICS_ENABLED: ${{ inputs.metrics-enabled }}
+        METRICS_CONFIG: ${{ inputs.metrics-config }}
+        USE_LOCAL_CHARTS: ${{ inputs.use-local-charts }}
       run: |
         set -euo pipefail
 
@@ -276,10 +343,18 @@ runs:
         echo "Deploying to namespace: $NAMESPACE"
         echo "Preview URL: $PREVIEW_URL"
 
+        # Determine chart source (local or OCI)
+        if [ "$USE_LOCAL_CHARTS" = "true" ]; then
+          CHART_SOURCE="./charts/k8s-ee-app"
+          echo "Using local charts from: $CHART_SOURCE"
+        else
+          CHART_SOURCE="$CHART_REPOSITORY"
+          echo "Using OCI charts from: $CHART_SOURCE"
+        fi
+
         # Build helm upgrade command using array (safe from injection)
         HELM_ARGS=(
-          "upgrade" "--install" "$RELEASE_NAME" "$CHART_REPOSITORY"
-          "--version" "$CHART_VERSION"
+          "upgrade" "--install" "$RELEASE_NAME" "$CHART_SOURCE"
           "--namespace" "$NAMESPACE"
           "--set" "projectId=$PROJECT_ID"
           "--set" "image.repository=$IMAGE_REPOSITORY"
@@ -291,6 +366,11 @@ runs:
           "--set" "app.port=$APP_PORT"
           "--set" "app.healthPath=$HEALTH_PATH"
         )
+
+        # Add version flag for OCI charts (not needed for local charts)
+        if [ "$USE_LOCAL_CHARTS" != "true" ]; then
+          HELM_ARGS+=("--version" "$CHART_VERSION")
+        fi
 
         # Add digest if provided
         if [ -n "$IMAGE_DIGEST" ]; then
@@ -312,6 +392,11 @@ runs:
         fi
         if [ "$MARIADB_ENABLED" = "true" ]; then
           HELM_ARGS+=("--set-json" "mariadb=$MARIADB_CONFIG")
+        fi
+
+        # Metrics configuration (ServiceMonitor for Prometheus)
+        if [ "$METRICS_ENABLED" = "true" ]; then
+          HELM_ARGS+=("--set-json" "metrics=$METRICS_CONFIG")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")

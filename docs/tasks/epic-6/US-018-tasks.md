@@ -2,6 +2,8 @@
 
 **Status:** All tasks complete (implemented as part of US-004)
 
+**Update:** ResourceQuota now uses **dynamic calculation** based on enabled databases in `k8s-ee.yaml`. See [Resource Requirements by Database](../../guides/k8s-ee-config-reference.md#resource-requirements-by-database).
+
 ## Tasks
 
 ### T-018.1: Create ResourceQuota Template ✅
@@ -12,7 +14,8 @@
   - Storage requests defined
   - Pod count limit defined
 - **Estimate:** S
-- **Implementation:** `k8s/ephemeral/resource-quota.yaml`
+- **Implementation:** Dynamic calculation in `.github/actions/create-namespace/action.yml`
+- **Note:** Quota now scales based on enabled databases (PostgreSQL, MongoDB, Redis, MinIO, MariaDB)
 
 ### T-018.2: Create LimitRange Template ✅
 - **Description:** Define default container limits
@@ -27,11 +30,11 @@
 ### T-018.3: Integrate with Namespace Creation ✅
 - **Description:** Apply quotas when creating PR namespace
 - **Acceptance Criteria:**
-  - ResourceQuota applied automatically
+  - ResourceQuota calculated based on enabled databases
   - LimitRange applied automatically
   - Part of namespace setup workflow
 - **Estimate:** S
-- **Implementation:** `.github/workflows/pr-environment.yml` (Apply ResourceQuota/LimitRange steps)
+- **Implementation:** `.github/actions/create-namespace/action.yml` (dynamic quota calculation)
 
 ### T-018.4: Test Quota Enforcement ✅
 - **Description:** Verify quotas are enforced

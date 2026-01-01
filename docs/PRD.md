@@ -219,7 +219,7 @@ The project will be developed in two phases: **Phase 1** with a prototype on VPS
 | RNF-10 | Simultaneous PRs supported | ≥ 5 |
 | RNF-11 | Log retention | 7 days |
 | RNF-12 | Metric retention | 7 days |
-| RNF-13 | Limits per PR namespace | CPU ≤ 1 core, RAM ≤ 2 Gi, Storage ≤ 5 Gi |
+| RNF-13 | Limits per PR namespace | Dynamic based on enabled databases (base: 300m CPU, 512Mi RAM; scales up with each database) |
 
 ---
 

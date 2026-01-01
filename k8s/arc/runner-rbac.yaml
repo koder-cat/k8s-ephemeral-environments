@@ -22,7 +22,7 @@ rules:
     verbs: ["get", "list", "create", "delete", "patch", "update"]
   # Pod and service management within namespaces
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims", "serviceaccounts"]
     verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
   # Pod subresources for health checks (portforward) and debugging (logs)
   # Note: pods/exec intentionally excluded - not needed and reduces attack surface
@@ -45,6 +45,14 @@ rules:
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["clusters", "poolers", "scheduledbackups"]
     verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # MongoDB Community Operator for audit logging
+  - apiGroups: ["mongodbcommunity.mongodb.com"]
+    resources: ["mongodbcommunity"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # MinIO Operator for S3-compatible storage
+  - apiGroups: ["minio.min.io"]
+    resources: ["tenants"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
   # Jobs for database migrations
   - apiGroups: ["batch"]
     resources: ["jobs"]
@@ -52,6 +60,10 @@ rules:
   # Prometheus ServiceMonitor for metrics scraping (US-026)
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["servicemonitors"]
+    verbs: ["get", "list", "create", "delete", "patch", "update"]
+  # RBAC for MongoDB agent (needs Role/RoleBinding for readiness probe)
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "create", "delete", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

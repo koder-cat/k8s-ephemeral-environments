@@ -143,6 +143,10 @@ containerSecurityContext:
 # -----------------------------------------------------------------------------
 # Prometheus Metrics
 # -----------------------------------------------------------------------------
+# The ServiceMonitor automatically adds a 'namespace' label to all scraped
+# metrics using Prometheus relabeling. This enables Grafana dashboards to
+# filter metrics by namespace without requiring the application to add this
+# label explicitly.
 metrics:
   # Enable ServiceMonitor for Prometheus scraping
   enabled: false

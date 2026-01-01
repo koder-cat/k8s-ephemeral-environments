@@ -26,6 +26,12 @@ image:
 databases:
   postgresql:
     enabled: true
+  mongodb:
+    enabled: true  # Activity audit logging with 7-day TTL
+  redis:
+    enabled: true  # API response caching and rate limiting
+  minio:
+    enabled: true  # S3-compatible file storage
 
 # Enable Prometheus metrics scraping via ServiceMonitor
 metrics:

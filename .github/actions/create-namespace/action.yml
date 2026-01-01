@@ -24,6 +24,27 @@ inputs:
     description: 'Kubernetes API server IP for NetworkPolicy egress'
     required: false
     default: '10.0.0.39'
+  # Database flags for dynamic quota calculation
+  postgresql-enabled:
+    description: 'Whether PostgreSQL is enabled'
+    required: false
+    default: 'false'
+  mongodb-enabled:
+    description: 'Whether MongoDB is enabled'
+    required: false
+    default: 'false'
+  redis-enabled:
+    description: 'Whether Redis is enabled'
+    required: false
+    default: 'false'
+  minio-enabled:
+    description: 'Whether MinIO is enabled'
+    required: false
+    default: 'false'
+  mariadb-enabled:
+    description: 'Whether MariaDB is enabled'
+    required: false
+    default: 'false'
 
 outputs:
   created:
@@ -197,9 +218,123 @@ runs:
         NAMESPACE: ${{ inputs.namespace }}
         PROJECT_ID: ${{ inputs.project-id }}
         PR_NUMBER: ${{ inputs.pr-number }}
+        POSTGRESQL_ENABLED: ${{ inputs.postgresql-enabled }}
+        MONGODB_ENABLED: ${{ inputs.mongodb-enabled }}
+        REDIS_ENABLED: ${{ inputs.redis-enabled }}
+        MINIO_ENABLED: ${{ inputs.minio-enabled }}
+        MARIADB_ENABLED: ${{ inputs.mariadb-enabled }}
       run: |
         set -euo pipefail
         echo "Applying ResourceQuota to $NAMESPACE..."
+
+        # Calculate dynamic quota based on enabled databases
+        # Each database adds to the base requirement
+        #
+        # Resource requirements (requests / limits):
+        # - Application:  100m / 300m CPU,  256Mi / 512Mi memory, 1Gi storage
+        # - PostgreSQL:   250m / 500m CPU,  256Mi / 512Mi memory, 2Gi storage
+        # - MongoDB:      150m / 600m CPU,  320Mi / 640Mi memory, 3Gi storage
+        #   (includes mongod + agent containers, data + logs volumes)
+        # - Redis:        100m / 200m CPU,   64Mi / 128Mi memory
+        # - MinIO:        250m / 500m CPU,  256Mi / 512Mi memory, 2Gi storage
+        # - MariaDB:      150m / 300m CPU,  128Mi / 256Mi memory, 2Gi storage
+
+        # Start with base values (app only)
+        CPU_REQUESTS=100    # millicores
+        CPU_LIMITS=300      # millicores
+        MEM_REQUESTS=256    # Mi
+        MEM_LIMITS=512      # Mi
+        STORAGE=1           # Gi
+        PVCS=1
+        PODS=5
+        SERVICES=3
+
+        # Add resources for each enabled database
+        if [[ "${POSTGRESQL_ENABLED}" == "true" ]]; then
+          echo "  + PostgreSQL: 500m CPU, 512Mi memory, 2Gi storage, 3 services (rw, ro, r)"
+          CPU_REQUESTS=$((CPU_REQUESTS + 250))
+          CPU_LIMITS=$((CPU_LIMITS + 500))
+          MEM_REQUESTS=$((MEM_REQUESTS + 256))
+          MEM_LIMITS=$((MEM_LIMITS + 512))
+          STORAGE=$((STORAGE + 2))
+          PVCS=$((PVCS + 1))
+          PODS=$((PODS + 2))
+          SERVICES=$((SERVICES + 3))  # CloudNativePG creates 3 services: rw, ro, r
+        fi
+
+        if [[ "${MONGODB_ENABLED}" == "true" ]]; then
+          # MongoDB has init containers with 500m CPU request / 1 CPU limit each
+          # Quota counts: max(highest init container, sum of regular containers)
+          # Init phase: requests max(500m, 150m)=500m, limits max(1000m, 600m)=1000m
+          # Running phase: requests 150m, limits 600m
+          # Must allocate for init phase which is higher
+          echo "  + MongoDB: 500m/1000m CPU (init container), 640Mi memory, 3Gi storage"
+          CPU_REQUESTS=$((CPU_REQUESTS + 500))  # Init container needs 500m request
+          CPU_LIMITS=$((CPU_LIMITS + 1000))     # Init container needs 1000m limit
+          MEM_REQUESTS=$((MEM_REQUESTS + 320))  # 256Mi mongod + 64Mi agent
+          MEM_LIMITS=$((MEM_LIMITS + 640))      # 512Mi mongod + 128Mi agent
+          STORAGE=$((STORAGE + 3))              # 1Gi data + 2Gi logs
+          PVCS=$((PVCS + 2))                    # data + logs volumes
+          PODS=$((PODS + 2))
+          SERVICES=$((SERVICES + 1))
+        fi
+
+        if [[ "${REDIS_ENABLED}" == "true" ]]; then
+          echo "  + Redis: 200m CPU, 128Mi memory"
+          CPU_REQUESTS=$((CPU_REQUESTS + 100))
+          CPU_LIMITS=$((CPU_LIMITS + 200))
+          MEM_REQUESTS=$((MEM_REQUESTS + 64))
+          MEM_LIMITS=$((MEM_LIMITS + 128))
+          PODS=$((PODS + 1))
+          SERVICES=$((SERVICES + 1))
+        fi
+
+        if [[ "${MINIO_ENABLED}" == "true" ]]; then
+          # MinIO pod has 2 containers: minio + sidecar (sidecar gets LimitRange defaults)
+          # minio: 100m/500m CPU, 256Mi/512Mi memory
+          # sidecar: 100m/500m CPU, 128Mi/512Mi memory (LimitRange defaults)
+          echo "  + MinIO: 1000m CPU limits, 1024Mi memory limits, 1Gi storage, 2 services (api, console)"
+          CPU_REQUESTS=$((CPU_REQUESTS + 200))   # 100m minio + 100m sidecar
+          CPU_LIMITS=$((CPU_LIMITS + 1000))      # 500m minio + 500m sidecar
+          MEM_REQUESTS=$((MEM_REQUESTS + 384))   # 256Mi minio + 128Mi sidecar
+          MEM_LIMITS=$((MEM_LIMITS + 1024))      # 512Mi minio + 512Mi sidecar
+          STORAGE=$((STORAGE + 2))
+          PVCS=$((PVCS + 1))
+          PODS=$((PODS + 2))
+          SERVICES=$((SERVICES + 2))  # MinIO creates 2 services: api and console
+        fi
+
+        if [[ "${MARIADB_ENABLED}" == "true" ]]; then
+          echo "  + MariaDB: 300m CPU, 256Mi memory, 1Gi storage"
+          CPU_REQUESTS=$((CPU_REQUESTS + 150))
+          CPU_LIMITS=$((CPU_LIMITS + 300))
+          MEM_REQUESTS=$((MEM_REQUESTS + 128))
+          MEM_LIMITS=$((MEM_LIMITS + 256))
+          STORAGE=$((STORAGE + 2))
+          PVCS=$((PVCS + 1))
+          PODS=$((PODS + 1))
+          SERVICES=$((SERVICES + 1))
+        fi
+
+        echo ""
+        echo "Calculated quota (before buffer):"
+        echo "  CPU requests: ${CPU_REQUESTS}m, limits: ${CPU_LIMITS}m"
+        echo "  Memory requests: ${MEM_REQUESTS}Mi, limits: ${MEM_LIMITS}Mi"
+        echo "  Storage: ${STORAGE}Gi, PVCs: ${PVCS}"
+        echo "  Pods: ${PODS}, Services: ${SERVICES}"
+
+        # Add headroom buffer for rolling updates (need to run old + new pod simultaneously)
+        # App pod needs: 100m CPU requests, 128Mi memory requests
+        # Add 15% buffer to limits and enough requests headroom for rolling updates
+        CPU_REQUESTS=$((CPU_REQUESTS + 100))  # Extra app pod during rolling update
+        MEM_REQUESTS=$((MEM_REQUESTS + 256))  # Extra app pod during rolling update
+        CPU_LIMITS=$((CPU_LIMITS * 115 / 100))
+        MEM_LIMITS=$((MEM_LIMITS * 115 / 100))
+
+        echo ""
+        echo "Final quota (with rolling update headroom):"
+        echo "  CPU requests: ${CPU_REQUESTS}m, limits: ${CPU_LIMITS}m"
+        echo "  Memory requests: ${MEM_REQUESTS}Mi, limits: ${MEM_LIMITS}Mi"
 
         cat <<EOF | kubectl apply --timeout=60s -f -
         apiVersion: v1
@@ -214,16 +349,16 @@ runs:
             k8s-ee/pr-number: "${PR_NUMBER}"
         spec:
           hard:
-            requests.cpu: "500m"
-            requests.memory: 1Gi
-            limits.cpu: "1"
-            limits.memory: 2Gi
-            requests.storage: 5Gi
-            persistentvolumeclaims: "3"
-            pods: "10"
-            services: "5"
-            configmaps: "10"
-            secrets: "20"
+            requests.cpu: "${CPU_REQUESTS}m"
+            requests.memory: "${MEM_REQUESTS}Mi"
+            limits.cpu: "${CPU_LIMITS}m"
+            limits.memory: "${MEM_LIMITS}Mi"
+            requests.storage: "${STORAGE}Gi"
+            persistentvolumeclaims: "${PVCS}"
+            pods: "${PODS}"
+            services: "${SERVICES}"
+            configmaps: "15"
+            secrets: "25"
             replicationcontrollers: "5"
         EOF
 

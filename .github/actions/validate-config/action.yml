@@ -72,6 +72,12 @@ outputs:
   mariadb-config:
     description: 'Full MariaDB configuration as JSON'
     value: ${{ steps.parse.outputs.mariadb-config }}
+  metrics-enabled:
+    description: 'Metrics ServiceMonitor enabled flag'
+    value: ${{ steps.parse.outputs.metrics-enabled }}
+  metrics-config:
+    description: 'Full metrics configuration as JSON'
+    value: ${{ steps.parse.outputs.metrics-config }}
 
 runs:
   using: 'composite'
@@ -424,6 +430,14 @@ runs:
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 
+        # Extract metrics configuration
+        echo "metrics-enabled=$(echo "$FINAL_CONFIG" | jq -r '.metrics.enabled // false')" >> "$GITHUB_OUTPUT"
+        {
+          echo "metrics-config<<EOF"
+          echo "$FINAL_CONFIG" | jq -c '.metrics // {"enabled": false}'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
         echo ""
         echo "=== Configuration Summary ==="
         echo "Project ID: $PROJECT_ID"
@@ -433,3 +447,4 @@ runs:
         echo "Health Path: $HEALTH_PATH"
         echo "Image Context: $IMAGE_CONTEXT"
         echo "Dockerfile: $IMAGE_DOCKERFILE"
+        echo "Metrics Enabled: $(echo "$FINAL_CONFIG" | jq -r '.metrics.enabled // false')"

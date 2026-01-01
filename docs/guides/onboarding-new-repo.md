@@ -133,16 +133,16 @@ uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reus
 
 ## Resource Limits
 
-Each PR namespace has these limits:
+Each PR namespace has **dynamic limits** calculated based on enabled databases:
 
-| Resource | Limit |
-|----------|-------|
-| CPU | 1 core |
-| Memory | 2Gi |
-| Storage | 5Gi |
-| Pods | 10 |
+| Configuration | CPU Limit | Memory | Storage |
+|---------------|-----------|--------|---------|
+| App only | 300m | 512Mi | 1Gi |
+| App + PostgreSQL | 800m | 1Gi | 3Gi |
+| App + PostgreSQL + Redis | 1000m | 1.1Gi | 3Gi |
+| All databases enabled | 2100m | 2.4Gi | 9Gi |
 
-Individual containers: max 512Mi memory, 500m CPU.
+Individual containers: max 512Mi memory, 500m CPU. See [Resource Requirements](./k8s-ee-config-reference.md#resource-requirements-by-database) for details.
 
 ---
 
@@ -188,6 +188,13 @@ For production applications with evolving schemas, use database migrations inste
 
 - Verify `secrets: inherit` is set in workflow
 - Check repository has Actions permissions
+
+### Metrics not being scraped
+
+- Verify `metrics.enabled: true` is set in `k8s-ee.yaml`
+- Check ServiceMonitor exists: `kubectl get servicemonitor -n {namespace}`
+- Verify your app exposes a `/metrics` endpoint (or custom path via `app.metricsPath`)
+- The ServiceMonitor automatically adds a `namespace` label for Grafana filtering
 
 ---
 

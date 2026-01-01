@@ -62,6 +62,16 @@ export async function seedDatabase(pool: Pool): Promise<{ seeded: boolean; count
     },
   }));
 
+  // Reset the sequence to avoid duplicate key errors after seeding
+  // drizzle-seed may set explicit IDs that don't update the sequence
+  await pool.query(`
+    SELECT setval(
+      pg_get_serial_sequence('test_records', 'id'),
+      COALESCE((SELECT MAX(id) FROM test_records), 0) + 1,
+      false
+    )
+  `);
+
   console.log(`Seeded ${SEED_COUNT} test records successfully`);
   return { seeded: true, count: SEED_COUNT };
 }

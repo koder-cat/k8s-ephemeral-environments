@@ -187,7 +187,18 @@ All images use pinned versions for reproducibility:
 
 ### ResourceQuota
 
-Each PR namespace has strict resource limits:
+Each PR namespace has **dynamically calculated** resource limits based on enabled databases:
+
+| Configuration | CPU Limit | Memory Limit | Storage |
+|---------------|-----------|--------------|---------|
+| App only | 300m | 512Mi | 1Gi |
+| App + PostgreSQL | 800m | 1Gi | 3Gi |
+| App + PostgreSQL + Redis | 1000m | 1.1Gi | 3Gi |
+| All databases enabled | 2100m | 2.4Gi | 9Gi |
+
+The quota is calculated at namespace creation based on the `databases` section in `k8s-ee.yaml`. See [Resource Requirements by Database](./k8s-ee-config-reference.md#resource-requirements-by-database) for details.
+
+Example quota (with PostgreSQL + MongoDB enabled):
 
 ```yaml
 apiVersion: v1
@@ -196,11 +207,11 @@ metadata:
   name: pr-quota
 spec:
   hard:
-    requests.cpu: "1"
-    requests.memory: 2Gi
-    limits.cpu: "2"
-    limits.memory: 4Gi
-    persistentvolumeclaims: "5"
+    requests.cpu: "600m"
+    requests.memory: 768Mi
+    limits.cpu: "1300m"
+    limits.memory: 1536Mi
+    persistentvolumeclaims: "3"
     requests.storage: 5Gi
 ```
 

@@ -49,8 +49,8 @@ export interface TestRecord {
   id: number;
   name: string;
   data: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface RecordsResponse {
@@ -129,6 +129,109 @@ export interface AlertDemoStatus {
   requestsSent: number;
   progress: number;
   message?: string;
+  timestamp: string;
+}
+
+// Audit types
+export interface AuditEvent {
+  _id: string;
+  type: 'api_request' | 'db_operation' | 'file_operation' | 'cache_operation';
+  timestamp: string;
+  path?: string;
+  method?: string;
+  statusCode?: number;
+  durationMs?: number;
+  userAgent?: string;
+  ip?: string;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AuditEventsResponse {
+  events: AuditEvent[];
+  total: number;
+  filters?: Record<string, unknown>;
+}
+
+export interface AuditStats {
+  totalEvents: number;
+  eventsLast24h?: number;
+  eventsByType: Record<string, number>;
+  storageBytes?: number;
+  oldestEvent?: string | null;
+  newestEvent?: string | null;
+  timestamp?: string;
+}
+
+// Cache types
+export interface CacheStats {
+  enabled?: boolean;
+  connected?: boolean;
+  hits: number;
+  misses: number;
+  hitRate: number;
+  keys?: number;
+  keysCount?: number;
+  memoryUsed?: string;
+  memoryUsedBytes?: number;
+  uptime?: number;
+  timestamp?: string;
+}
+
+export interface CacheStatus {
+  enabled: boolean;
+  connected: boolean;
+  host?: string;
+  port?: number;
+  timestamp: string;
+}
+
+export interface CacheFlushResponse {
+  flushed: boolean;
+  keysCleared: number;
+  timestamp: string;
+}
+
+// Storage types
+export interface FileMetadata {
+  fileId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  bucket: string;
+  uploadedAt: string;
+}
+
+export interface FilesResponse {
+  files: FileMetadata[];
+  total: number;
+  page: number;
+  limit: number;
+  timestamp: string;
+}
+
+export interface UploadResponse {
+  fileId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  timestamp: string;
+}
+
+export interface DownloadUrlResponse {
+  fileId: string;
+  downloadUrl: string;
+  expiresIn: number;
+  timestamp: string;
+}
+
+export interface StorageStatus {
+  enabled: boolean;
+  connected: boolean;
+  endpoint?: string;
+  bucket?: string;
   timestamp: string;
 }
 

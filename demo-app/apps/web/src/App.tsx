@@ -6,12 +6,18 @@ import {
   DatabaseIcon,
   CpuIcon,
   AlertIcon,
+  AuditIcon,
+  CacheIcon,
+  StorageIcon,
   HttpStatusSimulator,
   LatencySimulator,
   DatabaseTester,
   StressTester,
   MetricsSummary,
   AlertTrigger,
+  AuditViewer,
+  CacheMonitor,
+  FileManager,
 } from './components';
 
 interface EnvInfo {
@@ -307,6 +313,30 @@ function App() {
                     accentColor="purple"
                   >
                     <AlertTrigger />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Audit Log"
+                    icon={<AuditIcon />}
+                    accentColor="cyan"
+                  >
+                    <AuditViewer />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="Cache Monitor"
+                    icon={<CacheIcon />}
+                    accentColor="amber"
+                  >
+                    <CacheMonitor />
+                  </SimulatorPanel>
+
+                  <SimulatorPanel
+                    title="File Storage"
+                    icon={<StorageIcon />}
+                    accentColor="green"
+                  >
+                    <FileManager />
                   </SimulatorPanel>
                 </div>
               </section>

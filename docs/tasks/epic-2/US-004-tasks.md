@@ -21,10 +21,12 @@
 ### T-004.3: Create ResourceQuota Manifest
 - **Description:** Define resource limits for PR namespaces
 - **Acceptance Criteria:**
-  - ResourceQuota: CPU ≤ 1 core, RAM ≤ 2Gi, Storage ≤ 5Gi
+  - ResourceQuota dynamically calculated based on enabled databases
+  - Base quota: 300m CPU, 512Mi RAM; scales up with each database
   - Limits on number of pods, services, configmaps
-  - Manifest templated for namespace name
+  - Quota calculation in `.github/actions/create-namespace/action.yml`
 - **Estimate:** S
+- **Note:** Updated to use dynamic quota calculation based on k8s-ee.yaml databases config
 
 ### T-004.4: Create LimitRange Manifest
 - **Description:** Define default container limits

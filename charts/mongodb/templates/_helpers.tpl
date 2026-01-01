@@ -87,10 +87,16 @@ Use this template in your application deployment to inject database credentials:
     {{- include "mongodb.envVars" .Subcharts.mongodb | nindent 4 }}
 
 This injects:
-  - MONGODB_URI: Full connection string
+  - MONGODB_URL: Full connection string (preferred)
+  - MONGODB_URI: Alias for MONGODB_URL (for compatibility)
 */}}
 {{- define "mongodb.envVars" -}}
 {{- if .Values.enabled }}
+- name: MONGODB_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "mongodb.connectionSecretName" . }}
+      key: connectionString.standard
 - name: MONGODB_URI
   valueFrom:
     secretKeyRef:

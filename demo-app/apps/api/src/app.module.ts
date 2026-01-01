@@ -1,4 +1,5 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { LoggerModule } from 'nestjs-pino';
 import { Request } from 'express';
@@ -9,6 +10,9 @@ import { DatabaseModule } from './database.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { SimulatorModule } from './simulator/simulator.module';
 import { DatabaseTestModule } from './database-test/database-test.module';
+import { AuditModule, AuditInterceptor } from './audit';
+import { CacheModule } from './cache';
+import { StorageModule } from './storage';
 import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
 import { MetricsMiddleware } from './middleware/metrics.middleware';
 
@@ -41,11 +45,21 @@ import { MetricsMiddleware } from './middleware/metrics.middleware';
     }),
     MetricsModule,
     DatabaseModule,
+    AuditModule,
+    CacheModule,
+    StorageModule,
     SimulatorModule,
     DatabaseTestModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Register AuditInterceptor globally to log all API requests
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

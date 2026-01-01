@@ -257,6 +257,21 @@ If empty, no PR environments exist. Create a PR to generate one.
      wget -q -O - 'http://localhost:9090/api/v1/query?query=kube_pod_status_phase{namespace=\"k8s-ee-pr-XX\"}'"
    ```
 
+### App metrics missing namespace label
+
+**Symptoms:** App metrics like `http_requests_total` don't have a `namespace` label, causing dashboard filters to fail.
+
+**Cause:** ServiceMonitor is missing namespace relabeling configuration.
+
+**Fix:** The ServiceMonitor should include relabeling to inject the namespace:
+```yaml
+relabelings:
+  - sourceLabels: [__meta_kubernetes_namespace]
+    targetLabel: namespace
+```
+
+This is configured automatically in the k8s-ee-app and demo-app Helm charts. If you're using a custom chart, add the relabeling to your ServiceMonitor.
+
 ### Log panels showing no data
 
 **Symptoms:** Logs panels (type: logs) show "No data" even when Explore works fine.

@@ -36,6 +36,9 @@ The app is automatically deployed to a preview environment for every Pull Reques
 | Build Tool | Vite | 6.x |
 | Testing | Vitest | 3.x |
 | Database | PostgreSQL | 16 |
+| Audit Log | MongoDB | 7.x |
+| Cache | Redis | 7.x |
+| Storage | MinIO | Latest |
 | Container | Docker | Multi-stage |
 
 ## Project Structure
@@ -283,6 +286,50 @@ Real-time metrics displayed in the UI:
 | `/api/simulator/alert-demo/:alertType` | POST | Start alert demo |
 | `/api/simulator/alert-demo` | DELETE | Stop running demo |
 
+### Audit Log (MongoDB)
+Monitor all API activity with automatic 7-day TTL cleanup.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/audit/events` | GET | Query events with filters |
+| `/api/audit/stats` | GET | Get event statistics |
+| `/api/audit/status` | GET | Get connection status |
+
+**Query Parameters:**
+- `type` - Filter by event type (api_request, db_operation, file_operation, cache_operation)
+- `from` / `to` - Date range filter
+- `pathPattern` - Filter by path pattern (supports wildcards)
+- `statusCode` - Filter by HTTP status code
+- `offset` / `limit` - Pagination
+
+### Cache Monitor (Redis)
+View cache statistics and manage Redis cache.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/cache/stats` | GET | Get cache hits/misses/hit rate |
+| `/api/cache/status` | GET | Get connection status |
+| `/api/cache/keys` | GET | List cached keys |
+| `/api/cache/flush` | DELETE | Flush all cache (requires confirmation) |
+
+### File Storage (MinIO)
+S3-compatible file storage with presigned URLs.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/storage/upload` | POST | Upload file (multipart/form-data) |
+| `/api/storage/files` | GET | List uploaded files |
+| `/api/storage/files/:id` | GET | Get file metadata |
+| `/api/storage/files/:id/download` | GET | Get presigned download URL |
+| `/api/storage/files/:id` | DELETE | Delete file |
+| `/api/storage/export/:format` | POST | Export records to CSV/JSON |
+| `/api/storage/status` | GET | Get connection status |
+| `/api/storage/stats` | GET | Get storage statistics |
+
+**File Upload Constraints:**
+- Max size: 5MB
+- Allowed types: JPEG, PNG, GIF, WebP, PDF, TXT, CSV, JSON
+
 ## Observability
 
 The demo app exposes Prometheus metrics at `/metrics` for monitoring.
@@ -325,6 +372,13 @@ For detailed metrics documentation, see [API README](apps/api/README.md#promethe
 |----------|-------------|---------|
 | `PORT` | API server port | `3000` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
+| `MONGODB_URL` | MongoDB connection string | - |
+| `REDIS_URL` | Redis connection string | - |
+| `MINIO_ENDPOINT` | MinIO hostname | - |
+| `MINIO_PORT` | MinIO API port | `9000` |
+| `MINIO_ACCESS_KEY` | MinIO access key | - |
+| `MINIO_SECRET_KEY` | MinIO secret key | - |
+| `MINIO_BUCKET` | Default bucket name | `demo-app` |
 | `CORS_ORIGIN` | Allowed CORS origins | `false` |
 | `LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
 | `NODE_ENV` | Environment (development, production, test) | - |

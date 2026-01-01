@@ -232,6 +232,13 @@ metrics:
   scrapeTimeout: 10s
 ```
 
+The ServiceMonitor automatically adds a `namespace` label to all scraped metrics using Prometheus relabeling. This enables Grafana dashboards to filter metrics by namespace without requiring the application to add this label.
+
+**How it works:**
+- Prometheus extracts `__meta_kubernetes_namespace` during service discovery
+- ServiceMonitor relabeling copies this to a `namespace` label
+- All app metrics include `namespace="k8s-ee-pr-42"` automatically
+
 ### Available Metrics
 
 | Metric | Type | Description |

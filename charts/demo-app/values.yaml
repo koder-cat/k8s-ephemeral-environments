@@ -161,19 +161,19 @@ postgresql:
         GRANT USAGE, SELECT ON SEQUENCE test_records_id_seq TO app;
 
 # MongoDB configuration (uses library chart)
-# Enable for applications requiring MongoDB
+# Used for: Activity audit logging with TTL-based cleanup
 mongodb:
-  enabled: false
+  enabled: true
 
 # Redis configuration (uses library chart)
-# Enable for applications requiring Redis caching
+# Used for: API response caching and rate limiting
 redis:
-  enabled: false
+  enabled: true
 
 # MinIO configuration (uses library chart)
-# Enable for applications requiring S3-compatible storage
+# Used for: S3-compatible file storage with presigned URLs
 minio:
-  enabled: false
+  enabled: true
 
 # MariaDB configuration (uses library chart)
 # Enable for applications requiring MariaDB
