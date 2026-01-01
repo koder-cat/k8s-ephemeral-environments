@@ -8,6 +8,7 @@ A full-stack demonstration application for the k8s-ephemeral-environments platfo
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
+- [Local Development](#local-development)
 - [Available Scripts](#available-scripts)
 - [Docker Build](#docker-build)
 - [Kubernetes Deployment](#kubernetes-deployment)
@@ -73,6 +74,8 @@ demo-app/
 
 - Node.js 22+
 - pnpm 9+
+- Docker (for local database)
+- Unix-like shell (Linux, macOS, WSL, Git Bash)
 
 ### Installation
 
@@ -80,31 +83,76 @@ demo-app/
 # Install dependencies
 pnpm install
 
-# Start development servers
-pnpm dev
+# One command to start everything (PostgreSQL + migrations + dev servers)
+pnpm dev:local
 ```
 
 The API runs on `http://localhost:3000` and the Web app on `http://localhost:5173`.
 
-### With Database (Optional)
+### What `dev:local` does
 
-To run with PostgreSQL locally:
+1. Starts PostgreSQL via Docker Compose
+2. Creates `.env` from `.env.example` (if needed)
+3. Waits for database to be ready
+4. Runs database migrations
+5. Starts API and Web dev servers
+
+## Local Development
+
+### Starting Services
 
 ```bash
-# Start PostgreSQL container
-docker run -d \
-  --name demo-postgres \
-  -e POSTGRES_USER=app \
-  -e POSTGRES_PASSWORD=secret \
-  -e POSTGRES_DB=app \
-  -p 5432:5432 \
-  postgres:16-alpine
+# Start PostgreSQL only (default)
+docker compose up -d
 
-# Set connection string
-export DATABASE_URL="postgresql://app:secret@localhost:5432/app"
+# Start with additional services
+docker compose --profile mongodb up -d     # + MongoDB
+docker compose --profile redis up -d       # + Redis
+docker compose --profile minio up -d       # + MinIO
+docker compose --profile mariadb up -d     # + MariaDB
+docker compose --profile all up -d         # All services
+```
 
-# Start the API
-pnpm dev:api
+### Available Services
+
+| Service | Port | Profile | Connection String |
+|---------|------|---------|-------------------|
+| PostgreSQL | 5432 | (default) | `postgresql://app:secret@localhost:5432/app` |
+| MongoDB | 27017 | `mongodb` | `mongodb://app:secret@localhost:27017/app?authSource=admin` |
+| Redis | 6379 | `redis` | `redis://localhost:6379` |
+| MinIO | 9000/9001 | `minio` | Endpoint: `localhost:9000`, User: `minioadmin` |
+| MariaDB | 3306 | `mariadb` | `mysql://app:secret@localhost:3306/app` |
+
+### Environment Configuration
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit as needed (defaults work for local development)
+```
+
+### Database Operations
+
+```bash
+# Run migrations
+pnpm --filter @demo-app/api db:migrate
+
+# Generate new migration after schema changes
+pnpm --filter @demo-app/api db:generate
+
+# Open Drizzle Studio (visual database browser)
+pnpm --filter @demo-app/api db:studio
+```
+
+### Stopping Services
+
+```bash
+# Stop all services (keeps data)
+pnpm teardown
+
+# Stop and remove volumes (clean slate)
+pnpm teardown:clean
 ```
 
 ## Available Scripts
@@ -113,6 +161,11 @@ Run from the `demo-app` directory:
 
 | Script | Description |
 |--------|-------------|
+| `pnpm dev:local` | **Full local dev** - setup + dev servers in one command |
+| `pnpm local:setup` | Start Docker, configure env, run migrations |
+| `pnpm local:reset` | Clean slate - teardown + fresh setup |
+| `pnpm teardown` | Stop Docker services (keeps data) |
+| `pnpm teardown:clean` | Stop Docker services and remove volumes |
 | `pnpm dev` | Start both API and Web in development mode |
 | `pnpm dev:api` | Start only the API (port 3000) |
 | `pnpm dev:web` | Start only the Web (port 5173) |
@@ -273,6 +326,8 @@ For detailed metrics documentation, see [API README](apps/api/README.md#promethe
 | `PORT` | API server port | `3000` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
 | `CORS_ORIGIN` | Allowed CORS origins | `false` |
+| `LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
+| `NODE_ENV` | Environment (development, production, test) | - |
 | `PR_NUMBER` | Pull request number | - |
 | `COMMIT_SHA` | Git commit SHA | - |
 | `BRANCH_NAME` | Git branch name | - |

@@ -51,16 +51,32 @@ cd demo-app
 pnpm install
 ```
 
-### 3. Run Locally (Optional)
+### 3. Run Locally with Database
 
-Start the development servers:
+Start the local development environment with one command:
 ```bash
-# Run both API and Web in parallel
-pnpm dev
+# Start everything (PostgreSQL, migrations, dev servers)
+pnpm dev:local
+```
 
-# Or run separately
-pnpm dev:api  # API on http://localhost:3000
-pnpm dev:web  # Web on http://localhost:5173
+This automatically:
+- Starts PostgreSQL via Docker Compose
+- Creates `.env` from `.env.example` (if needed)
+- Waits for the database to be ready
+- Runs database migrations
+- Starts API (http://localhost:3000) and Web (http://localhost:5173)
+
+Optional databases are available via Docker Compose profiles:
+```bash
+docker compose --profile mongodb up -d  # Add MongoDB
+docker compose --profile redis up -d    # Add Redis
+docker compose --profile all up -d      # All services
+```
+
+To stop services:
+```bash
+pnpm teardown        # Stop services (keeps data)
+pnpm teardown:clean  # Stop and remove volumes
 ```
 
 ### 4. Run Tests
