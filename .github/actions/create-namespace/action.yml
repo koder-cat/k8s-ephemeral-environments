@@ -286,11 +286,14 @@ runs:
         fi
 
         if [[ "${MINIO_ENABLED}" == "true" ]]; then
-          echo "  + MinIO: 500m CPU, 512Mi memory, 1Gi storage, 2 services (api, console)"
-          CPU_REQUESTS=$((CPU_REQUESTS + 250))
-          CPU_LIMITS=$((CPU_LIMITS + 500))
-          MEM_REQUESTS=$((MEM_REQUESTS + 256))
-          MEM_LIMITS=$((MEM_LIMITS + 512))
+          # MinIO pod has 2 containers: minio + sidecar (sidecar gets LimitRange defaults)
+          # minio: 100m/500m CPU, 256Mi/512Mi memory
+          # sidecar: 100m/500m CPU, 128Mi/512Mi memory (LimitRange defaults)
+          echo "  + MinIO: 1000m CPU limits, 1024Mi memory limits, 1Gi storage, 2 services (api, console)"
+          CPU_REQUESTS=$((CPU_REQUESTS + 200))   # 100m minio + 100m sidecar
+          CPU_LIMITS=$((CPU_LIMITS + 1000))      # 500m minio + 500m sidecar
+          MEM_REQUESTS=$((MEM_REQUESTS + 384))   # 256Mi minio + 128Mi sidecar
+          MEM_LIMITS=$((MEM_LIMITS + 1024))      # 512Mi minio + 512Mi sidecar
           STORAGE=$((STORAGE + 2))
           PVCS=$((PVCS + 1))
           PODS=$((PODS + 2))
