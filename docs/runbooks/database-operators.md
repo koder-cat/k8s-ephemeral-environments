@@ -48,7 +48,14 @@ kubectl logs -n mongodb-system -l app.kubernetes.io/name=mongodb-kubernetes-oper
 
 # List all MongoDB instances
 kubectl get mongodbcommunity -A
+
+# Check MongoDB pod readiness (both containers should be 2/2)
+kubectl get pods -n <namespace> -l app=<mongodb-name>-svc
 ```
+
+**Important:** MongoDB pods have 2 containers:
+- `mongod` - The database
+- `mongodb-agent` - Automation agent (handles readiness, config updates)
 
 ### Check MinIO
 
@@ -126,6 +133,87 @@ kubectl describe pvc <pvc-name> -n <namespace>
 
 # Check storage class exists
 kubectl get storageclass
+```
+
+### MongoDB Agent Readiness Probe Failing
+
+**Symptoms:**
+- MongoDB pod shows `1/2` containers ready
+- Events show: `Readiness probe failed: Error verifying agent is ready`
+- Agent logs show RBAC permission errors
+
+**Diagnosis:**
+```bash
+# Check agent container logs
+kubectl logs -n <namespace> <mongodb-pod> -c mongodb-agent --tail=100
+
+# Check if RBAC resources exist
+kubectl get role,rolebinding -n <namespace> | grep mongodb
+
+# Check events for permission errors
+kubectl get events -n <namespace> | grep -i forbidden
+```
+
+**Root Cause:**
+The MongoDB agent needs RBAC permissions to:
+1. Read secrets (automation config verification)
+2. Read and patch pods (agent version annotations)
+
+**Resolution:**
+
+The k8s-ee MongoDB chart automatically creates the required RBAC:
+
+```yaml
+# Created by charts/mongodb/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-database
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "patch"]
+```
+
+If RBAC is missing, check:
+1. Helm release includes the MongoDB chart
+2. ARC runner has permission to create roles/rolebindings
+3. Chart version includes `role.yaml` template
+
+**Manual fix (if needed):**
+```bash
+kubectl create role mongodb-database -n <namespace> \
+  --verb=get --resource=secrets \
+  --verb=get,patch --resource=pods
+
+kubectl create rolebinding mongodb-database -n <namespace> \
+  --role=mongodb-database --serviceaccount=<namespace>:mongodb-database
+```
+
+### MongoDB Replica Set Initialization Failed
+
+**Symptoms:**
+- MongoDB pod running but replica set not initialized
+- Logs show: `RsInit failed` or `connection refused to replica set members`
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Stale PVCs from previous runs | Delete PVCs to force fresh init |
+| DNS resolution issues | Check service DNS resolves correctly |
+| Network policy blocking | Ensure pods can reach each other |
+
+**Resolution:**
+```bash
+# Delete stale PVCs to force fresh initialization
+kubectl delete pvc -n <namespace> -l app=<mongodb-name>-svc
+
+# The StatefulSet will recreate pods with fresh PVCs
+kubectl delete pod -n <namespace> -l app=<mongodb-name>-svc
 ```
 
 ## Operator Upgrades

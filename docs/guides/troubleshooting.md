@@ -7,8 +7,10 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [Quick Diagnosis](#quick-diagnosis)
 - [Initialization Race Conditions](#initialization-race-conditions)
 - [PR Namespace Issues](#pr-namespace-issues)
+  - [ResourceQuota Exceeded During Rolling Updates](#resourcequota-exceeded-during-rolling-updates)
 - [Deployment Failures](#deployment-failures)
 - [Database Issues](#database-issues)
+  - [MongoDB Authorization Errors](#mongodb-authorization-errors)
 - [Migration Issues](#migration-issues)
 - [Network Policy Issues](#network-policy-issues)
 - [Health Check Failures](#health-check-failures)
@@ -209,6 +211,40 @@ kubectl patch resourcequota pr-quota -n k8s-ee-pr-{number} --type='merge' \
 ```
 
 See [Resource Requirements by Database](./k8s-ee-config-reference.md#resource-requirements-by-database) for how quotas are calculated.
+
+### ResourceQuota Exceeded During Rolling Updates
+
+**Symptoms:**
+- Deployment stuck with new ReplicaSet unable to create pods
+- Events show: `exceeded quota: pr-quota, requested: requests.memory=128Mi, used: requests.memory=1242593Ki, limited: requests.memory=1280Mi`
+- Rolling update fails while old pod still runs
+
+**Root Cause:**
+During rolling updates, Kubernetes runs both old and new pods simultaneously. The quota must accommodate this overlap:
+
+```
+Old pod: 128Mi memory requests (still running)
+New pod: 128Mi memory requests (trying to start)
+Total needed: 256Mi additional headroom
+```
+
+**Diagnosis:**
+```bash
+# Check if new ReplicaSet can't create pods
+kubectl get events -n k8s-ee-pr-{number} | grep -i exceeded
+
+# Check current quota usage vs limit
+kubectl describe resourcequota pr-quota -n k8s-ee-pr-{number}
+```
+
+**Resolution:**
+
+The platform now includes headroom buffer for rolling updates automatically:
+- CPU requests: +100m for app overlap
+- Memory requests: +256Mi for app overlap
+- CPU/Memory limits: +15% buffer
+
+If you see this on older namespaces, close and reopen the PR to recreate with updated quota.
 
 ## Deployment Failures
 
@@ -460,6 +496,49 @@ databases:
 ```
 
 Push the change to trigger a new deployment.
+
+### MongoDB Authorization Errors
+
+**Symptoms:**
+- App logs show `not authorized on admin to execute command`
+- Audit service fails to log events
+- `/api/audit/events` returns 400 or 500 errors
+- Console shows "Cannot read properties of undefined (reading 'toLocaleString')"
+
+**Error Message:**
+```json
+{
+  "errmsg": "not authorized on admin to execute command { insert: \"audit_events\" ... $db: \"admin\" }",
+  "code": 13,
+  "codeName": "Unauthorized"
+}
+```
+
+**Root Cause:**
+The MongoDB connection string uses `/admin` for authentication (required by MongoDB), but the app was trying to use the `admin` database for storing data instead of the `app` database.
+
+**Diagnosis:**
+```bash
+# Check MongoDB connection string
+kubectl get secret -n k8s-ee-pr-{number} app-mongodb-admin-app \
+  -o jsonpath='{.data.connectionString\.standard}' | base64 -d
+
+# Look for /admin in the connection string - that's the auth database, not data database
+# mongodb://app:xxx@host:27017/admin?replicaSet=app-mongodb
+
+# Check app logs for auth errors
+kubectl logs -n k8s-ee-pr-{number} -l app.kubernetes.io/name=app | grep -i "not authorized"
+```
+
+**Resolution:**
+
+The audit service now explicitly specifies the database name:
+```typescript
+const dbName = process.env.MONGODB_DATABASE || 'app';
+this.db = this.client.db(dbName);
+```
+
+If you see this error on older deployments, redeploy the app to pick up the fix.
 
 ### Connection Refused
 

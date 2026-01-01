@@ -9,6 +9,7 @@ This guide documents best practices for creating NestJS services that depend on 
 - [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
 - [Testing Your Service](#testing-your-service)
 - [Kubernetes Considerations](#kubernetes-considerations)
+  - [MongoDB Operator RBAC Requirements](#mongodb-operator-rbac-requirements)
 
 ## Database-Dependent Services
 
@@ -398,6 +399,49 @@ Different init containers have different memory requirements based on their base
 | wait-for-minio | curlimages/curl | 32Mi | Minimal |
 
 **Important:** The MongoDB init container will OOMKill at 128Mi. Always allocate at least 256Mi for `mongosh`-based readiness checks.
+
+### MongoDB Operator RBAC Requirements
+
+The MongoDB Community Operator requires specific RBAC permissions for its agent to function properly. The agent runs as a sidecar container and needs to:
+
+1. **Read secrets** - Verify automation config
+2. **Read/patch pods** - Update agent version annotations
+
+Without these permissions, the agent's readiness probe fails with:
+```
+Warning  Unhealthy  pod/app-mongodb-0  Readiness probe failed: Error verifying agent is ready
+```
+
+The k8s-ee platform automatically creates these RBAC resources via the MongoDB chart:
+
+```yaml
+# charts/mongodb/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mongodb-database
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mongodb-database
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mongodb-database
+subjects:
+  - kind: ServiceAccount
+    name: mongodb-database
+```
+
+**Note:** The ARC runner ClusterRole includes `roles` and `rolebindings` permissions to deploy these RBAC resources.
 
 ### Why Both Layers?
 
