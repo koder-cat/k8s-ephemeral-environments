@@ -45,6 +45,14 @@ rules:
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["clusters", "poolers", "scheduledbackups"]
     verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # MongoDB Community Operator for audit logging
+  - apiGroups: ["mongodbcommunity.mongodb.com"]
+    resources: ["mongodbcommunity"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
+  # MinIO Operator for S3-compatible storage
+  - apiGroups: ["minio.min.io"]
+    resources: ["tenants"]
+    verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
   # Jobs for database migrations
   - apiGroups: ["batch"]
     resources: ["jobs"]
