@@ -72,13 +72,36 @@ Use this template in your application deployment to inject S3 credentials:
     {{- include "minio.envVars" .Subcharts.minio | nindent 4 }}
 
 This injects:
-  - S3_ENDPOINT: MinIO endpoint URL
-  - S3_ACCESS_KEY: Access key
-  - S3_SECRET_KEY: Secret key
-  - S3_BUCKET: Default bucket name
+  - MINIO_ENDPOINT: MinIO host (without port)
+  - MINIO_PORT: MinIO port
+  - MINIO_ACCESS_KEY: Access key
+  - MINIO_SECRET_KEY: Secret key
+  - MINIO_BUCKET: Default bucket name
+  - S3_ENDPOINT: Full MinIO endpoint URL (for AWS SDK compatibility)
+  - S3_ACCESS_KEY: Alias for MINIO_ACCESS_KEY
+  - S3_SECRET_KEY: Alias for MINIO_SECRET_KEY
+  - S3_BUCKET: Alias for MINIO_BUCKET
 */}}
 {{- define "minio.envVars" -}}
 {{- if .Values.enabled }}
+# MinIO-style environment variables
+- name: MINIO_ENDPOINT
+  value: {{ include "minio.serviceName" . | quote }}
+- name: MINIO_PORT
+  value: "9000"
+- name: MINIO_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "minio.secretName" . }}
+      key: accesskey
+- name: MINIO_SECRET_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "minio.secretName" . }}
+      key: secretkey
+- name: MINIO_BUCKET
+  value: {{ .Values.bucket | default "data" | quote }}
+# S3-style aliases for AWS SDK compatibility
 - name: S3_ENDPOINT
   value: "http://{{ include "minio.serviceName" . }}:9000"
 - name: S3_ACCESS_KEY

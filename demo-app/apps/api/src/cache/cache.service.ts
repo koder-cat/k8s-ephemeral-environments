@@ -30,20 +30,42 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   /**
-   * Check if Redis is configured
+   * Check if Redis is configured (via URL or individual components)
    */
   get enabled(): boolean {
-    return !!process.env.REDIS_URL;
+    return !!(
+      process.env.REDIS_URL ||
+      (process.env.REDIS_HOST && process.env.REDIS_PORT)
+    );
+  }
+
+  /**
+   * Get Redis connection URL, constructing from components if needed
+   */
+  private getRedisUrl(): string {
+    if (process.env.REDIS_URL) {
+      return process.env.REDIS_URL;
+    }
+    // Construct from components (for Kubernetes with auth enabled)
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = process.env.REDIS_PORT || '6379';
+    const password = process.env.REDIS_PASSWORD;
+    if (password) {
+      // URL-encode password to handle special characters like @, :, /
+      const encodedPassword = encodeURIComponent(password);
+      return `redis://:${encodedPassword}@${host}:${port}`;
+    }
+    return `redis://${host}:${port}`;
   }
 
   async onModuleInit() {
     if (!this.enabled) {
-      this.logger.info('REDIS_URL not set, caching features disabled');
+      this.logger.info('Redis not configured, caching features disabled');
       return;
     }
 
     try {
-      this.redis = new Redis(process.env.REDIS_URL!, {
+      this.redis = new Redis(this.getRedisUrl(), {
         maxRetriesPerRequest: 3,
         enableReadyCheck: true,
         connectTimeout: 5000,
@@ -335,8 +357,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       return {
         enabled: true,
         connected: true,
-        host: process.env.REDIS_URL?.split('@')[1]?.split(':')[0] || 'localhost',
-        port: 6379,
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
         memoryUsed: memoryMatch?.[1]?.trim(),
         connectedClients: clientsMatch ? parseInt(clientsMatch[1], 10) : undefined,
       };

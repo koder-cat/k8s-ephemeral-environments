@@ -74,7 +74,11 @@ This injects:
   - REDIS_HOST: Redis host
   - REDIS_PORT: Redis port
   - REDIS_PASSWORD: Redis password (only when auth.enabled)
-  - REDIS_URL: Full connection URL (only when auth.disabled, apps should construct URL when auth is enabled)
+  - REDIS_URL: Full connection URL (only when auth.disabled)
+
+Note: When auth is enabled, REDIS_URL cannot be provided directly because
+Kubernetes doesn't support env var interpolation. The app should construct
+REDIS_URL from components: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}
 */}}
 {{- define "redis.envVars" -}}
 {{- if .Values.enabled }}
@@ -88,8 +92,6 @@ This injects:
     secretKeyRef:
       name: {{ include "redis.secretName" . }}
       key: password
-# When auth is enabled, apps should construct REDIS_URL from components:
-# redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}
 {{- else }}
 - name: REDIS_URL
   value: "redis://{{ include "redis.serviceName" . }}:6379"

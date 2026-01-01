@@ -70,8 +70,18 @@ describe('CacheService', () => {
       expect(service.enabled).toBe(true);
     });
 
-    it('should return false when REDIS_URL is not set', () => {
+    it('should return true when REDIS_HOST and REDIS_PORT are set', () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', 'redis-server');
+      vi.stubEnv('REDIS_PORT', '6379');
+      const newService = new CacheService(mockLogger, mockMetrics);
+      expect(newService.enabled).toBe(true);
+    });
+
+    it('should return false when no Redis config is set', () => {
+      vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
+      vi.stubEnv('REDIS_PORT', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       expect(newService.enabled).toBe(false);
     });
@@ -85,10 +95,12 @@ describe('CacheService', () => {
 
     it('should skip initialization when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
+      vi.stubEnv('REDIS_PORT', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       await newService.onModuleInit();
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'REDIS_URL not set, caching features disabled',
+        'Redis not configured, caching features disabled',
       );
     });
   });
@@ -96,6 +108,7 @@ describe('CacheService', () => {
   describe('get/set', () => {
     it('should return null when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       const result = await newService.get('test-key');
       expect(result).toBeNull();
@@ -111,6 +124,7 @@ describe('CacheService', () => {
   describe('checkRateLimit', () => {
     it('should allow requests when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       const result = await newService.checkRateLimit('test', 10, 60);
       expect(result.allowed).toBe(true);
@@ -128,6 +142,7 @@ describe('CacheService', () => {
   describe('getStats', () => {
     it('should return zero stats when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       const stats = await newService.getStats();
       expect(stats.connected).toBe(false);
@@ -145,6 +160,7 @@ describe('CacheService', () => {
   describe('getStatus', () => {
     it('should return disabled status when not configured', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       const status = await newService.getStatus();
       expect(status).toEqual({ enabled: false, connected: false });
@@ -161,6 +177,7 @@ describe('CacheService', () => {
   describe('flush', () => {
     it('should do nothing when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       await newService.flush();
       expect(mockLogger.info).not.toHaveBeenCalledWith('Cache flushed');
@@ -176,6 +193,7 @@ describe('CacheService', () => {
   describe('listKeys', () => {
     it('should return empty array when disabled', async () => {
       vi.stubEnv('REDIS_URL', '');
+      vi.stubEnv('REDIS_HOST', '');
       const newService = new CacheService(mockLogger, mockMetrics);
       const keys = await newService.listKeys();
       expect(keys).toEqual([]);
