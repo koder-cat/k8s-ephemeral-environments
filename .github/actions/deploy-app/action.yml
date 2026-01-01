@@ -276,14 +276,25 @@ runs:
         trap 'mv Chart.yaml.bak Chart.yaml 2>/dev/null || true' EXIT
 
         # Update Chart.yaml to use local file:// dependencies instead of OCI
-        sed -i 's|repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"|repository: "file://../"|g' Chart.yaml
-
-        # Also update the chart names to match local directory names
+        # For file:// dependencies, the repository must be the full path to each chart
+        # The OCI format is: name: k8s-ee-<chart>, repository: oci://...
+        # The file:// format needs: name: <chart>, repository: file://../<chart>
         sed -i 's|name: k8s-ee-postgresql|name: postgresql|g' Chart.yaml
         sed -i 's|name: k8s-ee-mongodb|name: mongodb|g' Chart.yaml
         sed -i 's|name: k8s-ee-redis|name: redis|g' Chart.yaml
         sed -i 's|name: k8s-ee-minio|name: minio|g' Chart.yaml
         sed -i 's|name: k8s-ee-mariadb|name: mariadb|g' Chart.yaml
+
+        # Now update each repository line that follows a specific name line
+        # This uses sed with hold space to match and replace the repository line after each name
+        for chart in postgresql mongodb redis minio mariadb; do
+          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
+        done
+
+        # Debug: Show modified dependencies section
+        echo "=== Modified Chart.yaml dependencies ==="
+        grep -A 3 "name: postgresql$" Chart.yaml | head -4
+        grep -A 3 "name: mongodb$" Chart.yaml | head -4
 
         # Remove Chart.lock to avoid sync issues (will be regenerated)
         rm -f Chart.lock
