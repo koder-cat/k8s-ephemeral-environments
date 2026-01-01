@@ -6,3 +6,6 @@ export * from './DatabaseTester';
 export * from './StressTester';
 export * from './MetricsSummary';
 export * from './AlertTrigger';
+export * from './AuditViewer';
+export * from './CacheMonitor';
+export * from './FileManager';

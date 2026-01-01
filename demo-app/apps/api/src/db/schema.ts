@@ -7,7 +7,15 @@
  * @see https://orm.drizzle.team/docs/sql-schema-declaration
  */
 
-import { pgTable, serial, varchar, jsonb, timestamp, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  serial,
+  varchar,
+  jsonb,
+  timestamp,
+  index,
+  integer,
+} from 'drizzle-orm/pg-core';
 import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
 /**
@@ -36,3 +44,32 @@ export const testRecords = pgTable(
 // Type inference from schema - replaces manual TestRecord interface
 export type TestRecord = InferSelectModel<typeof testRecords>;
 export type NewTestRecord = InferInsertModel<typeof testRecords>;
+
+/**
+ * File metadata table for MinIO file storage.
+ *
+ * Stores metadata about files uploaded to MinIO/S3.
+ * Actual file content is stored in MinIO bucket.
+ */
+export const fileMetadata = pgTable(
+  'file_metadata',
+  {
+    id: serial('id').primaryKey(),
+    fileId: varchar('file_id', { length: 36 }).notNull().unique(),
+    filename: varchar('filename', { length: 255 }).notNull(),
+    originalName: varchar('original_name', { length: 255 }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    size: integer('size').notNull(),
+    bucket: varchar('bucket', { length: 100 }).notNull(),
+    key: varchar('key', { length: 500 }).notNull(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('idx_file_metadata_file_id').on(table.fileId),
+    index('idx_file_metadata_uploaded_at').on(table.uploadedAt),
+    index('idx_file_metadata_mime_type').on(table.mimeType),
+  ],
+);
+
+export type FileMetadata = InferSelectModel<typeof fileMetadata>;
+export type NewFileMetadata = InferInsertModel<typeof fileMetadata>;

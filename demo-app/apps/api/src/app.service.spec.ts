@@ -1,17 +1,38 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AppService } from './app.service';
 import { DatabaseService } from './database.service';
+import { AuditService } from './audit/audit.service';
+import { CacheService } from './cache/cache.service';
+import { StorageService } from './storage/storage.service';
 
-// Create a mock type that allows `enabled` to be mutable
+// Create mock types that allow properties to be mutable
 interface MockDatabaseService {
   enabled: boolean;
   getStatus: ReturnType<typeof vi.fn>;
   query: ReturnType<typeof vi.fn>;
 }
 
+interface MockAuditService {
+  enabled: boolean;
+  getStatus: ReturnType<typeof vi.fn>;
+}
+
+interface MockCacheService {
+  enabled: boolean;
+  getStatus: ReturnType<typeof vi.fn>;
+}
+
+interface MockStorageService {
+  enabled: boolean;
+  getStatus: ReturnType<typeof vi.fn>;
+}
+
 describe('AppService', () => {
   let appService: AppService;
   let mockDatabaseService: MockDatabaseService;
+  let mockAuditService: MockAuditService;
+  let mockCacheService: MockCacheService;
+  let mockStorageService: MockStorageService;
 
   beforeEach(() => {
     mockDatabaseService = {
@@ -20,8 +41,26 @@ describe('AppService', () => {
       query: vi.fn(),
     };
 
+    mockAuditService = {
+      enabled: false,
+      getStatus: vi.fn().mockResolvedValue({ enabled: false, connected: false }),
+    };
+
+    mockCacheService = {
+      enabled: false,
+      getStatus: vi.fn().mockResolvedValue({ enabled: false, connected: false }),
+    };
+
+    mockStorageService = {
+      enabled: false,
+      getStatus: vi.fn().mockResolvedValue({ enabled: false, connected: false }),
+    };
+
     appService = new AppService(
       mockDatabaseService as unknown as DatabaseService,
+      mockAuditService as unknown as AuditService,
+      mockCacheService as unknown as CacheService,
+      mockStorageService as unknown as StorageService,
     );
   });
 
@@ -43,10 +82,13 @@ describe('AppService', () => {
       expect(typeof result.uptime).toBe('number');
     });
 
-    it('should include database status', async () => {
+    it('should include all service statuses', async () => {
       const result = await appService.getHealth();
 
-      expect(result.database).toEqual({ enabled: false, connected: false });
+      expect(result.services.postgresql).toEqual({ enabled: false, connected: false });
+      expect(result.services.mongodb).toEqual({ enabled: false, connected: false });
+      expect(result.services.redis).toEqual({ enabled: false, connected: false });
+      expect(result.services.minio).toEqual({ enabled: false, connected: false });
     });
 
     it('should return uptime as positive number', async () => {
@@ -60,6 +102,15 @@ describe('AppService', () => {
 
       const parsedDate = new Date(result.timestamp);
       expect(parsedDate.toISOString()).toBe(result.timestamp);
+    });
+
+    it('should fetch all service statuses in parallel', async () => {
+      await appService.getHealth();
+
+      expect(mockDatabaseService.getStatus).toHaveBeenCalled();
+      expect(mockAuditService.getStatus).toHaveBeenCalled();
+      expect(mockCacheService.getStatus).toHaveBeenCalled();
+      expect(mockStorageService.getStatus).toHaveBeenCalled();
     });
   });
 

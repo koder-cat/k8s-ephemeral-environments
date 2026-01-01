@@ -132,6 +132,107 @@ export interface AlertDemoStatus {
   timestamp: string;
 }
 
+// Audit types
+export interface AuditEvent {
+  _id: string;
+  type: 'api_request' | 'db_operation' | 'file_operation' | 'cache_operation';
+  timestamp: string;
+  path?: string;
+  method?: string;
+  statusCode?: number;
+  duration?: number;
+  userAgent?: string;
+  ip?: string;
+  correlationId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AuditEventsResponse {
+  events: AuditEvent[];
+  total: number;
+  page: number;
+  limit: number;
+  timestamp: string;
+}
+
+export interface AuditStats {
+  totalEvents: number;
+  eventsLast24h: number;
+  eventsByType: Record<string, number>;
+  storageBytes: number;
+  oldestEvent: string | null;
+  newestEvent: string | null;
+  timestamp: string;
+}
+
+// Cache types
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  hitRate: number;
+  keys: number;
+  memoryUsed: string;
+  uptime: number;
+  timestamp: string;
+}
+
+export interface CacheStatus {
+  enabled: boolean;
+  connected: boolean;
+  host?: string;
+  port?: number;
+  timestamp: string;
+}
+
+export interface CacheFlushResponse {
+  flushed: boolean;
+  keysCleared: number;
+  timestamp: string;
+}
+
+// Storage types
+export interface FileMetadata {
+  fileId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  bucket: string;
+  uploadedAt: string;
+}
+
+export interface FilesResponse {
+  files: FileMetadata[];
+  total: number;
+  page: number;
+  limit: number;
+  timestamp: string;
+}
+
+export interface UploadResponse {
+  fileId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  timestamp: string;
+}
+
+export interface DownloadUrlResponse {
+  fileId: string;
+  downloadUrl: string;
+  expiresIn: number;
+  timestamp: string;
+}
+
+export interface StorageStatus {
+  enabled: boolean;
+  connected: boolean;
+  endpoint?: string;
+  bucket?: string;
+  timestamp: string;
+}
+
 // API Response wrapper
 export interface ApiError {
   message: string;

@@ -6,6 +6,19 @@
 #   docker compose --profile minio up -d    # Start PostgreSQL + MinIO
 #   docker compose --profile mariadb up -d  # Start PostgreSQL + MariaDB
 #   docker compose --profile all up -d      # Start all services
+#
+# For demo-app with all features (audit, cache, storage):
+#   docker compose --profile mongodb --profile redis --profile minio up -d
+#
+# Environment variables (add to apps/api/.env):
+#   DATABASE_URL=postgres://app:secret@localhost:5432/app
+#   MONGODB_URL=mongodb://app:secret@localhost:27017/app?authSource=admin
+#   REDIS_URL=redis://localhost:6379
+#   MINIO_ENDPOINT=localhost
+#   MINIO_PORT=9000
+#   MINIO_ACCESS_KEY=minioadmin
+#   MINIO_SECRET_KEY=minioadmin
+#   MINIO_BUCKET=demo-app
 
 services:
   # PostgreSQL - Primary database (always runs)

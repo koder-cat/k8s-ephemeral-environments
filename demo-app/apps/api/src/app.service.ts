@@ -1,20 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from './database.service';
+import { AuditService } from './audit/audit.service';
+import { CacheService } from './cache/cache.service';
+import { StorageService } from './storage/storage.service';
 
 @Injectable()
 export class AppService {
   private readonly startTime = Date.now();
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly audit: AuditService,
+    private readonly cache: CacheService,
+    private readonly storage: StorageService,
+  ) {}
 
   async getHealth() {
-    const dbStatus = await this.database.getStatus();
+    // Fetch all service statuses in parallel
+    const [dbStatus, mongoStatus, redisStatus, minioStatus] = await Promise.all([
+      this.database.getStatus(),
+      this.audit.getStatus(),
+      this.cache.getStatus(),
+      this.storage.getStatus(),
+    ]);
 
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
-      database: dbStatus,
+      services: {
+        postgresql: dbStatus,
+        mongodb: mongoStatus,
+        redis: redisStatus,
+        minio: minioStatus,
+      },
     };
   }
 

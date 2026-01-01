@@ -46,6 +46,22 @@ export class MetricsService implements OnModuleInit {
   public readonly dbPoolWaiting: client.Gauge<string>;
   public readonly dbQueryDuration: client.Histogram<string>;
 
+  // MongoDB/Audit metrics
+  public readonly mongoOperationDuration: client.Histogram<string>;
+  public readonly auditEventsTotal: client.Counter<string>;
+
+  // Redis/Cache metrics
+  public readonly cacheOperationDuration: client.Histogram<string>;
+  public readonly cacheHitsTotal: client.Counter<string>;
+  public readonly cacheMissesTotal: client.Counter<string>;
+  public readonly rateLimitRejectionsTotal: client.Counter<string>;
+
+  // MinIO/Storage metrics
+  public readonly storageOperationDuration: client.Histogram<string>;
+  public readonly storageUploadsTotal: client.Counter<string>;
+  public readonly storageDownloadsTotal: client.Counter<string>;
+  public readonly storageBytesReceived: client.Counter<string>;
+
   constructor() {
     this.registry = new client.Registry();
 
@@ -96,6 +112,76 @@ export class MetricsService implements OnModuleInit {
       help: 'Duration of database queries in seconds',
       labelNames: ['operation', 'success'],
       buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+      registers: [this.registry],
+    });
+
+    // MongoDB/Audit metrics
+    this.mongoOperationDuration = new client.Histogram({
+      name: 'mongo_operation_duration_seconds',
+      help: 'Duration of MongoDB operations in seconds',
+      labelNames: ['operation', 'success'],
+      buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1],
+      registers: [this.registry],
+    });
+
+    this.auditEventsTotal = new client.Counter({
+      name: 'audit_events_total',
+      help: 'Total number of audit events logged',
+      labelNames: ['type'],
+      registers: [this.registry],
+    });
+
+    // Redis/Cache metrics
+    this.cacheOperationDuration = new client.Histogram({
+      name: 'cache_operation_duration_seconds',
+      help: 'Duration of cache operations in seconds',
+      labelNames: ['operation', 'success'],
+      buckets: [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
+      registers: [this.registry],
+    });
+
+    this.cacheHitsTotal = new client.Counter({
+      name: 'cache_hits_total',
+      help: 'Total number of cache hits',
+      registers: [this.registry],
+    });
+
+    this.cacheMissesTotal = new client.Counter({
+      name: 'cache_misses_total',
+      help: 'Total number of cache misses',
+      registers: [this.registry],
+    });
+
+    this.rateLimitRejectionsTotal = new client.Counter({
+      name: 'rate_limit_rejections_total',
+      help: 'Total number of rate limit rejections',
+      registers: [this.registry],
+    });
+
+    // MinIO/Storage metrics
+    this.storageOperationDuration = new client.Histogram({
+      name: 'storage_operation_duration_seconds',
+      help: 'Duration of storage operations in seconds',
+      labelNames: ['operation', 'success'],
+      buckets: [0.01, 0.05, 0.1, 0.5, 1, 2.5, 5, 10],
+      registers: [this.registry],
+    });
+
+    this.storageUploadsTotal = new client.Counter({
+      name: 'storage_uploads_total',
+      help: 'Total number of file uploads',
+      registers: [this.registry],
+    });
+
+    this.storageDownloadsTotal = new client.Counter({
+      name: 'storage_downloads_total',
+      help: 'Total number of file downloads (presigned URLs)',
+      registers: [this.registry],
+    });
+
+    this.storageBytesReceived = new client.Counter({
+      name: 'storage_bytes_received_total',
+      help: 'Total bytes received from file uploads',
       registers: [this.registry],
     });
   }
