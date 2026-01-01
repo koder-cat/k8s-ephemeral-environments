@@ -113,29 +113,33 @@ describe('DatabaseTestService', () => {
 
   describe('create', () => {
     it('should create a new record', async () => {
-      const chain = createChainableMock([mockRecord]);
-      mockDatabase.db.insert.mockReturnValue(chain);
+      // create() now uses raw SQL via database.query()
+      mockDatabase.query.mockResolvedValue([mockRecord]);
 
       const result = await service.create({ name: 'Test', data: { foo: 'bar' } });
 
       expect(result).toEqual(mockRecord);
-      expect(mockDatabase.db.insert).toHaveBeenCalled();
-      expect(chain.values).toHaveBeenCalled();
-      expect(chain.returning).toHaveBeenCalled();
+      expect(mockDatabase.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO test_records'),
+        ['Test', JSON.stringify({ foo: 'bar' })],
+        'create_record',
+      );
     });
 
     it('should handle empty data', async () => {
-      const chain = createChainableMock([mockRecord]);
-      mockDatabase.db.insert.mockReturnValue(chain);
+      mockDatabase.query.mockResolvedValue([mockRecord]);
 
       await service.create({ name: 'Test' });
 
-      expect(chain.values).toHaveBeenCalledWith({ name: 'Test', data: {} });
+      expect(mockDatabase.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO test_records'),
+        ['Test', JSON.stringify({})],
+        'create_record',
+      );
     });
 
     it('should throw error when insert returns empty', async () => {
-      const chain = createChainableMock([]);
-      mockDatabase.db.insert.mockReturnValue(chain);
+      mockDatabase.query.mockResolvedValue([]);
 
       await expect(service.create({ name: 'Test' })).rejects.toThrow('Insert did not return a record');
     });

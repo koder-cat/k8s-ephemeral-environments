@@ -71,20 +71,21 @@ export class DatabaseTestService {
   async create(dto: CreateRecordDto): Promise<TestRecord> {
     this.logger.info({ name: dto.name }, 'Creating test record');
 
-    const records = await this.database.db
-      .insert(testRecords)
-      .values({
-        name: dto.name,
-        data: dto.data || {},
-      })
-      .returning();
+    // Use raw SQL for insert to properly handle jsonb serialization
+    const result = await this.database.query<TestRecord>(
+      `INSERT INTO test_records (name, data)
+       VALUES ($1, $2::jsonb)
+       RETURNING id, name, data, created_at as "createdAt", updated_at as "updatedAt"`,
+      [dto.name, JSON.stringify(dto.data || {})],
+      'create_record',
+    );
 
-    if (records.length === 0) {
+    if (result.length === 0) {
       throw new Error('Insert did not return a record');
     }
 
-    this.logger.info({ id: records[0].id, name: dto.name }, 'Test record created');
-    return records[0];
+    this.logger.info({ id: result[0].id, name: dto.name }, 'Test record created');
+    return result[0];
   }
 
   /**
