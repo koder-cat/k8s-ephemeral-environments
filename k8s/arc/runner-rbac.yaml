@@ -22,7 +22,7 @@ rules:
     verbs: ["get", "list", "create", "delete", "patch", "update"]
   # Pod and service management within namespaces
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims", "serviceaccounts"]
     verbs: ["get", "list", "create", "delete", "patch", "update", "watch"]
   # Pod subresources for health checks (portforward) and debugging (logs)
   # Note: pods/exec intentionally excluded - not needed and reduces attack surface
