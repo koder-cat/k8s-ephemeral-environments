@@ -18,6 +18,10 @@ import { MetricsService } from '../metrics/metrics.service';
 import { AuditService } from '../audit/audit.service';
 import { fileMetadata, testRecords } from '../db/schema';
 import {
+  fileMetadata as mariadbFileMetadata,
+  testRecords as mariadbTestRecords,
+} from '../db/schema.mariadb';
+import {
   FileMetadataDto,
   UploadResponse,
   PresignedUrlResponse,
@@ -69,6 +73,21 @@ export class StorageService implements OnModuleInit {
 
   // Default presigned URL expiry (1 hour)
   private readonly DEFAULT_EXPIRY_SECONDS = 3600;
+
+  /**
+   * Get the correct file metadata table reference based on database type.
+   * This is needed because Drizzle ORM uses different table definitions per dialect.
+   */
+  private get fileMetadataTable() {
+    return this.database.dbType === 'mariadb' ? mariadbFileMetadata : fileMetadata;
+  }
+
+  /**
+   * Get the correct test records table reference based on database type.
+   */
+  private get testRecordsTable() {
+    return this.database.dbType === 'mariadb' ? mariadbTestRecords : testRecords;
+  }
 
   constructor(
     @InjectPinoLogger(StorageService.name)
@@ -265,8 +284,8 @@ export class StorageService implements OnModuleInit {
       this.metrics.storageUploadsTotal.inc();
       this.metrics.storageBytesReceived.inc(file.size);
 
-      // Store metadata in PostgreSQL
-      await this.database.db.insert(fileMetadata).values({
+      // Store metadata in database (PostgreSQL or MariaDB)
+      await (this.database.db as any).insert(this.fileMetadataTable).values({
         fileId,
         filename,
         originalName: file.originalname,
@@ -345,10 +364,11 @@ export class StorageService implements OnModuleInit {
     let success = true;
 
     try {
-      const [file] = await this.database.db
+      const table = this.fileMetadataTable;
+      const [file] = await (this.database.db as any)
         .select()
-        .from(fileMetadata)
-        .where(eq(fileMetadata.fileId, fileId))
+        .from(table)
+        .where(eq(table.fileId, fileId))
         .limit(1);
 
       if (!file) {
@@ -389,10 +409,11 @@ export class StorageService implements OnModuleInit {
     let success = true;
 
     try {
-      const [file] = await this.database.db
+      const table = this.fileMetadataTable;
+      const [file] = await (this.database.db as any)
         .select()
-        .from(fileMetadata)
-        .where(eq(fileMetadata.fileId, fileId))
+        .from(table)
+        .where(eq(table.fileId, fileId))
         .limit(1);
 
       if (!file) {
@@ -407,10 +428,10 @@ export class StorageService implements OnModuleInit {
         }),
       );
 
-      // Delete metadata from PostgreSQL
-      await this.database.db
-        .delete(fileMetadata)
-        .where(eq(fileMetadata.fileId, fileId));
+      // Delete metadata from database
+      await (this.database.db as any)
+        .delete(table)
+        .where(eq(table.fileId, fileId));
 
       this.logger.info({ fileId }, 'File deleted');
 
@@ -433,17 +454,18 @@ export class StorageService implements OnModuleInit {
     }
 
     try {
-      let query = this.database.db.select().from(fileMetadata);
+      const table = this.fileMetadataTable;
+      let query = (this.database.db as any).select().from(table);
 
       // Filter by type
       if (filters.type === 'image') {
-        query = query.where(inArray(fileMetadata.mimeType, this.IMAGE_TYPES)) as typeof query;
+        query = query.where(inArray(table.mimeType, this.IMAGE_TYPES));
       } else if (filters.type === 'document') {
-        query = query.where(inArray(fileMetadata.mimeType, this.DOCUMENT_TYPES)) as typeof query;
+        query = query.where(inArray(table.mimeType, this.DOCUMENT_TYPES));
       }
 
       const files = await query
-        .orderBy(desc(fileMetadata.uploadedAt))
+        .orderBy(desc(table.uploadedAt))
         .offset(filters.offset || 0)
         .limit(filters.limit || 20);
 
@@ -459,10 +481,11 @@ export class StorageService implements OnModuleInit {
    */
   async getFile(fileId: string): Promise<FileMetadataDto | null> {
     try {
-      const [file] = await this.database.db
+      const table = this.fileMetadataTable;
+      const [file] = await (this.database.db as any)
         .select()
-        .from(fileMetadata)
-        .where(eq(fileMetadata.fileId, fileId))
+        .from(table)
+        .where(eq(table.fileId, fileId))
         .limit(1);
 
       return file || null;
@@ -491,13 +514,28 @@ export class StorageService implements OnModuleInit {
 
     try {
       // Fetch records from testRecords table
-      let query = this.database.db.select().from(testRecords);
+      const table = this.testRecordsTable;
+      let query = (this.database.db as any).select().from(table);
 
       if (recordIds && recordIds.length > 0) {
-        query = query.where(inArray(testRecords.id, recordIds)) as typeof query;
+        query = query.where(inArray(table.id, recordIds));
       }
 
       const records = await query;
+
+      // Define the record type for CSV mapping
+      // Note: Date fields may be Date objects or strings depending on the database driver
+      interface ExportRecord {
+        id: number;
+        name: string;
+        data: Record<string, unknown>;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+      }
+
+      // Helper to safely convert Date or string to ISO string
+      const toIsoString = (val: Date | string): string =>
+        val instanceof Date ? val.toISOString() : new Date(val).toISOString();
 
       // Format data
       let content: string;
@@ -511,14 +549,14 @@ export class StorageService implements OnModuleInit {
       } else {
         // CSV format
         const headers = ['id', 'name', 'data', 'created_at', 'updated_at'];
-        const rows = records.map((r) => [
+        const rows = (records as ExportRecord[]).map((r) => [
           r.id,
           `"${r.name.replace(/"/g, '""')}"`,
           `"${JSON.stringify(r.data).replace(/"/g, '""')}"`,
-          r.createdAt.toISOString(),
-          r.updatedAt.toISOString(),
+          toIsoString(r.createdAt),
+          toIsoString(r.updatedAt),
         ]);
-        content = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+        content = [headers.join(','), ...rows.map((r: (string | number)[]) => r.join(','))].join('\n');
         mimeType = 'text/csv';
         extension = 'csv';
       }
@@ -541,7 +579,7 @@ export class StorageService implements OnModuleInit {
 
       // Store metadata
       const size = Buffer.byteLength(content);
-      await this.database.db.insert(fileMetadata).values({
+      await (this.database.db as any).insert(this.fileMetadataTable).values({
         fileId,
         filename,
         originalName: filename,
@@ -591,23 +629,38 @@ export class StorageService implements OnModuleInit {
     }
 
     try {
-      // Get file count and total size
-      const [countResult] = await this.database.db
+      const table = this.fileMetadataTable;
+
+      // Get file count and total size - use dialect-aware SQL
+      const countSql = this.database.dbType === 'mariadb'
+        ? sql<number>`CAST(COUNT(*) AS SIGNED)`
+        : sql<number>`count(*)::int`;
+      const sumSql = this.database.dbType === 'mariadb'
+        ? sql<number>`COALESCE(SUM(size), 0)`
+        : sql<number>`coalesce(sum(size), 0)::bigint`;
+
+      const [countResult] = await (this.database.db as any)
         .select({
-          count: sql<number>`count(*)::int`,
-          totalSize: sql<number>`coalesce(sum(size), 0)::bigint`,
+          count: countSql,
+          totalSize: sumSql,
         })
-        .from(fileMetadata);
+        .from(table);
 
       // Get breakdown by mime type
-      const byTypeResult = await this.database.db
+      interface MimeTypeRow {
+        mimeType: string;
+        count: number;
+        totalSize: number;
+      }
+
+      const byTypeResult: MimeTypeRow[] = await (this.database.db as any)
         .select({
-          mimeType: fileMetadata.mimeType,
-          count: sql<number>`count(*)::int`,
-          totalSize: sql<number>`coalesce(sum(size), 0)::bigint`,
+          mimeType: table.mimeType,
+          count: countSql,
+          totalSize: sumSql,
         })
-        .from(fileMetadata)
-        .groupBy(fileMetadata.mimeType);
+        .from(table)
+        .groupBy(table.mimeType);
 
       const byMimeType: Record<string, { count: number; sizeBytes: number }> = {};
       byTypeResult.forEach((row) => {

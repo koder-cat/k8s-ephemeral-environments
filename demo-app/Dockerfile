@@ -47,8 +47,9 @@ COPY package.json pnpm-workspace.yaml ./
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json apps/api/nest-cli.json ./apps/api/
 COPY apps/api/package.json ./apps/api/
-# Copy Drizzle migrations folder (if it exists)
+# Copy Drizzle migrations folders for both dialects
 COPY apps/api/drizzle ./apps/api/drizzle
+COPY apps/api/drizzle-mariadb ./apps/api/drizzle-mariadb
 COPY apps/web/src ./apps/web/src
 COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html ./apps/web/
 COPY apps/web/package.json ./apps/web/
@@ -62,8 +63,9 @@ RUN pnpm --filter @demo-app/api build
 # Copy web build to API public folder and Drizzle migrations to dist
 RUN mkdir -p apps/api/dist/public && \
     cp -r apps/web/dist/* apps/api/dist/public/ && \
-    mkdir -p apps/api/dist/drizzle && \
-    cp -r apps/api/drizzle/* apps/api/dist/drizzle/
+    mkdir -p apps/api/dist/drizzle apps/api/dist/drizzle-mariadb && \
+    cp -r apps/api/drizzle/* apps/api/dist/drizzle/ && \
+    cp -r apps/api/drizzle-mariadb/* apps/api/dist/drizzle-mariadb/
 
 # Stage 3: Production image
 FROM node:22-alpine AS runner

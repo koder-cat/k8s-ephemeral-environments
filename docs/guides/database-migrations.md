@@ -219,6 +219,89 @@ await db.delete(users).where(eq(users.id, 1));
 const result = await db.select({ count: count() }).from(users);
 ```
 
+## Multi-Dialect Support (PostgreSQL + MariaDB)
+
+If your application needs to support both PostgreSQL and MariaDB, use separate schema files and configs:
+
+### Separate Schema Files
+
+```typescript
+// src/db/schema.ts (PostgreSQL)
+import { pgTable, serial, varchar, jsonb, timestamp } from 'drizzle-orm/pg-core';
+
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// src/db/schema.mariadb.ts (MariaDB)
+import { mysqlTable, int, varchar, json, timestamp } from 'drizzle-orm/mysql-core';
+
+export const users = mysqlTable('users', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 255 }).notNull(),
+  metadata: json('metadata').$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+```
+
+### Separate Config Files
+
+```typescript
+// drizzle.postgresql.config.ts
+export default defineConfig({
+  dialect: 'postgresql',
+  schema: './src/db/schema.ts',
+  out: './drizzle',
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+
+// drizzle.mariadb.config.ts
+export default defineConfig({
+  dialect: 'mysql',
+  schema: './src/db/schema.mariadb.ts',
+  out: './drizzle-mariadb',
+  dbCredentials: { url: process.env.MYSQL_URL! },
+});
+```
+
+### Package Scripts
+
+```json
+{
+  "scripts": {
+    "db:generate": "drizzle-kit generate --config=drizzle.postgresql.config.ts",
+    "db:generate:mariadb": "drizzle-kit generate --config=drizzle.mariadb.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=drizzle.postgresql.config.ts",
+    "db:migrate:mariadb": "drizzle-kit migrate --config=drizzle.mariadb.config.ts"
+  }
+}
+```
+
+### Runtime Database Selection
+
+```typescript
+import { getDatabaseType } from './db';
+
+const dbType = getDatabaseType(); // reads from DATABASE_TYPE env var
+
+if (dbType === 'mariadb') {
+  await migrate(db, { migrationsFolder: './drizzle-mariadb' });
+} else {
+  await migrate(db, { migrationsFolder: './drizzle' });
+}
+```
+
+### Dockerfile with Both Migrations
+
+```dockerfile
+# Copy both migration folders
+COPY apps/api/drizzle ./apps/api/dist/drizzle
+COPY apps/api/drizzle-mariadb ./apps/api/dist/drizzle-mariadb
+```
+
 ## Best Practices
 
 ### 1. Never Edit Generated Migrations

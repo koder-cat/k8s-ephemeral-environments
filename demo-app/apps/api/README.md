@@ -340,43 +340,129 @@ sum(rate(db_query_duration_seconds_count{success="false"}[5m]))
 
 ## Environment Variables
 
+### Core Settings
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `PORT` | No | `3000` | Server port |
-| `DATABASE_URL` | No | - | PostgreSQL connection string |
+| `DATABASE_TYPE` | No | `postgresql` | Database dialect: `postgresql` or `mariadb` |
 | `CORS_ORIGIN` | No | `false` | Allowed CORS origins |
+| `LOG_LEVEL` | No | `info` | Log level: `debug`, `info`, `warn`, `error` |
+
+### Application Metadata
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
 | `PR_NUMBER` | No | - | Pull request number |
 | `COMMIT_SHA` | No | - | Git commit SHA |
 | `BRANCH_NAME` | No | - | Git branch name |
 | `APP_VERSION` | No | `1.0.0` | Application version |
 | `PREVIEW_URL` | No | - | Preview environment URL |
+
+### PostgreSQL (when `DATABASE_TYPE=postgresql`)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | No | - | PostgreSQL connection string |
 | `PGHOST` | No | - | PostgreSQL host (alternative to DATABASE_URL) |
 | `PGDATABASE` | No | - | PostgreSQL database name |
 | `PGUSER` | No | - | PostgreSQL username |
 | `PGPASSWORD` | No | - | PostgreSQL password |
 | `PGPORT` | No | `5432` | PostgreSQL port |
 
+### MariaDB (when `DATABASE_TYPE=mariadb`)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MYSQL_URL` | No | - | MariaDB connection string |
+| `MYSQL_HOST` | No | - | MariaDB host (alternative to MYSQL_URL) |
+| `MYSQL_DATABASE` | No | - | MariaDB database name |
+| `MYSQL_USER` | No | - | MariaDB username |
+| `MYSQL_PASSWORD` | No | - | MariaDB password |
+| `MYSQL_PORT` | No | `3306` | MariaDB port |
+
+### MongoDB (Audit Logging)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MONGODB_URL` | No | - | MongoDB connection string |
+
+### Redis (Caching)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `REDIS_HOST` | No | - | Redis host |
+| `REDIS_PORT` | No | `6379` | Redis port |
+| `REDIS_PASSWORD` | No | - | Redis password |
+| `REDIS_URL` | No | - | Redis connection string (alternative) |
+
+### MinIO (File Storage)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MINIO_ENDPOINT` | No | - | MinIO hostname |
+| `MINIO_PORT` | No | `9000` | MinIO port |
+| `MINIO_ACCESS_KEY` | No | - | MinIO access key |
+| `MINIO_SECRET_KEY` | No | - | MinIO secret key |
+| `MINIO_BUCKET` | No | `demo-app` | Default bucket name |
+
 ## Database Integration
 
-The database is optional. The API works with or without a database connection.
+The database is optional. The API works with or without a database connection. Both PostgreSQL and MariaDB are supported with runtime selection via `DATABASE_TYPE` environment variable.
+
+### Dual Database Support
+
+The API supports both PostgreSQL and MariaDB with feature parity:
+
+| Feature | PostgreSQL | MariaDB |
+|---------|------------|---------|
+| Connection pooling | `node-postgres` | `mysql2` |
+| ORM | Drizzle ORM | Drizzle ORM |
+| Migrations | Auto-run at startup | Auto-run at startup |
+| Seeding | Auto-seed if empty | Auto-seed if empty |
+| CRUD operations | Full support | Full support |
+| Heavy queries | `generate_series` | Recursive CTE |
 
 ### Connection Pooling
 
-When `DATABASE_URL` is configured:
+Both database types use conservative pooling for ephemeral environments:
 - Max connections: 5
 - Idle timeout: 30 seconds
 - Connection timeout: 5 seconds
 
-### Using DATABASE_URL
+### Using PostgreSQL (Default)
 
 ```bash
+export DATABASE_TYPE="postgresql"  # Optional, this is the default
 export DATABASE_URL="postgresql://user:password@host:5432/database"
 ```
 
-### Using Individual Variables
-
-CloudNativePG injects these variables via Secret:
+Or use individual variables (CloudNativePG injects these via Secret):
 - `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+
+### Using MariaDB
+
+```bash
+export DATABASE_TYPE="mariadb"
+export MYSQL_URL="mysql://user:password@host:3306/database"
+```
+
+Or use individual variables:
+- `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
+
+### Database Scripts
+
+```bash
+# PostgreSQL
+pnpm db:generate           # Generate migrations
+pnpm db:migrate            # Run migrations
+pnpm db:studio             # Open Drizzle Studio
+
+# MariaDB
+pnpm db:generate:mariadb   # Generate migrations
+pnpm db:migrate:mariadb    # Run migrations
+pnpm db:studio:mariadb     # Open Drizzle Studio
+```
 
 ## Development
 

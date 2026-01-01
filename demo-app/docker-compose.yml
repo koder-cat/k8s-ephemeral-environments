@@ -10,8 +10,19 @@
 # For demo-app with all features (audit, cache, storage):
 #   docker compose --profile mongodb --profile redis --profile minio up -d
 #
+# Using MariaDB as primary database (instead of PostgreSQL):
+#   1. Start MariaDB: docker compose --profile mariadb up -d mariadb
+#   2. Set environment in apps/api/.env:
+#      DATABASE_TYPE=mariadb
+#      MYSQL_URL=mysql://app:secret@localhost:3306/app
+#   3. Run migrations: pnpm db:migrate:mariadb
+#   4. Start the app: pnpm dev
+#   Note: Only one SQL database (PostgreSQL OR MariaDB) should be enabled at a time
+#
 # Environment variables (add to apps/api/.env):
-#   DATABASE_URL=postgres://app:secret@localhost:5432/app
+#   DATABASE_TYPE=postgresql          # or "mariadb"
+#   DATABASE_URL=postgres://app:secret@localhost:5432/app  # for PostgreSQL
+#   MYSQL_URL=mysql://app:secret@localhost:3306/app        # for MariaDB
 #   MONGODB_URL=mongodb://app:secret@localhost:27017/app?authSource=admin
 #   REDIS_URL=redis://localhost:6379
 #   MINIO_ENDPOINT=localhost

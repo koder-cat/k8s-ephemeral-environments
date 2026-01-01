@@ -24,12 +24,15 @@ export class AppService {
       this.storage.getStatus(),
     ]);
 
+    // Use dynamic key based on database type
+    const dbKey = this.database.dbType === 'mariadb' ? 'mariadb' : 'postgresql';
+
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
       services: {
-        postgresql: dbStatus,
+        [dbKey]: dbStatus,
         mongodb: mongoStatus,
         redis: redisStatus,
         minio: minioStatus,
@@ -48,10 +51,13 @@ export class AppService {
   }
 
   async getDatabaseInfo() {
+    const envVar = this.database.dbType === 'mariadb' ? 'MYSQL_URL' : 'DATABASE_URL';
+
     if (!this.database.enabled) {
       return {
         enabled: false,
-        message: 'Database is not configured (DATABASE_URL not set)',
+        type: this.database.dbType,
+        message: `Database is not configured (${envVar} not set)`,
       };
     }
 
@@ -61,28 +67,51 @@ export class AppService {
       return {
         enabled: true,
         connected: false,
+        type: this.database.dbType,
         message: 'Database connection failed',
       };
     }
 
     // Get some basic database info
     try {
-      const tables = await this.database.query<{ table_name: string }>(
-        `SELECT table_name FROM information_schema.tables
-         WHERE table_schema = 'public' ORDER BY table_name`,
-        undefined,
-        'list_tables',
-      );
+      let tables: { table_name: string }[];
+      let dbSize: { size: string }[];
 
-      const dbSize = await this.database.query<{ size: string }>(
-        `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
-        undefined,
-        'db_size',
-      );
+      if (this.database.dbType === 'mariadb') {
+        // MariaDB: Use information_schema with DATABASE()
+        tables = await this.database.query<{ table_name: string }>(
+          `SELECT TABLE_NAME as table_name FROM information_schema.TABLES
+           WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`,
+          undefined,
+          'list_tables',
+        );
+
+        dbSize = await this.database.query<{ size: string }>(
+          `SELECT CONCAT(ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2), ' MB') as size
+           FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()`,
+          undefined,
+          'db_size',
+        );
+      } else {
+        // PostgreSQL: Use information_schema with 'public' schema
+        tables = await this.database.query<{ table_name: string }>(
+          `SELECT table_name FROM information_schema.tables
+           WHERE table_schema = 'public' ORDER BY table_name`,
+          undefined,
+          'list_tables',
+        );
+
+        dbSize = await this.database.query<{ size: string }>(
+          `SELECT pg_size_pretty(pg_database_size(current_database())) as size`,
+          undefined,
+          'db_size',
+        );
+      }
 
       return {
         enabled: true,
         connected: true,
+        type: this.database.dbType,
         host: status.host,
         database: status.database,
         version: status.version,
@@ -93,6 +122,7 @@ export class AppService {
       return {
         enabled: true,
         connected: true,
+        type: this.database.dbType,
         host: status.host,
         database: status.database,
         version: status.version,
