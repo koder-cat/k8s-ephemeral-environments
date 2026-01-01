@@ -275,6 +275,9 @@ runs:
         sed -i 's|name: k8s-ee-minio|name: minio|g' Chart.yaml
         sed -i 's|name: k8s-ee-mariadb|name: mariadb|g' Chart.yaml
 
+        # Remove Chart.lock to avoid sync issues (will be regenerated)
+        rm -f Chart.lock
+
         # Build dependencies from local charts
         if ! helm dependency build .; then
           echo "ERROR: Failed to build local chart dependencies"
