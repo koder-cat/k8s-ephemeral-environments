@@ -152,7 +152,6 @@ jobs:
 
     permissions:
       contents: read
-      packages: read  # Required for imagePullSecret to access GHCR packages
 
     outputs:
       created: ${{ steps.create.outputs.created }}
@@ -189,8 +188,9 @@ jobs:
           redis-enabled: ${{ needs.validate-config.outputs.redis-enabled }}
           minio-enabled: ${{ needs.validate-config.outputs.minio-enabled }}
           mariadb-enabled: ${{ needs.validate-config.outputs.mariadb-enabled }}
-          # Registry token for imagePullSecret (allows k8s to pull private GHCR images)
-          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          # Registry PAT for imagePullSecret (allows k8s to pull private GHCR images)
+          # Requires org secret GHCR_PAT with read:packages scope
+          registry-token: ${{ secrets.GHCR_PAT }}
 
   # ============================================================================
   # BUILD IMAGE
