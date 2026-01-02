@@ -1,18 +1,18 @@
 dependencies:
 - name: k8s-ee-postgresql
-  repository: oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts
+  repository: oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts
   version: 1.1.0
 - name: k8s-ee-mongodb
-  repository: oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts
+  repository: oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts
   version: 1.1.0
 - name: k8s-ee-redis
-  repository: oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts
+  repository: oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts
   version: 1.1.0
 - name: k8s-ee-minio
-  repository: oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts
+  repository: oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts
   version: 1.1.0
 - name: k8s-ee-mariadb
-  repository: oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts
+  repository: oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts
   version: 1.0.0
-digest: sha256:cb54c5ec96906b232822d7273ae7f9fa8c4045c1a834a22f49131077c04b36ea
-generated: "2025-12-31T14:05:45.97606863-03:00"
+digest: sha256:2eb3b8d07e054ba9e97264d672b4a8eea7fd9d1a7ea52d32d000690fabf9b83d
+generated: "2026-01-02T15:54:21.473907629-03:00"
