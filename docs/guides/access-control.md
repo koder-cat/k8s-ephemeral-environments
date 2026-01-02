@@ -156,8 +156,21 @@ git blame .github/config/allowed-orgs.json
 3. **Case-insensitive**: Matching is case-insensitive to prevent bypass via case manipulation
 4. **Fail-safe default**: Empty allowlist denies all access
 
+## ARC Runner Access
+
+The organization allowlist controls which repos can **request** environments, while ARC runners control which repos can **execute** cluster operations.
+
+**Current setup:**
+- Allowlist: `genesluna`, `koder-cat`
+- ARC runners: Org-level for `koder-cat` (see `k8s/arc/README.md`)
+
+For a repo to use the platform, it must:
+1. Be in an allowed organization (or explicitly listed in `repositories`)
+2. Have the GitHub App installed (for ARC runner access)
+
 ## Related Documentation
 
 - [Onboarding New Repository](./onboarding-new-repo.md) - How to set up a new repo
 - [Troubleshooting](./troubleshooting.md) - Debugging common issues
 - [Security Guide](./security.md) - Overall security architecture
+- [ARC Setup](../../k8s/arc/README.md) - Self-hosted runner configuration

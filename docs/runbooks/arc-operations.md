@@ -6,10 +6,13 @@ This runbook covers common operations for the Actions Runner Controller (ARC).
 
 ARC provides self-hosted GitHub Actions runners that run inside the k3s cluster. Runners have native kubectl access and scale automatically based on workflow demand.
 
+**Current Configuration:** Org-level runners for `koder-cat` organization.
+
 | Component | Namespace | Purpose |
 |-----------|-----------|---------|
 | ARC Controller | `arc-systems` | Manages runner lifecycle |
 | Runner Scale Set | `arc-runners` | Ephemeral runner pods |
+| GitHub Org | `koder-cat` | All repos in this org can use the runners |
 
 ## Common Operations
 
@@ -38,7 +41,8 @@ kubectl logs -n arc-runners -l app.kubernetes.io/component=runner -f
 
 ### Verify GitHub Registration
 
-1. Go to repository **Settings > Actions > Runners**
+For org-level runners:
+1. Go to **https://github.com/organizations/koder-cat/settings/actions/runners**
 2. Look for `arc-runner-set` in the list
 3. Status should show "Idle" or "Active"
 

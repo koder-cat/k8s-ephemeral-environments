@@ -1,8 +1,8 @@
 # Helm values for ARC Runner Scale Set (gha-runner-scale-set)
 # Install with: helm install arc-runner-set -n arc-runners -f values-runner-set.yaml oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
 
-# GitHub repository URL
-githubConfigUrl: "https://github.com/genesluna/k8s-ephemeral-environments"
+# GitHub organization URL (org-level runners serve all repos in the org)
+githubConfigUrl: "https://github.com/koder-cat"
 
 # Secret containing GitHub App credentials
 # Must have: github_app_id, github_app_installation_id, github_app_private_key

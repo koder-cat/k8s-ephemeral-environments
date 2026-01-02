@@ -2,11 +2,13 @@
 
 This guide covers setting up GitHub Actions self-hosted runners using ARC (Actions Runner Controller) with GitHub App authentication.
 
+**Current Configuration:** Org-level runners for `koder-cat` organization. All repos in the org can use the shared runner pool.
+
 ## Prerequisites
 
 - k3s cluster running (see `docs/runbooks/k3s-operations.md`)
 - Helm 3.x installed on VPS
-- GitHub repository admin access
+- GitHub organization admin access (for org-level runners)
 
 ## Architecture
 
@@ -27,14 +29,15 @@ This guide covers setting up GitHub Actions self-hosted runners using ARC (Actio
 
 ## Step 1: Create GitHub App
 
-1. Go to https://github.com/settings/apps (or org settings for org-level)
+1. Go to https://github.com/settings/apps
 
 2. Click **New GitHub App**
 
 3. Configure the app:
    - **Name:** `k8s-ee-arc-runner` (or any unique name)
-   - **Homepage URL:** `https://github.com/genesluna/k8s-ephemeral-environments`
+   - **Homepage URL:** `https://github.com/koder-cat`
    - **Webhook:** Uncheck "Active" (not needed)
+   - **Where can this GitHub App be installed?** Select "Any account" (for org-level)
 
 4. Set **Repository Permissions:**
    | Permission | Access |
@@ -52,15 +55,14 @@ This guide covers setting up GitHub Actions self-hosted runners using ARC (Actio
    - Click **Generate a private key**
    - Save the downloaded `.pem` file
 
-8. **Install the App** on your repository:
+8. **Install the App** on your organization:
    - Go to "Install App" in left sidebar
-   - Select your account/org
-   - Choose "Only select repositories"
-   - Select `k8s-ephemeral-environments`
+   - Select the **koder-cat** organization
+   - Choose "All repositories" (recommended) or select specific repos
    - Click **Install**
 
 9. Note the **Installation ID** from the URL:
-   - After install, URL will be: `https://github.com/settings/installations/INSTALLATION_ID`
+   - After install, URL will be: `https://github.com/organizations/koder-cat/settings/installations/INSTALLATION_ID`
 
 ## Step 2: Install ARC Controller
 
@@ -142,24 +144,24 @@ kubectl create secret generic github-app-secret \
 
 ## Step 5: Deploy Runner Scale Set
 
-Deploy the runner scale set using the values file:
+Deploy the runner scale set using the values file (`k8s/arc/values-runner-set.yaml`):
 
 ```bash
 helm install arc-runner-set \
   --namespace arc-runners \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
   --version 0.10.1 \
-  -f /path/to/values-runner-set.yaml
+  -f k8s/arc/values-runner-set.yaml
 ```
 
-Or with inline values:
+Or with inline values (org-level URL):
 
 ```bash
 helm install arc-runner-set \
   --namespace arc-runners \
   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
   --version 0.10.1 \
-  --set githubConfigUrl="https://github.com/genesluna/k8s-ephemeral-environments" \
+  --set githubConfigUrl="https://github.com/koder-cat" \
   --set githubConfigSecret="github-app-secret" \
   --set minRunners=0 \
   --set maxRunners=3
@@ -173,9 +175,10 @@ Check runner pods (should scale from 0 when jobs arrive):
 kubectl get pods -n arc-runners
 ```
 
-Verify runner registered with GitHub:
-1. Go to repository **Settings > Actions > Runners**
-2. You should see the runner scale set listed
+Verify runner registered with GitHub (org-level):
+1. Go to **https://github.com/organizations/koder-cat/settings/actions/runners**
+2. You should see `arc-runner-set` listed under "Self-hosted runners"
+3. Status should show as "Idle" (waiting for jobs)
 
 ## Using the Runners
 
@@ -206,6 +209,38 @@ kubectl logs -n arc-runners -l app.kubernetes.io/component=runner
 ### Check secret configuration
 ```bash
 kubectl get secret github-app-secret -n arc-runners -o yaml
+```
+
+## Adding New Repos to the Runner
+
+For org-level runners, adding a new repo is simple:
+
+1. The GitHub App must be installed on the repo (or "All repositories" was selected during install)
+2. If using "Only select repositories", add the repo to the App installation:
+   - Go to https://github.com/organizations/koder-cat/settings/installations
+   - Click **Configure** on the k8s-ee-arc-runner app
+   - Add the new repo to the list
+3. The repo can now use `runs-on: arc-runner-set` in workflows
+
+No Kubernetes changes required - the runner automatically accepts jobs from all repos in the org.
+
+## Multi-Org Setup
+
+Each organization requires its own runner scale set because `githubConfigUrl` can only point to one org.
+
+To support multiple orgs:
+1. Create a new values file (e.g., `k8s/arc/values-runner-set-other-org.yaml`)
+2. Install the GitHub App on the other org (new Installation ID)
+3. Create a separate secret with the new Installation ID
+4. Deploy a new runner scale set with a different name
+
+Example:
+```bash
+helm install arc-runner-set-other-org \
+  --namespace arc-runners \
+  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+  --version 0.10.1 \
+  -f values-runner-set-other-org.yaml
 ```
 
 ## Cleanup
