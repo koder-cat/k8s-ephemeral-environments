@@ -292,7 +292,7 @@ kubectl describe pod -n k8s-ee-pr-{number} <pod-name>
 
 **Symptoms:**
 - Pod stuck in `ImagePullBackOff` or `ErrImagePull`
-- Events show `401 Unauthorized` from GHCR
+- Events show `403 Forbidden` from GHCR
 
 **Diagnosis:**
 ```bash
@@ -304,23 +304,22 @@ kubectl describe pod -n {namespace} <pod-name> | grep -A10 Events
 | Cause | Solution |
 |-------|----------|
 | Image doesn't exist | Check GHCR for the tag |
-| Auth failed (401) | Token expired - re-run workflow |
-| Missing imagePullSecret | Check `ghcr-secret` exists |
+| Package is private | Check org settings allow public packages |
 | Wrong tag | Check commit SHA matches |
 
 **Resolution:**
 ```bash
-# Check if ghcr-secret exists
-kubectl get secret ghcr-secret -n {namespace}
+# Check if image exists
+gh api /orgs/{org}/packages/container/{repo}%2F{image} --jq '.name'
 
-# Verify image exists locally
-docker pull ghcr.io/{org}/{repo}/{image}:pr-{number}
-
-# If token expired (401 Unauthorized), re-run the workflow to refresh credentials
-# The ghcr-secret uses GITHUB_TOKEN which expires after workflow completion
+# Check package visibility (should be "public")
+gh api /orgs/{org}/packages/container/{repo}%2F{image} --jq '.visibility'
 ```
 
-**Note:** The `ghcr-secret` imagePullSecret uses a workflow-scoped `GITHUB_TOKEN`. If pods restart after the workflow completes (e.g., due to OOM or node eviction), image pulls may fail with `401 Unauthorized`. Re-running the workflow refreshes the token.
+**If package is private:** The org must allow members to change package visibility:
+1. Go to `https://github.com/organizations/{org}/settings/packages`
+2. Enable "Allow members to change container package visibility to public"
+3. Re-run the workflow to make the package public
 
 ### Init Container Stuck
 

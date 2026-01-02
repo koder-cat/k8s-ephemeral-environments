@@ -236,16 +236,16 @@ gh api --method PATCH /orgs/koder-cat/actions/runner-groups/1 \
 
 ### GHCR Package Visibility
 
-Container images pushed to GHCR in an organization are **private by default**. The platform automatically creates an `imagePullSecret` named `ghcr-secret` in each PR namespace using the workflow's `GITHUB_TOKEN`.
-
-This secret allows Kubernetes to pull private images from GHCR without making packages public.
+Container images pushed to GHCR are **automatically set to public** by the `build-image` action after pushing. This eliminates the need for `imagePullSecrets` and simplifies onboarding.
 
 **How it works:**
-1. `create-namespace` action creates `ghcr-secret` with registry credentials
-2. `deploy-app` action passes `imagePullSecrets[0].name=ghcr-secret` to Helm
-3. The deployment pod uses this secret to authenticate with GHCR
+1. `build-image` action pushes the image to GHCR
+2. `build-image` action calls GitHub API to set package visibility to `public`
+3. Kubernetes can pull the image without authentication
 
-**Token Expiration Note:** The `GITHUB_TOKEN` is valid only for the workflow run duration (typically up to 6 hours). If a pod restarts after the workflow completes (e.g., due to OOM or node eviction), image pulls may fail with `401 Unauthorized`. To fix this, push a new commit or re-run the workflow to refresh the token.
+**Org Setting Required:** The organization must allow members to change package visibility:
+1. Go to https://github.com/organizations/koder-cat/settings/packages
+2. Enable "Allow members to change container package visibility to public"
 
 ## Troubleshooting
 

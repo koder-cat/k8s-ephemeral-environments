@@ -160,12 +160,12 @@ Individual containers: max 512Mi memory, 500m CPU. See [Resource Requirements](.
 - Check base image supports ARM64
 - Verify all dependencies are included
 
-### Image pull failed (401 Unauthorized)
+### Image pull failed (403 Forbidden)
 
-- Container images in GHCR are private by default for organizations
-- The platform automatically creates an `imagePullSecret` using `GITHUB_TOKEN`
-- If pods restart after workflow completion, image pulls may fail (token expired)
-- **Fix:** Re-run the workflow to refresh the registry credentials
+- Container images are automatically set to public by the build step
+- If you see 403 errors, the org setting may be blocking public packages
+- **Fix:** Enable "Allow members to change container package visibility" in org package settings
+- Then re-run the workflow to make the package public
 
 ### Deployment failed
 
