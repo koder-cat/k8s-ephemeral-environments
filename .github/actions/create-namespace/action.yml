@@ -45,11 +45,6 @@ inputs:
     description: 'Whether MariaDB is enabled'
     required: false
     default: 'false'
-  registry-token:
-    description: 'Token for container registry authentication (GITHUB_TOKEN)'
-    required: false
-    default: ''
-
 outputs:
   created:
     description: 'Whether namespace was created (true) or updated (false)'
@@ -215,42 +210,6 @@ runs:
         fi
 
         echo "namespace=$NAMESPACE" >> "$GITHUB_OUTPUT"
-
-    - name: Create image pull secret
-      if: inputs.registry-token != ''
-      shell: bash
-      env:
-        NAMESPACE: ${{ inputs.namespace }}
-        REGISTRY_TOKEN: ${{ inputs.registry-token }}
-        REPOSITORY: ${{ inputs.repository }}
-        PROJECT_ID: ${{ inputs.project-id }}
-        PR_NUMBER: ${{ inputs.pr-number }}
-      run: |
-        set -euo pipefail
-        echo "Creating image pull secret for GHCR..."
-
-        # Extract org/user from repository for registry auth
-        REGISTRY_USER="${REPOSITORY%%/*}"
-        if [ -z "$REGISTRY_USER" ]; then
-          echo "ERROR: Could not extract registry user from repository: $REPOSITORY"
-          exit 1
-        fi
-
-        # Create docker-registry secret with platform labels (idempotent with --dry-run + apply)
-        kubectl create secret docker-registry ghcr-secret \
-          --namespace "$NAMESPACE" \
-          --docker-server=ghcr.io \
-          --docker-username="$REGISTRY_USER" \
-          --docker-password="$REGISTRY_TOKEN" \
-          --dry-run=client -o yaml | \
-        kubectl label -f - --local -o yaml \
-          app.kubernetes.io/managed-by=github-actions \
-          k8s-ee/type=ephemeral \
-          k8s-ee/project-id="$PROJECT_ID" \
-          k8s-ee/pr-number="$PR_NUMBER" | \
-        kubectl apply -f -
-
-        echo "Image pull secret 'ghcr-secret' created/updated"
 
     - name: Apply ResourceQuota
       shell: bash

@@ -188,9 +188,6 @@ jobs:
           redis-enabled: ${{ needs.validate-config.outputs.redis-enabled }}
           minio-enabled: ${{ needs.validate-config.outputs.minio-enabled }}
           mariadb-enabled: ${{ needs.validate-config.outputs.mariadb-enabled }}
-          # Registry token for imagePullSecret (fallback for private packages)
-          # Not needed when packages are public (build-image sets visibility automatically)
-          registry-token: ''
 
   # ============================================================================
   # BUILD IMAGE
@@ -314,8 +311,6 @@ jobs:
           mariadb-config: ${{ needs.validate-config.outputs.mariadb-config }}
           metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
           metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
-          # imagePullSecret for private GHCR packages
-          image-pull-secret: ghcr-secret
 
   # ============================================================================
   # PR COMMENT (DEPLOY)

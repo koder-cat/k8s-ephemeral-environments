@@ -8,9 +8,8 @@ image:
   # Always pull for mutable tags (pr-X) to ensure latest image
   pullPolicy: Always
 
-# Image pull secrets for private registries
+# Image pull secrets (not needed - GHCR packages are automatically public)
 imagePullSecrets: []
-# - name: ghcr-secret
 
 # PR-specific configuration (overridden by workflow)
 # projectId: Unique identifier for this project in multi-tenant clusters

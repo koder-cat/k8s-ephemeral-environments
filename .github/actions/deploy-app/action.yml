@@ -107,10 +107,6 @@ inputs:
     description: 'Full metrics configuration as JSON'
     required: false
     default: '{"enabled": false}'
-  image-pull-secret:
-    description: 'Name of imagePullSecret for private registries'
-    required: false
-    default: ''
 
 outputs:
   preview-url:
@@ -338,7 +334,6 @@ runs:
         METRICS_ENABLED: ${{ inputs.metrics-enabled }}
         METRICS_CONFIG: ${{ inputs.metrics-config }}
         USE_LOCAL_CHARTS: ${{ inputs.use-local-charts }}
-        IMAGE_PULL_SECRET: ${{ inputs.image-pull-secret }}
       run: |
         set -euo pipefail
 
@@ -380,11 +375,6 @@ runs:
         # Add digest if provided
         if [ -n "$IMAGE_DIGEST" ]; then
           HELM_ARGS+=("--set" "image.digest=$IMAGE_DIGEST")
-        fi
-
-        # Add imagePullSecret if provided
-        if [ -n "$IMAGE_PULL_SECRET" ]; then
-          HELM_ARGS+=("--set" "imagePullSecrets[0].name=$IMAGE_PULL_SECRET")
         fi
 
         # Database configuration (pass full config as JSON for bootstrap SQL, storage, etc.)
