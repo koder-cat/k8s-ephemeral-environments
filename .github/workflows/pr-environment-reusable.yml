@@ -152,6 +152,7 @@ jobs:
 
     permissions:
       contents: read
+      packages: read  # Required for imagePullSecret to access GHCR packages
 
     outputs:
       created: ${{ steps.create.outputs.created }}
