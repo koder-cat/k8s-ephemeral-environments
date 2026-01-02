@@ -5,7 +5,7 @@
 # Configuration is read from k8s-ee.yaml in the repository root.
 #
 # For external repositories, change the workflow reference to:
-#   uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+#   uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
 
 name: PR Environment
 

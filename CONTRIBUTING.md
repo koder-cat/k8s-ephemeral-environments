@@ -4,6 +4,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ## Table of Contents
 
+- [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Pull Request Process](#pull-request-process)
@@ -11,6 +12,30 @@ Thank you for your interest in contributing! This guide will help you get starte
 - [User Story Sync](#user-story-sync)
 - [Testing](#testing)
 - [Documentation](#documentation)
+
+## Contributor License Agreement (CLA)
+
+Before we can accept your contributions, you must sign our Contributor License Agreement (CLA). This is a one-time process.
+
+### Why We Require a CLA
+
+K8s Ephemeral Environments uses a dual licensing model (AGPL-3.0 + Commercial). The CLA ensures we can continue offering both licensing options while you retain full rights to your contributions.
+
+### How to Sign
+
+When you open your first Pull Request, the CLA Assistant bot will guide you through the process. Simply comment on your PR with:
+
+```
+I have read the CLA Document and I hereby sign the CLA
+```
+
+### Corporate Contributors
+
+If you're contributing on behalf of your employer, your company may need to sign a Corporate CLA. See [CLA-CORPORATE.md](CLA-CORPORATE.md) for details.
+
+**Learn More:** [CLA](CLA.md) | [Licensing FAQ](LICENSE-FAQ.md)
+
+---
 
 ## Getting Started
 
@@ -215,6 +240,6 @@ Update documentation when you:
 
 ## Questions?
 
-- Check existing [Issues](https://github.com/genesluna/k8s-ephemeral-environments/issues)
+- Check existing [Issues](https://github.com/koder-cat/k8s-ephemeral-environments/issues)
 - Read the [Developer Onboarding Guide](docs/DEVELOPER-ONBOARDING.md)
 - Review the [Troubleshooting Guide](docs/guides/troubleshooting.md)

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/genesluna/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json",
+  "$id": "https://raw.githubusercontent.com/koder-cat/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json",
   "title": "k8s-ee Configuration",
   "description": "Configuration schema for k8s-ephemeral-environments",
   "type": "object",

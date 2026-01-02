@@ -16,7 +16,7 @@
 - [x] MinIO chart renamed to `k8s-ee-minio` and published to GHCR
 - [x] MariaDB chart created as `k8s-ee-mariadb` (new)
 - [x] GitHub workflow automatically publishes charts on push to main
-- [x] Charts accessible via `oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/`
+- [x] Charts accessible via `oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/`
 
 ## Priority
 
@@ -66,6 +66,6 @@
 
 Pull charts from OCI registry:
 ```bash
-helm pull oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-postgresql --version 1.1.0
-helm pull oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-mariadb --version 1.0.0
+helm pull oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-postgresql --version 1.1.0
+helm pull oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-mariadb --version 1.0.0
 ```

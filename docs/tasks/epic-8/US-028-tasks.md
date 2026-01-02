@@ -61,7 +61,7 @@
   - Workflow triggers on push to main with changes in `charts/`
   - Logs into GHCR using GITHUB_TOKEN
   - Packages each chart with `helm package`
-  - Pushes to `oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/`
+  - Pushes to `oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/`
   - Supports semantic versioning from Chart.yaml
 - **Estimate:** M
 - **Status:** Done

@@ -106,14 +106,14 @@ Repository 'unauthorized-org/some-repo' attempted to use k8s-ephemeral-environme
 but the organization is not in the allowed list.
 
 To request access, please open an issue at:
-https://github.com/genesluna/k8s-ephemeral-environments/issues
+https://github.com/koder-cat/k8s-ephemeral-environments/issues
 ```
 
 ## Requesting Access
 
 To add your organization to the allowlist:
 
-1. Open an issue at [k8s-ephemeral-environments](https://github.com/genesluna/k8s-ephemeral-environments/issues)
+1. Open an issue at [k8s-ephemeral-environments](https://github.com/koder-cat/k8s-ephemeral-environments/issues)
 2. Provide your organization name
 3. Briefly describe your use case
 4. A maintainer will review and merge the addition

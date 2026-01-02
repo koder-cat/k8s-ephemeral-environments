@@ -24,7 +24,7 @@ spec:
           annotations:
             summary: "Cleanup job failed"
             description: "The cleanup-orphaned-namespaces CronJob has failed. Orphaned namespaces may accumulate."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobfailed"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobfailed"
 
         - alert: CleanupJobConsecutiveFailures
           expr: |
@@ -35,7 +35,7 @@ spec:
           annotations:
             summary: "Cleanup job failed multiple times"
             description: "The cleanup-orphaned-namespaces CronJob has failed 2+ times in 24 hours. Immediate attention required."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobconsecutivefailures"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobconsecutivefailures"
 
         - alert: CleanupJobNotRunning
           expr: |
@@ -46,7 +46,7 @@ spec:
           annotations:
             summary: "Cleanup job not running"
             description: "The cleanup-orphaned-namespaces CronJob has not run in over 8 hours (expected every 6 hours)."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobnotrunning"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#cleanupjobnotrunning"
 
         # =====================================================================
         # Orphaned Namespace Alerts
@@ -60,7 +60,7 @@ spec:
           annotations:
             summary: "Many ephemeral namespaces detected"
             description: "There are {{ $value }} ephemeral namespaces in the cluster. This may indicate cleanup issues."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#toomanyephemeralnamespaces"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#toomanyephemeralnamespaces"
 
         - alert: OldEphemeralNamespace
           expr: |
@@ -71,4 +71,4 @@ spec:
           annotations:
             summary: "Namespace older than 72 hours"
             description: "Namespace {{ $labels.namespace }} is over 72 hours old. It may be orphaned or have preserve=true set."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#oldephemeralnamespace"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/runbooks/cleanup-job.md#oldephemeralnamespace"

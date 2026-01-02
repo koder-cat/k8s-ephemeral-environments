@@ -40,7 +40,7 @@ gh --version        # gh version 2.x.x
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/genesluna/k8s-ephemeral-environments.git
+git clone https://github.com/koder-cat/k8s-ephemeral-environments.git
 cd k8s-ephemeral-environments
 ```
 

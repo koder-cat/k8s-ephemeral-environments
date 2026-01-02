@@ -1,3 +1,26 @@
+K8s Ephemeral Environments - Dual License
+
+Copyright (c) 2024-2026 Genes Luna
+
+This software is available under a dual license:
+
+1. AGPL-3.0 (GNU Affero General Public License v3.0) - Default
+   See below for the full license text. This license is free and open source,
+   but requires you to share modifications if you deploy the software as a
+   network service.
+
+2. Commercial License
+   For organizations that cannot comply with AGPL-3.0 terms, a commercial
+   license is available. The commercial license removes AGPL obligations
+   and allows proprietary modifications.
+
+   Contact: genes@genesluna.dev
+   Details: LICENSE-COMMERCIAL.md
+
+For licensing questions, see LICENSE-FAQ.md or contact genes@genesluna.dev.
+
+================================================================================
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 

@@ -27,7 +27,7 @@ spec:
           annotations:
             summary: "Disk usage above 80%"
             description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf \"%.1f\" $value }}% full."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagehigh"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagehigh"
 
         - alert: DiskUsageCritical
           expr: |
@@ -39,7 +39,7 @@ spec:
           annotations:
             summary: "Disk usage above 90% - CRITICAL"
             description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ printf \"%.1f\" $value }}% full. Immediate action required."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagecritical"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#diskusagecritical"
 
         # =============================================================================
         # Memory Usage Alerts
@@ -53,7 +53,7 @@ spec:
           annotations:
             summary: "Memory usage above 80%"
             description: "Node {{ $labels.instance }} memory usage is {{ printf \"%.1f\" $value }}%. Monitor for potential issues."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagewarning"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagewarning"
 
         - alert: MemoryUsageHigh
           expr: |
@@ -64,7 +64,7 @@ spec:
           annotations:
             summary: "Memory usage above 90%"
             description: "Node {{ $labels.instance }} memory usage is {{ printf \"%.1f\" $value }}%. Consider scaling or investigating memory-hungry workloads."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagehigh"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#memoryusagehigh"
 
         # =============================================================================
         # Pod Health Alerts
@@ -78,7 +78,7 @@ spec:
           annotations:
             summary: "Pod crash looping"
             description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} (container {{ $labels.container }}) has restarted {{ printf \"%.0f\" $value }} times in the last 10 minutes."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#podcrashlooping"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#podcrashlooping"
 
         # =============================================================================
         # Node Health Alerts
@@ -92,7 +92,7 @@ spec:
           annotations:
             summary: "Node not ready"
             description: "Node {{ $labels.node }} has been in NotReady state for more than 2 minutes."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#nodenotready"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/k8s/observability/custom-alerts-README.md#nodenotready"
 
         # =============================================================================
         # Database Alerts (US-026)
@@ -106,7 +106,7 @@ spec:
           annotations:
             summary: "Database connection pool exhausted"
             description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has {{ printf \"%.0f\" $value }} queries waiting for connections."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#database-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#database-issues"
 
         - alert: DatabaseQuerySlow
           expr: |
@@ -117,7 +117,7 @@ spec:
           annotations:
             summary: "Database queries are slow"
             description: "P99 query latency in {{ $labels.namespace }}/{{ $labels.pod }} is {{ printf \"%.2f\" $value }}s."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#database-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#database-issues"
 
         # =============================================================================
         # Namespace Quota Alerts (US-026)
@@ -132,7 +132,7 @@ spec:
           annotations:
             summary: "Namespace CPU quota approaching limit"
             description: "Namespace {{ $labels.namespace }} is using {{ printf \"%.0f\" $value }}% of CPU quota."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#resource-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#resource-issues"
 
         - alert: NamespaceQuotaMemoryApproaching
           expr: |
@@ -144,7 +144,7 @@ spec:
           annotations:
             summary: "Namespace memory quota approaching limit"
             description: "Namespace {{ $labels.namespace }} is using {{ printf \"%.0f\" $value }}% of memory quota."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#resource-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#resource-issues"
 
         # =============================================================================
         # API SLO Alerts (US-026)
@@ -158,7 +158,7 @@ spec:
           annotations:
             summary: "API latency SLO breach"
             description: "P99 latency for {{ $labels.route }} in {{ $labels.namespace }} is {{ printf \"%.3f\" $value }}s (SLO: 500ms)."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#application-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#application-issues"
 
         - alert: APIHighErrorRate
           expr: |
@@ -170,7 +170,7 @@ spec:
           annotations:
             summary: "API error rate high"
             description: "Error rate for {{ $labels.route }} in {{ $labels.namespace }} is {{ printf \"%.1f\" $value }}%."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#application-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#application-issues"
 
         # =============================================================================
         # Prometheus Scrape Alerts (US-026)
@@ -184,7 +184,7 @@ spec:
           annotations:
             summary: "Prometheus scrape failing"
             description: "Cannot scrape metrics from {{ $labels.instance }} in {{ $labels.namespace }}."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"
 
         - alert: PrometheusTargetMissing
           expr: |
@@ -195,7 +195,7 @@ spec:
           annotations:
             summary: "No demo-app targets found"
             description: "No demo-app ServiceMonitor targets are being scraped. This may be expected if no PR environments are active."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"
 
         # =============================================================================
         # Loki Alerts (US-026)
@@ -211,4 +211,4 @@ spec:
           annotations:
             summary: "Loki log ingestion stopped"
             description: "Loki is not receiving logs despite network activity. Check Promtail and Loki health."
-            runbook_url: "https://github.com/genesluna/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"
+            runbook_url: "https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/docs/guides/troubleshooting.md#observability-issues"

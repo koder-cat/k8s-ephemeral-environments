@@ -11,9 +11,9 @@ keywords:
   - ephemeral
   - pr-environment
 
-home: https://github.com/genesluna/k8s-ephemeral-environments
+home: https://github.com/koder-cat/k8s-ephemeral-environments
 sources:
-  - https://github.com/genesluna/k8s-ephemeral-environments
+  - https://github.com/koder-cat/k8s-ephemeral-environments
 
 maintainers:
   - name: genesluna

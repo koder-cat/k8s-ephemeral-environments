@@ -107,7 +107,7 @@ permissions:
 
 jobs:
   pr-environment:
-    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-action: ${{ github.event.action }}

@@ -8,7 +8,7 @@ Minimal configuration requires only `projectId`:
 
 ```yaml
 # k8s-ee.yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/genesluna/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/koder-cat/k8s-ephemeral-environments/main/.github/actions/validate-config/schema.json
 projectId: myapp
 ```
 

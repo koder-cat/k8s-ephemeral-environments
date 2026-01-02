@@ -12,9 +12,9 @@ keywords:
   - ephemeral
   - pr-environment
 
-home: https://github.com/genesluna/k8s-ephemeral-environments
+home: https://github.com/koder-cat/k8s-ephemeral-environments
 sources:
-  - https://github.com/genesluna/k8s-ephemeral-environments
+  - https://github.com/koder-cat/k8s-ephemeral-environments
 
 maintainers:
   - name: k8s-ee-platform
@@ -23,25 +23,25 @@ dependencies:
   - name: k8s-ee-postgresql
     alias: postgresql
     version: "1.1.0"
-    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    repository: "oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts"
     condition: postgresql.enabled
   - name: k8s-ee-mongodb
     alias: mongodb
     version: "1.1.0"
-    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    repository: "oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts"
     condition: mongodb.enabled
   - name: k8s-ee-redis
     alias: redis
     version: "1.1.0"
-    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    repository: "oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts"
     condition: redis.enabled
   - name: k8s-ee-minio
     alias: minio
     version: "1.1.0"
-    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    repository: "oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts"
     condition: minio.enabled
   - name: k8s-ee-mariadb
     alias: mariadb
     version: "1.0.0"
-    repository: "oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts"
+    repository: "oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts"
     condition: mariadb.enabled

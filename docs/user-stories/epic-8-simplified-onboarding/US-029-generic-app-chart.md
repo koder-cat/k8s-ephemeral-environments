@@ -58,7 +58,7 @@
 
 ### Key Features
 
-- **OCI Dependencies**: Uses `oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts` for all database subcharts
+- **OCI Dependencies**: Uses `oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts` for all database subcharts
 - **Required Validation**: Fails fast if `image.repository`, `image.tag`, or `projectId` missing
 - **Security Hardened**: runAsNonRoot, seccompProfile, readOnlyRootFilesystem, capabilities dropped
 - **Database Support**: PostgreSQL, MongoDB, Redis, MinIO, MariaDB (all conditional)
@@ -69,7 +69,7 @@
 
 ```bash
 # Pull chart
-helm pull oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app --version 1.0.0
+helm pull oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-app --version 1.0.0
 
 # Install
 helm install myapp k8s-ee-app \

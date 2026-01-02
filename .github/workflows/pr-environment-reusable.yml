@@ -67,7 +67,7 @@ concurrency:
 env:
   # Repository containing reusable actions and Helm charts
   # Update this if repository ownership or name changes
-  K8S_EE_REPO: genesluna/k8s-ephemeral-environments
+  K8S_EE_REPO: koder-cat/k8s-ephemeral-environments
 
 # Checkout Strategy:
 # - Jobs that need BOTH calling repo and k8s-ee actions (validate-config, build-image):

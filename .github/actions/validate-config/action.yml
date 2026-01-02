@@ -202,7 +202,7 @@ runs:
             echo "but the organization is not in the allowed list."
             echo ""
             echo "To request access, please open an issue at:"
-            echo "https://github.com/genesluna/k8s-ephemeral-environments/issues"
+            echo "https://github.com/koder-cat/k8s-ephemeral-environments/issues"
             echo ""
             exit 1
           fi

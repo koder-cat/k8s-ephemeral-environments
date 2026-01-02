@@ -117,8 +117,8 @@ but the organization is not in the allowed list.
 
 **Resolution:**
 
-1. Check if your organization is in the [allowed list](https://github.com/genesluna/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json)
-2. If not, [open an issue](https://github.com/genesluna/k8s-ephemeral-environments/issues) to request access
+1. Check if your organization is in the [allowed list](https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json)
+2. If not, [open an issue](https://github.com/koder-cat/k8s-ephemeral-environments/issues) to request access
 3. Once approved, a maintainer will add your organization and merge the change
 4. The change takes effect immediately for new workflow runs
 
@@ -393,7 +393,7 @@ kubectl create serviceaccount mongodb-database -n k8s-ee-pr-{number}
 - Helm release uses old chart version
 
 **Root Cause:**
-Library charts (postgresql, mongodb, redis, minio, mariadb) are stored in an OCI registry (`oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts`). The PR workflow pulls charts from this registry, not from the local checkout. Chart changes are only published when merged to `main`.
+Library charts (postgresql, mongodb, redis, minio, mariadb) are stored in an OCI registry (`oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts`). The PR workflow pulls charts from this registry, not from the local checkout. Chart changes are only published when merged to `main`.
 
 **Diagnosis:**
 ```bash
@@ -404,7 +404,7 @@ helm list -n k8s-ee-pr-{number}
 grep '^version:' charts/mongodb/Chart.yaml
 
 # Check if your change is in the OCI registry
-helm show chart oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-mongodb
+helm show chart oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-mongodb
 ```
 
 **Resolution:**
@@ -662,7 +662,7 @@ kubectl get clusters.postgresql.cnpg.io -n k8s-ee-pr-{number}
 kubectl delete cluster -n k8s-ee-pr-{number} k8s-ee-pr-{number}-postgresql
 
 # Re-run Helm to recreate the cluster with bootstrap SQL
-helm upgrade app oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app \
+helm upgrade app oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-app \
   --namespace k8s-ee-pr-{number} --reuse-values
 
 # Option 2: Manually apply SQL to existing database (keeps data)

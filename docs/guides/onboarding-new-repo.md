@@ -12,8 +12,8 @@ Your GitHub organization must be added to the platform allowlist.
 
 | Item | Details |
 |------|---------|
-| **Check status** | View [allowed-orgs.json](https://github.com/genesluna/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json) |
-| **Request access** | Open an [issue](https://github.com/genesluna/k8s-ephemeral-environments/issues) with org name and use case |
+| **Check status** | View [allowed-orgs.json](https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json) |
+| **Request access** | Open an [issue](https://github.com/koder-cat/k8s-ephemeral-environments/issues) with org name and use case |
 
 See [Access Control Guide](./access-control.md) for details.
 
@@ -121,7 +121,7 @@ permissions:
 
 jobs:
   pr-environment:
-    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-action: ${{ github.event.action }}
@@ -184,10 +184,10 @@ For production stability, pin to a specific version:
 
 ```yaml
 # Pin to a release tag (when available)
-uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1
+uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1
 
 # Pin to a specific commit SHA (available now)
-uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@79d3549
+uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@79d3549
 ```
 
 ---

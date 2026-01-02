@@ -34,7 +34,7 @@ permissions:
 
 jobs:
   pr-environment:
-    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-action: ${{ github.event.action }}
@@ -155,3 +155,12 @@ PR merged or closed
         ↓
 Environment automatically destroyed
 ```
+
+## License
+
+K8s Ephemeral Environments is dual-licensed:
+
+- **Open Source**: [AGPL-3.0](LICENSE) - Free for self-hosting and open-source projects
+- **Commercial**: [Contact us](mailto:genes@genesluna.dev) for a commercial license if AGPL doesn't work for your organization
+
+See [LICENSE-FAQ.md](LICENSE-FAQ.md) for common licensing questions.

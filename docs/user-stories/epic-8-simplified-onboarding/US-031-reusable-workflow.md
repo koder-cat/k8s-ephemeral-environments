@@ -33,7 +33,7 @@
 
 ## Notes
 
-- Client repos call workflow via `uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1`
+- Client repos call workflow via `uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1`
 - Version pinning supported (@v1, @main, @sha)
 - Job outputs passed between jobs for orchestration
 - Health checks run after deployment
@@ -97,7 +97,7 @@ on:
 
 jobs:
   pr-environment:
-    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-action: ${{ github.event.action }}
@@ -118,7 +118,7 @@ on:
 
 jobs:
   pr-environment:
-    uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
       pr-number: ${{ github.event.pull_request.number }}
       pr-action: ${{ github.event.action }}
@@ -137,13 +137,13 @@ For production use, pin to a specific version or commit:
 
 ```yaml
 # Pin to a release tag
-uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1
+uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@v1
 
 # Pin to a specific commit
-uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@abc1234
+uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@abc1234
 
 # Use latest main (for development)
-uses: genesluna/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
 ```
 
 ### Required Secrets

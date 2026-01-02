@@ -42,7 +42,7 @@ inputs:
   chart-repository:
     description: 'OCI chart repository or local path (use ./charts/k8s-ee-app for local)'
     required: false
-    default: 'oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts/k8s-ee-app'
+    default: 'oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts/k8s-ee-app'
   use-local-charts:
     description: 'Use local charts from checkout instead of OCI registry'
     required: false
@@ -286,7 +286,7 @@ runs:
         # Now update each repository line that follows a specific name line
         # This uses sed with hold space to match and replace the repository line after each name
         for chart in postgresql mongodb redis minio mariadb; do
-          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/genesluna/k8s-ephemeral-environments/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
+          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
         done
 
         # Remove Chart.lock to avoid sync issues (will be regenerated)

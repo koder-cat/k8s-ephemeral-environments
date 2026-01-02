@@ -70,7 +70,7 @@ helm uninstall demo-app --namespace my-namespace
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.repository` | Image repository | `ghcr.io/genesluna/k8s-ephemeral-environments/demo-app` |
+| `image.repository` | Image repository | `ghcr.io/koder-cat/k8s-ephemeral-environments/demo-app` |
 | `image.tag` | Image tag | `latest` |
 | `image.digest` | Image digest (overrides tag) | `""` |
 | `image.pullPolicy` | Pull policy | `Always` |
