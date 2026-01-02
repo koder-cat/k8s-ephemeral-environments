@@ -321,6 +321,10 @@ gh api /orgs/{org}/packages/container/{repo}%2F{image} --jq '.visibility'
 2. Enable "Allow members to change container package visibility to public"
 3. Re-run the workflow to make the package public
 
+**If org setting was enabled after first build:** You may need to manually make the package public:
+1. Go to `https://github.com/orgs/{org}/packages/container/package/{repo}%2F{image}`
+2. Click "Package settings" → "Change package visibility" → "Public"
+
 ### Init Container Stuck
 
 **Symptoms:**

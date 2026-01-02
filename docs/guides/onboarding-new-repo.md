@@ -4,18 +4,78 @@ Add ephemeral PR environments to any repository in 3 simple steps.
 
 ## Prerequisites
 
-### Organization Access
+Before onboarding, ensure your organization meets the following requirements:
 
-Your GitHub organization must be added to the platform allowlist before your repositories can use ephemeral PR environments.
+### 1. Organization Allowlist
 
-**Check if your organization is allowed:**
-- View the [allowed organizations list](https://github.com/genesluna/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json)
+Your GitHub organization must be added to the platform allowlist.
 
-**Request access:**
-- Open an issue at [k8s-ephemeral-environments](https://github.com/genesluna/k8s-ephemeral-environments/issues)
-- Include your organization name and a brief description of your use case
+| Item | Details |
+|------|---------|
+| **Check status** | View [allowed-orgs.json](https://github.com/genesluna/k8s-ephemeral-environments/blob/main/.github/config/allowed-orgs.json) |
+| **Request access** | Open an [issue](https://github.com/genesluna/k8s-ephemeral-environments/issues) with org name and use case |
 
 See [Access Control Guide](./access-control.md) for details.
+
+### 2. GitHub App Installation
+
+The ARC (Actions Runner Controller) GitHub App must be installed on your organization to run workflows on the self-hosted runners.
+
+| Item | Details |
+|------|---------|
+| **App name** | `k8s-ee-arc-runner` |
+| **Install location** | `https://github.com/organizations/{your-org}/settings/installations` |
+| **Repository access** | Select "All repositories" or choose specific repos |
+
+> **Note:** Contact the platform administrator if your organization doesn't have the GitHub App installed.
+
+### 3. Organization Package Settings
+
+Your organization must allow public container packages.
+
+| Setting | Location | Value |
+|---------|----------|-------|
+| **Package visibility** | `https://github.com/organizations/{your-org}/settings/packages` | Enable "Allow members to change container package visibility to public" |
+
+Without this setting, deployments fail with `403 Forbidden` when pulling images.
+
+### 4. Runner Group Settings (Public Repos)
+
+If using public repositories, the runner group must allow them.
+
+| Setting | Location | Value |
+|---------|----------|-------|
+| **Allow public repos** | `https://github.com/organizations/{your-org}/settings/actions/runner-groups` | Enable "Allow public repositories" on the Default group |
+
+### 5. Repository Visibility
+
+> **Important:** Currently, only **public repositories** are supported. Private repositories are not supported because container images are made public for Kubernetes to pull without authentication.
+
+---
+
+## Configuration Summary
+
+| Requirement | Who Configures | Where |
+|-------------|----------------|-------|
+| Organization allowlist | Platform admin | `.github/config/allowed-orgs.json` |
+| GitHub App installation | Org admin | GitHub org settings → Installations |
+| Package visibility setting | Org admin | GitHub org settings → Packages |
+| Runner group (public repos) | Org admin | GitHub org settings → Actions → Runner groups |
+| `k8s-ee.yaml` config | Repo maintainer | Repository root |
+| Workflow file | Repo maintainer | `.github/workflows/pr-environment.yml` |
+
+---
+
+## Secrets and Tokens
+
+The platform uses the following authentication:
+
+| Token/Secret | Purpose | Scope | Managed By |
+|--------------|---------|-------|------------|
+| `GITHUB_TOKEN` | Build/push images, post PR comments | Automatic (workflow) | GitHub Actions |
+| `github-app-secret` | ARC runner authentication | Kubernetes cluster | Platform admin |
+
+**No additional secrets are required from onboarding organizations.** The `secrets: inherit` in the workflow file passes the automatic `GITHUB_TOKEN` to the reusable workflow.
 
 ## Quick Start
 
@@ -94,6 +154,7 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 
 | Requirement | Description |
 |-------------|-------------|
+| **Public repository** | Private repositories are not currently supported |
 | **Dockerfile** | Build your application as a container |
 | **Health endpoint** | Returns 200 for Kubernetes probes (default: `/health`) |
 | **Package permissions** | GHCR write access (automatic for same org) |
@@ -162,10 +223,15 @@ Individual containers: max 512Mi memory, 500m CPU. See [Resource Requirements](.
 
 ### Image pull failed (403 Forbidden)
 
-- Container images are automatically set to public by the build step
-- If you see 403 errors, the org setting may be blocking public packages
-- **Fix:** Enable "Allow members to change container package visibility" in org package settings
-- Then re-run the workflow to make the package public
+Container images are automatically set to public by the build step. If you see 403 errors:
+
+1. **Check org setting:** Go to `https://github.com/organizations/{org}/settings/packages`
+2. **Enable:** "Allow members to change container package visibility to public"
+3. **Re-run the workflow** to make the package public
+
+**First-time deployment:** The first PR for a new repository creates a new GHCR package. If the org setting wasn't enabled before the first build, you may need to manually make the package public:
+1. Go to `https://github.com/orgs/{org}/packages/container/package/{repo}%2F{app}`
+2. Click "Package settings" → "Change package visibility" → "Public"
 
 ### Deployment failed
 
