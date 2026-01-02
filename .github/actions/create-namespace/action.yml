@@ -45,6 +45,10 @@ inputs:
     description: 'Whether MariaDB is enabled'
     required: false
     default: 'false'
+  app-port:
+    description: 'Application container port for NetworkPolicy ingress'
+    required: false
+    default: '3000'
 outputs:
   created:
     description: 'Whether namespace was created (true) or updated (false)'
@@ -65,6 +69,7 @@ runs:
         COMMIT_SHA: ${{ inputs.commit-sha }}
         REPOSITORY: ${{ inputs.repository }}
         K8S_API_IP: ${{ inputs.k8s-api-ip }}
+        APP_PORT: ${{ inputs.app-port }}
       run: |
         set -euo pipefail
 
@@ -107,6 +112,17 @@ runs:
         if ! [[ "$K8S_API_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "ERROR: k8s-api-ip must be a valid IPv4 address"
           echo "Received: '$K8S_API_IP'"
+          exit 1
+        fi
+
+        # Validate app-port is numeric and in valid range
+        if [[ -z "$APP_PORT" ]]; then
+          echo "ERROR: app-port is empty or not provided"
+          exit 1
+        fi
+        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || [ "$APP_PORT" -lt 1 ] || [ "$APP_PORT" -gt 65535 ]; then
+          echo "ERROR: app-port must be a number between 1 and 65535"
+          echo "Received: '$APP_PORT'"
           exit 1
         fi
 
@@ -470,9 +486,10 @@ runs:
       shell: bash
       env:
         NAMESPACE: ${{ inputs.namespace }}
+        APP_PORT: ${{ inputs.app-port }}
       run: |
         set -euo pipefail
-        echo "Applying NetworkPolicy allow-ingress-controller to $NAMESPACE..."
+        echo "Applying NetworkPolicy allow-ingress-controller to $NAMESPACE with app port: $APP_PORT"
 
         cat <<EOF | kubectl apply --timeout=60s -f -
         apiVersion: networking.k8s.io/v1
@@ -495,7 +512,7 @@ runs:
                       app.kubernetes.io/name: traefik
               ports:
                 - protocol: TCP
-                  port: 3000
+                  port: ${APP_PORT}
           policyTypes:
             - Ingress
         EOF

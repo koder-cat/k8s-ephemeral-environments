@@ -1,6 +1,8 @@
 # Allow traffic from Traefik ingress controller
 # Enables external HTTP/HTTPS access via preview URLs
-# Port restricted to application port (3000) for security hardening
+# Port is configurable via app.port in k8s-ee.yaml (default: 3000)
+# NOTE: This is a reference template only. The actual NetworkPolicy is
+# embedded in .github/actions/create-namespace/action.yml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -21,6 +23,6 @@ spec:
               app.kubernetes.io/name: traefik
       ports:
         - protocol: TCP
-          port: 3000
+          port: ${APP_PORT}
   policyTypes:
     - Ingress

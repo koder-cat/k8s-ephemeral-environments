@@ -159,59 +159,27 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 | **Health endpoint** | Returns 200 for Kubernetes probes (default: `/health`) |
 | **Package permissions** | GHCR write access (automatic for same org) |
 | **ARM64 compatible** | Base images must support `linux/arm64` |
-| **Port 3000** | App must listen on port 3000 (see Port Configuration below) |
 
 ---
 
 ## Port Configuration
 
-> **Current Limitation:** The platform's NetworkPolicy currently only allows ingress traffic on **port 3000**. Apps using other ports will get 502 Bad Gateway errors.
+Configure your application's port in `k8s-ee.yaml`:
 
-### Supported Ports
-
-| Port | Status | Stacks |
-|------|--------|--------|
-| 3000 | ✅ Supported | Node.js, NestJS, Express, React dev server |
-| 8080 | ⚠️ Requires workaround | .NET, Go, Java Spring Boot |
-| 8000 | ⚠️ Requires workaround | Python FastAPI, Django |
-
-### Using Port 3000 (Recommended)
-
-Configure your app to listen on port 3000:
-
-**Node.js/NestJS:**
-```typescript
-// Already default, no changes needed
-await app.listen(process.env.PORT || 3000);
+```yaml
+app:
+  port: 8080  # Default: 3000
 ```
 
-**.NET:**
-```csharp
-// In Program.cs or via environment variable
-builder.WebHost.UseUrls("http://+:3000");
-// Or set ASPNETCORE_URLS=http://+:3000 in Dockerfile
-```
+### Common Ports by Stack
 
-**Go:**
-```go
-http.ListenAndServe(":3000", router)
-```
+| Stack | Typical Port | Configuration |
+|-------|-------------|---------------|
+| Node.js, Express, NestJS | 3000 | Default, no config needed |
+| .NET, Go, Java Spring Boot | 8080 | `app.port: 8080` |
+| Python FastAPI, Django | 8000 | `app.port: 8000` |
 
-**Python:**
-```python
-uvicorn.run(app, host="0.0.0.0", port=3000)
-```
-
-### Workaround for Other Ports
-
-If you cannot change your app's port, request the platform admin to patch the NetworkPolicy after deployment:
-
-```bash
-kubectl patch networkpolicy allow-ingress-controller -n {namespace} \
-  --type='json' -p='[{"op": "replace", "path": "/spec/ingress/0/ports/0/port", "value": 8080}]'
-```
-
-See [Troubleshooting - 502 Bad Gateway Port Mismatch](./troubleshooting.md#502-bad-gateway---port-mismatch) for details
+The platform automatically configures the NetworkPolicy to allow ingress traffic on your specified port.
 
 ---
 

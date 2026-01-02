@@ -822,35 +822,35 @@ kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} 
 - Traefik logs show no errors
 
 **Root Cause:**
-The `allow-ingress-controller` NetworkPolicy hardcodes port 3000 (Node.js default). Apps running on different ports (e.g., .NET on 8080) are blocked.
+The `allow-ingress-controller` NetworkPolicy uses the configured port from `k8s-ee.yaml`. If your app listens on a different port than configured, traffic is blocked.
 
 **Diagnosis:**
 ```bash
 # Check network policy port
 kubectl get networkpolicy allow-ingress-controller -n {namespace} -o yaml | grep -A5 ports
 
-# Test internal connectivity (should work)
-kubectl run wget-test --rm -i --restart=Never --image=busybox -n {namespace} \
-  --overrides='{"spec":{"containers":[{"name":"wget-test","image":"busybox","command":["wget","-qO-","http://{app-service}:80/api/health"],"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}}}]}}'
+# Compare with your app's actual listening port
+kubectl exec -n {namespace} {pod-name} -- netstat -tlnp
 ```
 
 **Resolution:**
-```bash
-# Patch the network policy to use the correct port
-kubectl patch networkpolicy allow-ingress-controller -n {namespace} \
-  --type='json' -p='[{"op": "replace", "path": "/spec/ingress/0/ports/0/port", "value": 8080}]'
+Ensure your `k8s-ee.yaml` has the correct port configured:
+
+```yaml
+app:
+  port: 8080  # Match your application's listening port
 ```
 
-**Affected Stacks:**
-| Stack | Default Port | Requires Patch |
-|-------|--------------|----------------|
-| Node.js/NestJS | 3000 | No |
-| .NET/ASP.NET Core | 8080 | Yes |
-| Go | 8080 | Yes |
-| Java/Spring Boot | 8080 | Yes |
-| Python/FastAPI | 8000 | Yes |
+Then redeploy to update the NetworkPolicy.
 
-**Platform Fix Required:** The `create-namespace` action should read `app.port` from `k8s-ee.yaml` and use it in the NetworkPolicy instead of hardcoding 3000.
+**Common Port Configurations:**
+| Stack | Default Port | k8s-ee.yaml Configuration |
+|-------|--------------|---------------------------|
+| Node.js/NestJS | 3000 | Default, no config needed |
+| .NET/ASP.NET Core | 8080 | `app.port: 8080` |
+| Go | 8080 | `app.port: 8080` |
+| Java/Spring Boot | 8080 | `app.port: 8080` |
+| Python/FastAPI | 8000 | `app.port: 8000` |
 
 ### Traffic Blocked
 
@@ -877,7 +877,7 @@ kubectl run debug --rm -it --image=busybox -n k8s-ee-pr-{number} -- \
 | Cause | Solution |
 |-------|----------|
 | Missing ingress rule | Check Traefik namespace selector |
-| Wrong port in policy | Verify port 3000 allowed |
+| Wrong port in policy | Verify `app.port` in k8s-ee.yaml matches app |
 | Egress blocked | Check egress policy for DNS |
 
 ### Ingress Not Working

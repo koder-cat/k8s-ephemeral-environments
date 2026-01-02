@@ -112,11 +112,16 @@ Application settings for the deployed container.
 | Minimum | 1 |
 | Maximum | 65535 |
 
-Container port the application listens on.
+Container port the application listens on. The platform automatically configures:
+- **Deployment:** Sets the container port
+- **NetworkPolicy:** Allows ingress traffic on this port from Traefik
 
+**Common Configurations:**
 ```yaml
 app:
-  port: 8080
+  port: 3000  # Node.js, Express, NestJS (default)
+  port: 8080  # .NET, Go, Java Spring Boot
+  port: 8000  # Python FastAPI, Django
 ```
 
 #### app.healthPath

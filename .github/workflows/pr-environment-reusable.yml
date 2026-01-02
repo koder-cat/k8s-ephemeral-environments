@@ -188,6 +188,8 @@ jobs:
           redis-enabled: ${{ needs.validate-config.outputs.redis-enabled }}
           minio-enabled: ${{ needs.validate-config.outputs.minio-enabled }}
           mariadb-enabled: ${{ needs.validate-config.outputs.mariadb-enabled }}
+          # Application port for NetworkPolicy ingress
+          app-port: ${{ needs.validate-config.outputs.app-port }}
 
   # ============================================================================
   # BUILD IMAGE
