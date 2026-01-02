@@ -813,6 +813,45 @@ kubectl exec -n k8s-ee-pr-{number} -it $(kubectl get pods -n k8s-ee-pr-{number} 
 
 ## Network Policy Issues
 
+### 502 Bad Gateway - Port Mismatch
+
+**Symptoms:**
+- App pod is running and healthy
+- Health endpoint works internally (`kubectl exec ... curl localhost:8080`)
+- External access returns 502 Bad Gateway
+- Traefik logs show no errors
+
+**Root Cause:**
+The `allow-ingress-controller` NetworkPolicy hardcodes port 3000 (Node.js default). Apps running on different ports (e.g., .NET on 8080) are blocked.
+
+**Diagnosis:**
+```bash
+# Check network policy port
+kubectl get networkpolicy allow-ingress-controller -n {namespace} -o yaml | grep -A5 ports
+
+# Test internal connectivity (should work)
+kubectl run wget-test --rm -i --restart=Never --image=busybox -n {namespace} \
+  --overrides='{"spec":{"containers":[{"name":"wget-test","image":"busybox","command":["wget","-qO-","http://{app-service}:80/api/health"],"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}}}]}}'
+```
+
+**Resolution:**
+```bash
+# Patch the network policy to use the correct port
+kubectl patch networkpolicy allow-ingress-controller -n {namespace} \
+  --type='json' -p='[{"op": "replace", "path": "/spec/ingress/0/ports/0/port", "value": 8080}]'
+```
+
+**Affected Stacks:**
+| Stack | Default Port | Requires Patch |
+|-------|--------------|----------------|
+| Node.js/NestJS | 3000 | No |
+| .NET/ASP.NET Core | 8080 | Yes |
+| Go | 8080 | Yes |
+| Java/Spring Boot | 8080 | Yes |
+| Python/FastAPI | 8000 | Yes |
+
+**Platform Fix Required:** The `create-namespace` action should read `app.port` from `k8s-ee.yaml` and use it in the NetworkPolicy instead of hardcoding 3000.
+
 ### Traffic Blocked
 
 **Symptoms:**
