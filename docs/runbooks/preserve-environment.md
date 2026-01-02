@@ -106,7 +106,7 @@ kubectl logs -n platform job/manual-expiry -f
 **Severity:** Warning
 
 **Symptoms:**
-- CronJob hasn't run for over 2 hours
+- CronJob hasn't run for over 1.5 hours (runs hourly at :30)
 
 **Investigation:**
 

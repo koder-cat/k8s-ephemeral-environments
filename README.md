@@ -48,6 +48,8 @@ jobs:
 
 Your app needs a Dockerfile. The platform builds ARM64 images automatically.
 
+> **Note:** Currently only **public repositories** are supported. See [Prerequisites](docs/guides/onboarding-new-repo.md#prerequisites) for details.
+
 **Done!** Open a PR to get a preview URL.
 
 **Learn More:** [Configuration Reference](docs/guides/k8s-ee-config-reference.md) | [Onboarding Guide](docs/guides/onboarding-new-repo.md)

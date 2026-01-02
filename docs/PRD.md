@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Date:** December 28, 2024
 **Author:** Engineering Team
-**Status:** Draft
+**Status:** Complete
 
 ---
 
@@ -11,7 +11,7 @@
 
 This document describes the implementation of a platform for ephemeral environments per Pull Request using Kubernetes. Each PR will have its own isolated environment (application + database + observability), accessible via public URL and automatically destroyed when the PR is closed/merged.
 
-The project will be developed in two phases: **Phase 1** with a prototype on VPS (k3s) for operational model validation, followed by **Phase 2** with migration to Amazon EKS.
+The project was developed in phases: **Phase 1** (VPS infrastructure), **Phase 1.5** (Epic 7 improvements), and **Phase 2** (Epic 8 simplified onboarding) are complete. **Phase 3** (future) will migrate to Amazon EKS.
 
 ---
 

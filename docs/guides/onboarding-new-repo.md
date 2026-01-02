@@ -175,7 +175,7 @@ with:
   repository: ${{ github.repository }}
   config-path: 'k8s-ee.yaml'              # Path to config file
   preview-domain: 'k8s-ee.genesluna.dev'  # Base domain for URLs
-  chart-version: '1.0.0'                  # k8s-ee-app chart version
+  chart-version: '1.1.0'                  # k8s-ee-app chart version
 ```
 
 ### Version Pinning
