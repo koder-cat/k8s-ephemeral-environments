@@ -166,6 +166,34 @@ runs:
       run: |
         echo "image-ref=${REGISTRY}/${IMAGE_NAME}@${DIGEST}" >> "$GITHUB_OUTPUT"
 
+    - name: Make package public
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+      run: |
+        set -euo pipefail
+
+        # Extract owner and package name from image-name (e.g., koder-cat/k8s-ephemeral-environments/k8s-ee)
+        OWNER="${IMAGE_NAME%%/*}"
+        PACKAGE_NAME="${IMAGE_NAME#*/}"  # Remove owner prefix
+        PACKAGE_NAME_ENCODED=$(echo "$PACKAGE_NAME" | sed 's|/|%2F|g')
+
+        echo "Setting package visibility to public..."
+        echo "  Owner: $OWNER"
+        echo "  Package: $PACKAGE_NAME"
+
+        # Try org endpoint first, fall back to user endpoint
+        if gh api "/orgs/${OWNER}/packages/container/${PACKAGE_NAME_ENCODED}" --silent 2>/dev/null; then
+          gh api --method PATCH "/orgs/${OWNER}/packages/container/${PACKAGE_NAME_ENCODED}" \
+            -f visibility=public || echo "Warning: Could not set package visibility (may already be public)"
+        else
+          gh api --method PATCH "/user/packages/container/${PACKAGE_NAME_ENCODED}" \
+            -f visibility=public || echo "Warning: Could not set package visibility (may already be public)"
+        fi
+
+        echo "Package visibility set to public"
+
     - name: Run Trivy vulnerability scanner
       id: trivy
       uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0

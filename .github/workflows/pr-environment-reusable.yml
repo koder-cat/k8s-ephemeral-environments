@@ -188,9 +188,9 @@ jobs:
           redis-enabled: ${{ needs.validate-config.outputs.redis-enabled }}
           minio-enabled: ${{ needs.validate-config.outputs.minio-enabled }}
           mariadb-enabled: ${{ needs.validate-config.outputs.mariadb-enabled }}
-          # Registry PAT for imagePullSecret (allows k8s to pull private GHCR images)
-          # Requires org secret GHCR_PAT with read:packages scope
-          registry-token: ${{ secrets.GHCR_PAT }}
+          # Registry token for imagePullSecret (fallback for private packages)
+          # Not needed when packages are public (build-image sets visibility automatically)
+          registry-token: ''
 
   # ============================================================================
   # BUILD IMAGE
