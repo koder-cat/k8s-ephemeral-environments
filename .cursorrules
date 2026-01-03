@@ -127,8 +127,10 @@ Base (app only):    300m CPU,  512Mi memory,  1Gi storage
 
 ### Rolling Update Headroom
 The platform adds headroom for rolling updates:
-- Rolling update buffer: +100m CPU requests, +256Mi memory requests
-- Limits buffer: +15% on CPU limits, +15% on memory limits
+- CPU requests: +100m (app pod)
+- Memory requests: +256Mi (app pod)
+- CPU limits: +300m (app pod) + 15% buffer
+- Memory limits: +512Mi (app pod) + 15% buffer
 
 This prevents `exceeded quota` errors during deployments when Kubernetes runs both old and new app pods.
 

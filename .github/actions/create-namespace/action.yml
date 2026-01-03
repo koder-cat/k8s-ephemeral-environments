@@ -339,10 +339,14 @@ runs:
         echo "  Pods: ${PODS}, Services: ${SERVICES}"
 
         # Add headroom buffer for rolling updates (need to run old + new pod simultaneously)
-        # App pod needs: 100m CPU requests, 128Mi memory requests
-        # Add 15% buffer to limits and enough requests headroom for rolling updates
-        CPU_REQUESTS=$((CPU_REQUESTS + 100))  # Extra app pod during rolling update
-        MEM_REQUESTS=$((MEM_REQUESTS + 256))  # Extra app pod during rolling update
+        # App pod resources: 100m/300m CPU, 256Mi/512Mi memory
+        # During rolling update, both old and new pods run simultaneously
+        CPU_REQUESTS=$((CPU_REQUESTS + 100))   # Extra app pod CPU requests
+        MEM_REQUESTS=$((MEM_REQUESTS + 256))   # Extra app pod memory requests
+        CPU_LIMITS=$((CPU_LIMITS + 300))       # Extra app pod CPU limits
+        MEM_LIMITS=$((MEM_LIMITS + 512))       # Extra app pod memory limits
+
+        # Additional 15% buffer for edge cases (init containers, temporary spikes)
         CPU_LIMITS=$((CPU_LIMITS * 115 / 100))
         MEM_LIMITS=$((MEM_LIMITS * 115 / 100))
 

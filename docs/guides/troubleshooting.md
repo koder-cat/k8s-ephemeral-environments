@@ -250,9 +250,13 @@ kubectl describe resourcequota pr-quota -n k8s-ee-pr-{number}
 **Resolution:**
 
 The platform now includes headroom buffer for rolling updates automatically:
-- CPU requests: +100m for app overlap
-- Memory requests: +256Mi for app overlap
-- CPU/Memory limits: +15% buffer
+
+| Resource Type | Buffer Added |
+|---------------|--------------|
+| CPU requests | +100m (app pod) |
+| Memory requests | +256Mi (app pod) |
+| CPU limits | +300m (app pod) + 15% |
+| Memory limits | +512Mi (app pod) + 15% |
 
 If you see this on older namespaces, close and reopen the PR to recreate with updated quota.
 
