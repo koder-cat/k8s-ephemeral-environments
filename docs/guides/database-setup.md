@@ -155,7 +155,11 @@ mongodb:
 **Environment Variables:**
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `MONGODB_URI` | Full connection string | `mongodb://user:pass@host:27017/db` |
+| `MONGODB_URI` | Full connection string (uses /admin for auth) | `mongodb://user:pass@host:27017/admin` |
+| `MONGODB_URL` | Alias for MONGODB_URI | Same as above |
+| `MONGODB_DATABASE` | Database name for application data | `app` |
+
+> **Note:** The connection string uses `/admin` for MongoDB authentication. Use `MONGODB_DATABASE` to specify the actual database for your collections.
 
 ### MinIO (S3-Compatible Storage)
 

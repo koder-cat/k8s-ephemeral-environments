@@ -102,6 +102,9 @@ This injects:
     secretKeyRef:
       name: {{ include "mongodb.connectionSecretName" . }}
       key: connectionString.standard
+# Database name for frameworks that need explicit db config (connection string uses /admin for auth)
+- name: MONGODB_DATABASE
+  value: {{ .Values.database | default "app" | quote }}
 {{- end }}
 {{- end }}
 
