@@ -921,14 +921,24 @@ kubectl rollout restart deployment -n kube-system traefik
 kubectl describe pod -n k8s-ee-pr-{number} <pod-name> | grep -A10 "Startup:"
 ```
 
+**Common Causes:**
+
+| Cause | Typical Startup Time |
+|-------|---------------------|
+| Node.js/Bun | 1-5 seconds |
+| .NET | 5-15 seconds |
+| Java/Spring Boot (ARM64) | 60-90 seconds |
+| Java with cold JVM | 90-120 seconds |
+
+The default startup probe allows 125 seconds (failureThreshold=60, periodSeconds=2).
+
 **Resolution:**
 
-Increase startup probe tolerance in Helm values:
+For apps that need more than 125 seconds, increase the tolerance:
 ```yaml
-probes:
-  startup:
-    failureThreshold: 60  # Increase from 30
-    periodSeconds: 2
+startupProbe:
+  failureThreshold: 90  # Gives ~185 seconds
+  periodSeconds: 2
 ```
 
 ### Liveness Probe Fails

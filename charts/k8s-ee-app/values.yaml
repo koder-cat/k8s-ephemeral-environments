@@ -89,9 +89,10 @@ readinessProbe:
   failureThreshold: 3
 
 # Startup probe - prevents liveness from killing slow-starting pods
+# Note: Java/Spring Boot apps on ARM64 can take 60-90s to start
 startupProbe:
   initialDelaySeconds: 5
-  failureThreshold: 30
+  failureThreshold: 60
   periodSeconds: 2
 
 # -----------------------------------------------------------------------------
