@@ -2,7 +2,7 @@
 
 **The future of preview environments: Open-source core with optional enterprise capabilities.**
 
-![Roadmap Overview](../assets/images/roadmap.png)
+![Roadmap Overview](../assets/images/roadmap-overview.png)
 
 ---
 
@@ -40,6 +40,8 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 
 ## Phase 2.5: Core Evolution
 
+![Phase 2.5: Core Evolution](../assets/images/phase-2-5.png)
+
 > **License:** AGPL-3.0 (Open Source)
 >
 > **Goal:** Enhance developer experience, expand CI/CD provider support, and add advanced database capabilities.
@@ -57,7 +59,10 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 - **US-037: Status Webhooks** *(Should, 5 pts)*
   - Real-time environment status via webhooks and notifications
 
-**Key Outcome:** Developers can manage environments locally and reduce costs through automatic hibernation.
+- **US-056: DORA Metrics Data Collection** *(Should, 8 pts)*
+  - Record deployment events to Prometheus for per-repo DORA metrics
+
+**Key Outcome:** Developers can manage environments locally, reduce costs through automatic hibernation, and track delivery performance with DORA metrics.
 
 ---
 
@@ -97,6 +102,8 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 
 ## Phase 3: Cloud Scale
 
+![Phase 3: Cloud Scale](../assets/images/phase-3.png)
+
 > **License:** AGPL-3.0 (Open Source)
 >
 > **Goal:** Migrate from single-VPS to Amazon EKS for improved scalability, reliability, and cost optimization.
@@ -124,6 +131,8 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 ---
 
 ## Phase 4: Enterprise & EaaS
+
+![Phase 4: Enterprise & EaaS](../assets/images/phase-4.png)
 
 > **License:** Commercial (Contact for licensing)
 >
@@ -158,6 +167,7 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 
 - **US-053: Web Dashboard** *(Must, 21 pts)*
   - Self-service UI for environment management and monitoring
+  - Includes DORA metrics display per repository
 
 - **US-054: Usage Metering** *(Must, 13 pts)*
   - Track CPU, memory, and storage for billing integration
@@ -241,8 +251,8 @@ Phase 2.5 (parallel) ──→ Phase 3 ──→ Phase 4
 **Future Development**
 
 *Phase 2.5 — Core Evolution*
-- Epics: 3 | Stories: 9 | Points: 73
-- Must: 1 | Should: 6 | Could: 2
+- Epics: 3 | Stories: 10 | Points: 81
+- Must: 1 | Should: 7 | Could: 2
 
 *Phase 3 — Cloud Scale*
 - Epics: 1 | Stories: 4 | Points: 42
@@ -253,8 +263,8 @@ Phase 2.5 (parallel) ──→ Phase 3 ──→ Phase 4
 - Must: 5 | Should: 3 | Could: 0
 
 **Totals**
-- Future: **6 epics, 21 stories, 212 points**
-- Overall: **14 epics, 55 stories, 398 points**
+- Future: **6 epics, 22 stories, 220 points**
+- Overall: **14 epics, 56 stories, 406 points**
 
 ---
 
