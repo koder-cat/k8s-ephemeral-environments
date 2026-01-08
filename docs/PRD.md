@@ -449,8 +449,8 @@ The VPS uses ARM64 architecture. All container images must be multi-arch or have
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.1 | 12/28/2024 | Engineering Team | Added Appendix A with provisioned VPS details |
-| 1.0 | 12/28/2024 | Engineering Team | Initial version (consolidation of 4 PRDs) |
+| 1.1 | 12/28/2025 | Engineering Team | Added Appendix A with provisioned VPS details |
+| 1.0 | 12/28/2025 | Engineering Team | Initial version (consolidation of 4 PRDs) |
 
 ---
 
