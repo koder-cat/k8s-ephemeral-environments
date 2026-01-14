@@ -124,6 +124,9 @@ This roadmap outlines the evolution of K8s Ephemeral Environments from a single-
 - **US-047: Crossplane Integration** *(Should, 8 pts)*
   - Provision RDS, S3, and other AWS resources per environment
 
+- **US-057: Flux CD for Infrastructure GitOps** *(Should, 13 pts)*
+  - Manage permanent infrastructure via GitOps with drift detection and multi-cluster support
+
 > **ARM64 Compatibility:** EKS supports ARM64 via Graviton instances. All features must maintain multi-architecture support.
 
 **Key Outcome:** Platform scales to handle enterprise workloads with production-grade reliability.
@@ -209,6 +212,7 @@ Phase 2.5 (parallel) ──→ Phase 3 ──→ Phase 4
 - Cost reduction (spot instances): **40-60% savings**
 - Migration downtime per environment: **<15 minutes**
 - Migration completeness: **100% (zero on VPS)**
+- Infrastructure drift incidents: **Zero (GitOps enforced)**
 
 **Phase 4 — Enterprise & EaaS**
 - Enterprise customers onboarded: **First 3 paid customers**
@@ -227,6 +231,7 @@ Phase 2.5 (parallel) ──→ Phase 3 ──→ Phase 4
   - Auto-hibernation
   - Multi-provider
   - EKS migration
+  - Infrastructure GitOps
 - Hosting: Self-hosted
 - Support: Community
 
@@ -255,16 +260,16 @@ Phase 2.5 (parallel) ──→ Phase 3 ──→ Phase 4
 - Must: 1 | Should: 7 | Could: 2
 
 *Phase 3 — Cloud Scale*
-- Epics: 1 | Stories: 4 | Points: 42
-- Must: 1 | Should: 2 | Could: 1
+- Epics: 1 | Stories: 5 | Points: 55
+- Must: 1 | Should: 3 | Could: 1
 
 *Phase 4 — Enterprise & EaaS*
 - Epics: 2 | Stories: 8 | Points: 97
 - Must: 5 | Should: 3 | Could: 0
 
 **Totals**
-- Future: **6 epics, 22 stories, 220 points**
-- Overall: **14 epics, 56 stories, 406 points**
+- Future: **6 epics, 23 stories, 233 points**
+- Overall: **14 epics, 57 stories, 419 points**
 
 ---
 
