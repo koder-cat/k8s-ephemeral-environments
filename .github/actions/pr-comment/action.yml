@@ -123,7 +123,7 @@ runs:
                 '| Property | Value |',
                 '|----------|-------|',
                 '| **Status** | ✅ Deployed |',
-                `| **Preview URL** | [${previewUrl}](${previewUrl}) |`,
+                `| **Preview URL** | [🌐 Open Preview](${previewUrl}) |`,
                 `| **Grafana** | [📊 Dashboard](${grafanaUrl}) |`,
                 `| **Namespace** | \`${namespace}\` |`,
                 `| **Commit** | \`${commitSha}\` |`,
