@@ -160,6 +160,7 @@ Environment automatically destroyed
 
 K8s Ephemeral Environments is dual-licensed:
 
+
 - **Open Source**: [AGPL-3.0](LICENSE) - Free for self-hosting and open-source projects
 - **Commercial**: [Contact us](mailto:genes@genesluna.dev) for a commercial license if AGPL doesn't work for your organization
 
