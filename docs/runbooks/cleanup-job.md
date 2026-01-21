@@ -191,17 +191,66 @@ kubectl delete namespace $NAMESPACE --force --grace-period=0
 
 ### Rotate GitHub Token
 
+The cleanup job uses a fine-grained GitHub Personal Access Token to query PR status
+for the `koder-cat` organization repositories.
+
+**Step 1: Create/Regenerate Token**
+
+1. Go to: https://github.com/settings/personal-access-tokens/new
+2. **Token name:** `k8s-ee-cleanup`
+3. **Expiration:** 365 days or less (org policy requires ≤366 days)
+4. **Resource owner:** Select `koder-cat` (the organization)
+5. **Repository access:** "Only select repositories" → `k8s-ephemeral-environments`
+   - Or "All repositories" if cleanup needs to check PRs across multiple repos
+6. **Permissions → Repository permissions:**
+   - **Pull requests:** Read-only
+7. Click "Generate token" and copy it (starts with `github_pat_`)
+
+**Step 2: Validate Token Locally**
+
 ```bash
-# Create new token in GitHub Settings > Developer Settings > Personal Access Tokens
+# Test the token before updating the secret
+curl -s -H "Authorization: Bearer YOUR_NEW_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  "https://api.github.com/repos/koder-cat/k8s-ephemeral-environments/pulls?state=all&per_page=1" \
+  | jq '.[0].state // .message'
+# Expected: "open" or "closed" (not "Bad credentials" or "Not Found")
+```
 
-# Update secret
-kubectl create secret generic github-cleanup-token \
+**Step 3: Update Secret on VPS**
+
+```bash
+ssh ubuntu@168.138.151.63
+
+# Secure method: avoid token in shell history
+read -s -p "Enter new token: " TOKEN && echo
+
+# Update the secret
+sudo kubectl create secret generic github-cleanup-token \
   --namespace platform \
-  --from-literal=GITHUB_TOKEN="ghp_new_token_here" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --from-literal=GITHUB_TOKEN="$TOKEN" \
+  --dry-run=client -o yaml | sudo kubectl apply -f -
 
-# Verify
-kubectl get secret github-cleanup-token -n platform -o jsonpath='{.data.GITHUB_TOKEN}' | base64 -d | head -c 10
+# Clear the variable
+unset TOKEN
+```
+
+**Step 4: Verify Update**
+
+```bash
+# Verify token format
+sudo kubectl get secret github-cleanup-token -n platform \
+  -o jsonpath='{.data.GITHUB_TOKEN}' | base64 -d | head -c 15
+# Expected: github_pat_...
+
+# Run test job
+sudo kubectl create job --from=cronjob/cleanup-orphaned-namespaces test-cleanup -n platform
+sudo kubectl wait --for=condition=complete job/test-cleanup -n platform --timeout=120s
+sudo kubectl logs -n platform -l job-name=test-cleanup | grep -E "GitHub API errors|401|403"
+# Expected: "GitHub API errors: 0" and no auth errors
+
+# Clean up
+sudo kubectl delete job test-cleanup -n platform
 ```
 
 ### Preserve a Namespace
