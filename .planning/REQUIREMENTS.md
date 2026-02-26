@@ -111,12 +111,12 @@ Multi-container support, Samba AD, and htm-gestor-documentos integration.
 | PILOT-04 | Phase 6 | Pending |
 
 **Coverage:**
-- Milestone 1 requirements: 16 total
-- Milestone 2 requirements: 14 total
+- Milestone 1 requirements: 16 total (Phases 1-3)
+- Milestone 2 requirements: 14 total (Phases 4-6)
 - Total: 30 requirements
 - Mapped to phases: 30
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after roadmap creation*
