@@ -265,7 +265,8 @@ runs:
         curl -fsSL "${BASE_URL}/${TARBALL}" -o "${TRIVY_WORK_DIR}/${TARBALL}"
         curl -fsSL "${BASE_URL}/${CHECKSUM_FILE}" -o "${TRIVY_WORK_DIR}/${CHECKSUM_FILE}"
 
-        grep "${TARBALL}" "${TRIVY_WORK_DIR}/${CHECKSUM_FILE}" | sha256sum --check --status
+        # sha256sum --check resolves filenames relative to CWD; run inside TRIVY_WORK_DIR
+        (cd "${TRIVY_WORK_DIR}" && grep "${TARBALL}" "${CHECKSUM_FILE}" | sha256sum --check --status)
         tar -xzf "${TRIVY_WORK_DIR}/${TARBALL}" -C "${TRIVY_WORK_DIR}" trivy
         export PATH="${TRIVY_WORK_DIR}:${PATH}"
         trivy --version
