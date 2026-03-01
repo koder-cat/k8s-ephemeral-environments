@@ -221,19 +221,19 @@ runs:
       env:
         # First platform only — resolved by the scan-platform step above
         TRIVY_PLATFORM: ${{ steps.scan-platform.outputs.value }}
-        # gh CLI uses GH_TOKEN automatically for authenticated API calls (avoids
-        # the 60 req/hr unauthenticated GitHub API rate limit on shared runners).
-        GH_TOKEN: ${{ inputs.github-token }}
         IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
         SEVERITY: ${{ inputs.trivy-severity }}
       run: |
         set -euo pipefail
 
-        # Install Trivy by querying the latest release via gh api (authenticated,
-        # avoids GitHub API rate limits) then downloading binary + checksum via
-        # curl from browser_download_url (public CDN, no auth required).
+        # Install Trivy by fetching the latest release metadata from the public
+        # GitHub API (no auth required — aquasecurity/trivy is a public repo),
+        # then downloading the binary and checksum from the CDN.
+        #
+        # Using curl directly (not gh api) because GITHUB_TOKEN is repo-scoped to
+        # the current repo; passing it as an Authorization header causes GitHub to
+        # return 404 for requests targeting a different org's repository.
 
-        # Select the correct tarball name for the runner's architecture.
         ARCH=$(uname -m)
         case "${ARCH}" in
           x86_64)  TRIVY_ARCH="Linux-64bit" ;;
@@ -245,7 +245,7 @@ runs:
         trap 'rm -rf "${TRIVY_WORK_DIR}"' EXIT
 
         echo "Resolving latest Trivy release..."
-        TRIVY_RELEASE=$(gh api "repos/aquasecurity/trivy/releases/latest")
+        TRIVY_RELEASE=$(curl -fsSL           -H "Accept: application/vnd.github+json"           -H "X-GitHub-Api-Version: 2022-11-28"           "https://api.github.com/repos/aquasecurity/trivy/releases/latest")
         TRIVY_TAG=$(echo "${TRIVY_RELEASE}" | jq -r '.tag_name')
         TRIVY_URL=$(echo "${TRIVY_RELEASE}" | jq -r --arg arch "${TRIVY_ARCH}" \
           '.assets[] | select(.name | test($arch + "\\.tar\\.gz$")) | .browser_download_url' \
