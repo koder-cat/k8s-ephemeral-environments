@@ -23,7 +23,8 @@ image:
   # Pull policy - Always recommended for PR environments
   pullPolicy: Always
 
-# Image pull secrets (not needed - GHCR packages are automatically public)
+# Image pull secrets for private registry authentication.
+# Set by the workflow using the ghcr-pull-secret created before deployment.
 imagePullSecrets: []
 
 # -----------------------------------------------------------------------------

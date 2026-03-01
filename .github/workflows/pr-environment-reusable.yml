@@ -263,6 +263,7 @@ jobs:
 
     permissions:
       contents: read
+      packages: read  # Required for GHCR token used to create imagePullSecret
 
     outputs:
       preview-url: ${{ steps.deploy.outputs.preview-url }}
