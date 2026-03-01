@@ -62,17 +62,16 @@ on:
         required: false
         type: string
         default: 'linux/arm64'
+      k8s-ee-repo:
+        description: 'Repository containing k8s-ee reusable actions and Helm charts (change this default in forks)'
+        required: false
+        type: string
+        default: 'koder-cat/k8s-ephemeral-environments'
 
 # Prevent concurrent runs for the same PR
 concurrency:
   group: pr-env-${{ inputs.repository }}-${{ inputs.pr-number }}
   cancel-in-progress: false
-
-# Workflow-level environment variables
-env:
-  # Repository containing reusable actions and Helm charts
-  # Update this if repository ownership or name changes
-  K8S_EE_REPO: koder-cat/k8s-ephemeral-environments
 
 # Checkout Strategy:
 # - Jobs that need BOTH calling repo and k8s-ee actions (validate-config, build-image):
@@ -126,7 +125,7 @@ jobs:
       - name: Checkout k8s-ee for action
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           path: _k8s-ee
           sparse-checkout: |
             .github/actions
@@ -166,7 +165,7 @@ jobs:
       - name: Checkout k8s-ee for actions
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -232,7 +231,7 @@ jobs:
       - name: Checkout k8s-ee for action
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           path: _k8s-ee
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
@@ -273,7 +272,7 @@ jobs:
       - name: Checkout k8s-ee for actions and charts
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: |
             .github/actions/*
             charts/k8s-ee-app/*
@@ -340,7 +339,7 @@ jobs:
       - name: Checkout k8s-ee for action
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -391,7 +390,7 @@ jobs:
       - name: Checkout k8s-ee for actions
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -428,7 +427,7 @@ jobs:
       - name: Checkout k8s-ee for action
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: ${{ env.K8S_EE_REPO }}
+          repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
