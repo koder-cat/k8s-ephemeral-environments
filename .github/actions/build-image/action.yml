@@ -196,16 +196,38 @@ runs:
 
     - name: Run Trivy vulnerability scanner
       id: trivy
-      uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
+      shell: bash
       env:
+        # TRIVY_PLATFORM is read natively by Trivy (maps to --platform flag)
         TRIVY_PLATFORM: ${{ inputs.platforms }}
-      with:
-        image-ref: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: ${{ inputs.trivy-severity }}
-        exit-code: '0'
-        ignore-unfixed: true
+        GH_TOKEN: ${{ inputs.github-token }}
+        IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
+        SEVERITY: ${{ inputs.trivy-severity }}
+      run: |
+        set -euo pipefail
+
+        # Install Trivy binary directly via GitHub Releases API.
+        # Avoids aquasecurity/trivy-action's setup-trivy step, which git-clones the
+        # aquasecurity/trivy repo fetching refs/heads/main — but that repo's default
+        # branch is 'master', causing a fatal fetch error on every run.
+        TRIVY_VERSION=$(curl -fsSL \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          "https://api.github.com/repos/aquasecurity/trivy/releases/latest" \
+          | jq -r '.tag_name | ltrimstr("v")')
+        echo "Installing Trivy v${TRIVY_VERSION}..."
+        curl -fsSL \
+          "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+          | tar -xzf - trivy
+        sudo mv trivy /usr/local/bin/trivy
+
+        # Scan the image. Docker credentials from the prior login step give registry access.
+        trivy image \
+          --format sarif \
+          --output trivy-results.sarif \
+          --severity "${SEVERITY}" \
+          --exit-code 0 \
+          --ignore-unfixed \
+          "${IMAGE_REF}"
 
     - name: Set Trivy output
       id: trivy-output
