@@ -107,6 +107,9 @@ inputs:
     description: 'Full metrics configuration as JSON'
     required: false
     default: '{"enabled": false}'
+  github-token:
+    description: 'GitHub token for authenticating with GHCR image registry'
+    required: true
 
 outputs:
   preview-url:
@@ -302,6 +305,23 @@ runs:
 
         echo "Local chart dependencies built successfully"
 
+    - name: Create GHCR image pull secret
+      shell: bash
+      env:
+        NAMESPACE: ${{ inputs.namespace }}
+        GITHUB_TOKEN_INPUT: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+
+        echo "Creating GHCR image pull secret in namespace: $NAMESPACE"
+        kubectl create secret docker-registry ghcr-pull-secret \
+          --namespace "$NAMESPACE" \
+          --docker-server=ghcr.io \
+          --docker-username="${GITHUB_ACTOR}" \
+          --docker-password="${GITHUB_TOKEN_INPUT}" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        echo "Pull secret created/updated successfully"
+
     - name: Deploy with Helm
       id: deploy
       shell: bash
@@ -365,6 +385,7 @@ runs:
           "--set" "previewDomain=$PREVIEW_DOMAIN"
           "--set" "app.port=$APP_PORT"
           "--set" "app.healthPath=$HEALTH_PATH"
+          "--set" "imagePullSecrets[0].name=ghcr-pull-secret"
         )
 
         # Add version flag for OCI charts (not needed for local charts)

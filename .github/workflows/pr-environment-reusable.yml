@@ -318,6 +318,7 @@ jobs:
           mariadb-config: ${{ needs.validate-config.outputs.mariadb-config }}
           metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
           metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================================
   # PR COMMENT (DEPLOY)
