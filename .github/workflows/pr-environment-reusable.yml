@@ -117,13 +117,13 @@ jobs:
 
     steps:
       - name: Checkout calling repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.head-sha }}
 
       - name: Checkout k8s-ee for action
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           path: _k8s-ee
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: Checkout k8s-ee for actions
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
@@ -221,7 +221,7 @@ jobs:
     steps:
       # First checkout: calling repo for Dockerfile
       - name: Checkout calling repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.head-sha }}
@@ -229,7 +229,7 @@ jobs:
       # Second checkout: k8s-ee repo for action (to separate path)
       # Note: build-image only needs actions, not config (validation already complete)
       - name: Checkout k8s-ee for action
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           path: _k8s-ee
@@ -271,7 +271,7 @@ jobs:
 
     steps:
       - name: Checkout k8s-ee for actions and charts
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: |
@@ -339,7 +339,7 @@ jobs:
 
     steps:
       - name: Checkout k8s-ee for action
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
@@ -390,7 +390,7 @@ jobs:
 
     steps:
       - name: Checkout k8s-ee for actions
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
@@ -427,7 +427,7 @@ jobs:
 
     steps:
       - name: Checkout k8s-ee for action
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
           sparse-checkout: .github/actions
