@@ -197,7 +197,16 @@ with:
   config-path: 'k8s-ee.yaml'              # Path to config file
   preview-domain: 'k8s-ee.genesluna.dev'  # Base domain for URLs
   chart-version: '1.1.0'                  # k8s-ee-app chart version
+  platforms: 'linux/amd64'               # Build platform (default: linux/arm64)
+  k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee (default: koder-cat/k8s-ephemeral-environments)
 ```
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `platforms` | `linux/arm64` | Target architecture for the Docker build. Change to `linux/amd64` if your cluster runs x86_64 nodes. |
+| `k8s-ee-repo` | `koder-cat/k8s-ephemeral-environments` | Repository that provides the reusable actions and Helm charts. Override when running a fork of k8s-ee. |
+
+> **Private images:** The deploy step automatically creates an `imagePullSecrets` entry so Kubernetes can pull from GHCR. No manual secret configuration is required.
 
 ### Version Pinning
 
