@@ -1,5 +1,5 @@
 name: 'Build Image'
-description: 'Build ARM64 container image, push to GHCR, run Trivy scan, and generate SBOM'
+description: 'Build container image, push to GHCR, run Trivy scan, and generate SBOM'
 
 inputs:
   context:
