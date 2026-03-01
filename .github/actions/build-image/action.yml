@@ -228,14 +228,18 @@ runs:
       run: |
         set -euo pipefail
 
-        # Install Trivy binary via gh CLI.
+        # Install Trivy binary directly from GitHub Releases.
         # Avoids aquasecurity/trivy-action's setup-trivy step, which git-clones the
         # aquasecurity/trivy repo fetching refs/heads/main — but that repo's default
         # branch is 'master', causing a fatal fetch error on every run.
-        # gh CLI is pre-installed on ubuntu-latest and uses GH_TOKEN automatically.
+        #
+        # Strategy: use `gh api` for the release metadata (handles token auth through
+        # gh's internal token management, avoiding manual Authorization header issues),
+        # then download the binary and checksum via curl using the browser_download_url
+        # values returned by the API (those are public CDN URLs requiring no auth).
         #
         # Note: Trivy version is intentionally unpinned (always latest release).
-        # To pin, pass --tag vX.Y.Z to gh release download below.
+        # To pin, set TRIVY_TAG to a specific tag (e.g. v0.60.0) below.
 
         # Detect runner architecture to select the correct tarball
         ARCH=$(uname -m)
@@ -250,13 +254,32 @@ runs:
         TRIVY_WORK_DIR=$(mktemp -d)
         trap 'rm -rf "${TRIVY_WORK_DIR}"' EXIT
 
+        echo "Resolving latest Trivy release..."
+        TRIVY_RELEASE=$(gh api "repos/aquasecurity/trivy/releases/latest")
+        TRIVY_TAG=$(echo "${TRIVY_RELEASE}" | jq -r '.tag_name')
+        TRIVY_URL=$(echo "${TRIVY_RELEASE}" | jq -r --arg arch "${TRIVY_ARCH}" \
+          '.assets[] | select(.name | test($arch + "\\.tar\\.gz$")) | .browser_download_url' \
+          | head -1)
+        CHECKSUM_URL=$(echo "${TRIVY_RELEASE}" | jq -r \
+          '.assets[] | select(.name == "checksums.txt") | .browser_download_url' \
+          | head -1)
+
+        if [[ -z "${TRIVY_TAG}" || "${TRIVY_TAG}" == "null" ]]; then
+          echo "ERROR: Could not determine Trivy version"; exit 1
+        fi
+        if [[ -z "${TRIVY_URL}" || "${TRIVY_URL}" == "null" ]]; then
+          echo "ERROR: Could not find Trivy ${TRIVY_ARCH} tarball in release assets"
+          echo "Available assets:"; echo "${TRIVY_RELEASE}" | jq -r '.assets[].name'
+          exit 1
+        fi
+        if [[ -z "${CHECKSUM_URL}" || "${CHECKSUM_URL}" == "null" ]]; then
+          echo "ERROR: Could not find checksums.txt in release assets"; exit 1
+        fi
+
         TARBALL="trivy_${TRIVY_ARCH}.tar.gz"
-        echo "Downloading latest Trivy (${TRIVY_ARCH})..."
-        gh release download \
-          --repo aquasecurity/trivy \
-          --pattern "${TARBALL}" \
-          --pattern "checksums.txt" \
-          --dir "${TRIVY_WORK_DIR}"
+        echo "Downloading Trivy ${TRIVY_TAG} (${TRIVY_ARCH})..."
+        curl -fsSL "${TRIVY_URL}" -o "${TRIVY_WORK_DIR}/${TARBALL}"
+        curl -fsSL "${CHECKSUM_URL}" -o "${TRIVY_WORK_DIR}/checksums.txt"
 
         grep "${TARBALL}" "${TRIVY_WORK_DIR}/checksums.txt" | sha256sum --check --status
         tar -xzf "${TRIVY_WORK_DIR}/${TARBALL}" -C "${TRIVY_WORK_DIR}" trivy
