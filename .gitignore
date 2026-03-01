@@ -40,3 +40,6 @@ charts/*/charts/
 
 # Claude Code
 .claude/
+
+# Git worktrees
+.worktrees/
