@@ -67,6 +67,11 @@ on:
         required: false
         type: string
         default: 'koder-cat/k8s-ephemeral-environments'
+      k8s-ee-ref:
+        description: 'Git ref (branch, tag, or SHA) to check out from k8s-ee-repo (defaults to main)'
+        required: false
+        type: string
+        default: ''
 
 # Prevent concurrent runs for the same PR
 concurrency:
@@ -114,6 +119,7 @@ jobs:
       mariadb-config: ${{ steps.validate.outputs.mariadb-config }}
       metrics-enabled: ${{ steps.validate.outputs.metrics-enabled }}
       metrics-config: ${{ steps.validate.outputs.metrics-config }}
+      k8s-ee-ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
 
     steps:
       - name: Checkout calling repository
@@ -122,10 +128,29 @@ jobs:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.head-sha }}
 
+      - name: Resolve k8s-ee ref
+        id: resolve-k8s-ee-ref
+        shell: bash
+        env:
+          K8S_EE_REF_INPUT: ${{ inputs.k8s-ee-ref }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${K8S_EE_REF_INPUT}" ]]; then
+            echo "value=${K8S_EE_REF_INPUT}" >> "$GITHUB_OUTPUT"
+          else
+            # Extract ref from "owner/repo/.../file.yml@refs/heads/main"
+            REF="${WORKFLOW_REF##*@}"
+            REF="${REF#refs/heads/}"
+            REF="${REF#refs/tags/}"
+            echo "value=${REF}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout k8s-ee for action
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
           path: _k8s-ee
           sparse-checkout: |
             .github/actions
@@ -166,6 +191,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -232,6 +258,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           path: _k8s-ee
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
@@ -274,6 +301,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           sparse-checkout: |
             .github/actions/*
             charts/k8s-ee-app/*
@@ -342,6 +370,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -393,6 +422,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 
@@ -430,6 +460,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
           sparse-checkout: .github/actions
           sparse-checkout-cone-mode: false
 

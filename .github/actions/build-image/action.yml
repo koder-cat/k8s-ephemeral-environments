@@ -1,59 +1,59 @@
-name: 'Build Image'
-description: 'Build container image, push to GHCR, run Trivy scan, and generate SBOM'
+name: "Build Image"
+description: "Build container image, push to GHCR, run Trivy scan, and generate SBOM"
 
 inputs:
   context:
-    description: 'Docker build context path'
+    description: "Docker build context path"
     required: false
-    default: '.'
+    default: "."
   dockerfile:
-    description: 'Path to Dockerfile relative to context'
+    description: "Path to Dockerfile relative to context"
     required: false
-    default: 'Dockerfile'
+    default: "Dockerfile"
   image-name:
-    description: 'Image name without registry (e.g., org/app)'
+    description: "Image name without registry (e.g., org/app)"
     required: true
   pr-number:
-    description: 'PR number for tagging'
+    description: "PR number for tagging"
     required: true
   commit-sha:
-    description: 'Full commit SHA for tagging'
+    description: "Full commit SHA for tagging"
     required: true
   registry:
-    description: 'Container registry'
+    description: "Container registry"
     required: false
-    default: 'ghcr.io'
+    default: "ghcr.io"
   platforms:
-    description: 'Target platforms (comma-separated)'
+    description: "Target platforms (comma-separated)"
     required: false
-    default: 'linux/arm64'
+    default: "linux/arm64"
   trivy-severity:
-    description: 'Trivy severity levels to report'
+    description: "Trivy severity levels to report"
     required: false
-    default: 'CRITICAL,HIGH'
+    default: "CRITICAL,HIGH"
   github-token:
-    description: 'GitHub token for registry authentication (packages:write) and SARIF upload (security-events:write)'
+    description: "GitHub token for registry authentication (packages:write) and SARIF upload (security-events:write)"
     required: true
 
 outputs:
   image-tag:
-    description: 'Short image tag (commit SHA)'
+    description: "Short image tag (commit SHA)"
     value: ${{ steps.meta.outputs.version }}
   image-digest:
-    description: 'Image digest for immutable reference'
+    description: "Image digest for immutable reference"
     value: ${{ steps.build.outputs.digest }}
   image-ref:
-    description: 'Full image reference with digest (registry/name@sha256:...). Note: deploy-app uses image-tag and image-digest separately for Helm chart compatibility.'
+    description: "Full image reference with digest (registry/name@sha256:...). Note: deploy-app uses image-tag and image-digest separately for Helm chart compatibility."
     value: ${{ steps.image-ref.outputs.image-ref }}
   trivy-sarif:
-    description: 'Path to Trivy SARIF results file (runner-local path; results already uploaded to the Security tab via codeql-action/upload-sarif)'
+    description: "Path to Trivy SARIF results file (runner-local path; results already uploaded to the Security tab via codeql-action/upload-sarif)"
     value: ${{ steps.trivy.outputs.sarif-file }}
   sbom-file:
-    description: 'Path to SBOM file (runner-local path; artifact already uploaded via anchore/sbom-action)'
+    description: "Path to SBOM file (runner-local path; artifact already uploaded via anchore/sbom-action)"
     value: ${{ steps.sbom-output.outputs.sbom-file }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Validate inputs
       shell: bash
@@ -221,46 +221,52 @@ runs:
       env:
         # First platform only — resolved by the scan-platform step above
         TRIVY_PLATFORM: ${{ steps.scan-platform.outputs.value }}
-        # gh CLI uses GH_TOKEN automatically for release downloads
+        # GH_TOKEN lets curl use authenticated rate limits (5000 req/hr) when
+        # resolving the Trivy release. Unauthenticated API calls from shared
+        # runner IPs are heavily rate-limited and return 404 without an auth
+        # token or valid User-Agent. GITHUB_TOKEN reads public repos fine.
         GH_TOKEN: ${{ inputs.github-token }}
         IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
         SEVERITY: ${{ inputs.trivy-severity }}
       run: |
         set -euo pipefail
 
-        # Install Trivy binary via gh CLI.
-        # Avoids aquasecurity/trivy-action's setup-trivy step, which git-clones the
-        # aquasecurity/trivy repo fetching refs/heads/main — but that repo's default
-        # branch is 'master', causing a fatal fetch error on every run.
-        # gh CLI is pre-installed on ubuntu-latest and uses GH_TOKEN automatically.
-        #
-        # Note: Trivy version is intentionally unpinned (always latest release).
-        # To pin, pass --tag vX.Y.Z to gh release download below.
-
-        # Detect runner architecture to select the correct tarball
         ARCH=$(uname -m)
         case "${ARCH}" in
-          x86_64)  TRIVY_ARCH="Linux-64bit"  ;;
-          aarch64) TRIVY_ARCH="Linux-ARM64"  ;;
+          x86_64)  TRIVY_ARCH="Linux-64bit" ;;
+          aarch64) TRIVY_ARCH="Linux-ARM64" ;;
           *) echo "ERROR: Unsupported runner architecture: ${ARCH}"; exit 1 ;;
         esac
 
-        # Download into a temp dir so workspace is never polluted; cleanup is
-        # unconditional even if checksum verification fails.
         TRIVY_WORK_DIR=$(mktemp -d)
         trap 'rm -rf "${TRIVY_WORK_DIR}"' EXIT
 
-        TARBALL="trivy_${TRIVY_ARCH}.tar.gz"
-        echo "Downloading latest Trivy (${TRIVY_ARCH})..."
-        gh release download \
-          --repo aquasecurity/trivy \
-          --pattern "${TARBALL}" \
-          --pattern "checksums.txt" \
-          --dir "${TRIVY_WORK_DIR}"
+        # Resolve the latest release via the authenticated GitHub REST API.
+        # Authentication is required: unauthenticated calls from shared runner
+        # IPs return 404 (rate-limited). The token reads any public repo fine.
+        echo "Resolving latest Trivy release..."
+        TRIVY_TAG=$(curl -fsSL \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/aquasecurity/trivy/releases/latest" \
+          | jq -r '.tag_name')
+        TRIVY_VERSION="${TRIVY_TAG#v}"
 
-        grep "${TARBALL}" "${TRIVY_WORK_DIR}/checksums.txt" | sha256sum --check --status
+        if [[ -z "${TRIVY_VERSION}" || "${TRIVY_VERSION}" == "null" ]]; then
+          echo "ERROR: Could not determine Trivy version from GitHub API"; exit 1
+        fi
+
+        # Construct direct CDN download URLs from the version tag.
+        # Checksum file is versioned: trivy_X.Y.Z_checksums.txt
+        TARBALL="trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
+        CHECKSUM_FILE="trivy_${TRIVY_VERSION}_checksums.txt"
+        BASE_URL="https://github.com/aquasecurity/trivy/releases/download/${TRIVY_TAG}"
+        echo "Downloading Trivy ${TRIVY_TAG} (${TRIVY_ARCH})..."
+        curl -fsSL "${BASE_URL}/${TARBALL}" -o "${TRIVY_WORK_DIR}/${TARBALL}"
+        curl -fsSL "${BASE_URL}/${CHECKSUM_FILE}" -o "${TRIVY_WORK_DIR}/${CHECKSUM_FILE}"
+
+        grep "${TARBALL}" "${TRIVY_WORK_DIR}/${CHECKSUM_FILE}" | sha256sum --check --status
         tar -xzf "${TRIVY_WORK_DIR}/${TARBALL}" -C "${TRIVY_WORK_DIR}" trivy
-        # Add Trivy to PATH without requiring sudo
         export PATH="${TRIVY_WORK_DIR}:${PATH}"
         trivy --version
 
@@ -280,7 +286,7 @@ runs:
       uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
       if: always()
       with:
-        sarif_file: 'trivy-results.sarif'
+        sarif_file: "trivy-results.sarif"
 
     - name: Upload Trivy scan results as artifact
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
