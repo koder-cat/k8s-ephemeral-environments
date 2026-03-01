@@ -143,6 +143,13 @@ jobs:
             REF="${WORKFLOW_REF##*@}"
             REF="${REF#refs/heads/}"
             REF="${REF#refs/tags/}"
+            # workflow_call inherits the caller's github context, so for PR
+            # events the ref is refs/pull/N/merge which doesn't exist in
+            # k8s-ee — fall back to the default branch
+            if [[ "${REF}" == refs/* ]]; then
+              echo "::warning::k8s-ee-ref auto-inference got '${REF}' (not a branch or tag); falling back to 'main'"
+              REF="main"
+            fi
             echo "value=${REF}" >> "$GITHUB_OUTPUT"
           fi
 
