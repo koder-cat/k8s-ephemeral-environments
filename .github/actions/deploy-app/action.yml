@@ -108,8 +108,9 @@ inputs:
     required: false
     default: '{"enabled": false}'
   github-token:
-    description: 'GitHub token for authenticating with GHCR image registry'
-    required: true
+    description: 'GitHub token for authenticating with GHCR image registry (required for private images)'
+    required: false
+    default: ''
 
 outputs:
   preview-url:
@@ -306,6 +307,7 @@ runs:
         echo "Local chart dependencies built successfully"
 
     - name: Create GHCR image pull secret
+      if: inputs.github-token != ''
       shell: bash
       env:
         NAMESPACE: ${{ inputs.namespace }}
