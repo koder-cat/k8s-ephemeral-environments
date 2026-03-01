@@ -198,7 +198,7 @@ runs:
       id: trivy
       shell: bash
       env:
-        # TRIVY_PLATFORM is read natively by Trivy (maps to --platform flag)
+        # Passed explicitly to --platform in the scan command below
         TRIVY_PLATFORM: ${{ inputs.platforms }}
         GH_TOKEN: ${{ inputs.github-token }}
         IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
@@ -210,21 +210,56 @@ runs:
         # Avoids aquasecurity/trivy-action's setup-trivy step, which git-clones the
         # aquasecurity/trivy repo fetching refs/heads/main — but that repo's default
         # branch is 'master', causing a fatal fetch error on every run.
-        TRIVY_VERSION=$(curl -fsSL \
+        #
+        # Asset URLs are fetched from the release JSON to avoid constructing filenames
+        # manually (which breaks if Trivy's naming conventions change).
+
+        # Detect runner architecture to select the correct tarball
+        ARCH=$(uname -m)
+        case "${ARCH}" in
+          x86_64)  TRIVY_ARCH="Linux-64bit"  ;;
+          aarch64) TRIVY_ARCH="Linux-ARM64"  ;;
+          *) echo "ERROR: Unsupported runner architecture: ${ARCH}"; exit 1 ;;
+        esac
+
+        TRIVY_RELEASE=$(curl -fsSL \
           -H "Authorization: Bearer ${GH_TOKEN}" \
-          "https://api.github.com/repos/aquasecurity/trivy/releases/latest" \
-          | jq -r '.tag_name | ltrimstr("v")')
-        echo "Installing Trivy v${TRIVY_VERSION}..."
-        curl -fsSL \
-          "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-          | tar -xzf - trivy
+          "https://api.github.com/repos/aquasecurity/trivy/releases/latest")
+
+        TRIVY_URL=$(echo "${TRIVY_RELEASE}" \
+          | jq -r --arg arch "${TRIVY_ARCH}" \
+            '.assets[] | select(.name | test($arch + "\\.tar\\.gz$")) | .browser_download_url' \
+          | head -1)
+        CHECKSUM_URL=$(echo "${TRIVY_RELEASE}" \
+          | jq -r '.assets[] | select(.name == "checksums.txt") | .browser_download_url' \
+          | head -1)
+
+        if [[ -z "${TRIVY_URL}" || "${TRIVY_URL}" == "null" ]]; then
+          echo "ERROR: Could not find Trivy ${TRIVY_ARCH} tarball in release assets"
+          echo "Available assets:"; echo "${TRIVY_RELEASE}" | jq -r '.assets[].name'
+          exit 1
+        fi
+        if [[ -z "${CHECKSUM_URL}" || "${CHECKSUM_URL}" == "null" ]]; then
+          echo "ERROR: Could not find checksums.txt in Trivy release assets"
+          exit 1
+        fi
+
+        TARBALL="trivy_${TRIVY_ARCH}.tar.gz"
+        echo "Downloading Trivy from ${TRIVY_URL}..."
+        curl -fsSL "${TRIVY_URL}" -o "${TARBALL}"
+        curl -fsSL "${CHECKSUM_URL}" -o checksums.txt
+        grep "${TARBALL}" checksums.txt | sha256sum --check --status
+        tar -xzf "${TARBALL}" trivy
         sudo mv trivy /usr/local/bin/trivy
+        rm "${TARBALL}" checksums.txt
+        trivy --version
 
         # Scan the image. Docker credentials from the prior login step give registry access.
         trivy image \
           --format sarif \
           --output trivy-results.sarif \
           --severity "${SEVERITY}" \
+          --platform "${TRIVY_PLATFORM}" \
           --exit-code 0 \
           --ignore-unfixed \
           "${IMAGE_REF}"
