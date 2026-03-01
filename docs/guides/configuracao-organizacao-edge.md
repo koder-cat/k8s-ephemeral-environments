@@ -53,15 +53,13 @@ Diferente de um modelo compartilhado, cada organização opera com **infraestrut
 
 ### Pré-requisitos técnicos (código)
 
-O fork precisa de três features que estarão implementadas antes do piloto:
+O fork precisa de três features implementadas no upstream:
 
-| Feature | Descrição |
-|---------|-----------|
-| **`k8s-ee-repo` input** | O reusable workflow aceita o repositório como parâmetro (hoje hardcoded) |
-| **`imagePullSecrets`** | O deploy cria automaticamente um secret para pull de imagens privadas |
-| **`platforms` input** | O reusable workflow aceita a plataforma de build como parâmetro (hoje hardcoded `linux/arm64`) |
-
-Esses pré-requisitos serão implementados no repositório upstream antes do início do piloto.
+| Feature | Descrição | Status |
+|---------|-----------|--------|
+| **`k8s-ee-repo` input** | O reusable workflow aceita o repositório como parâmetro (default: `koder-cat/k8s-ephemeral-environments`) | ✅ Implementado |
+| **`imagePullSecrets`** | O deploy cria automaticamente um secret para pull de imagens privadas | ✅ Implementado |
+| **`platforms` input** | O reusable workflow aceita a plataforma de build como parâmetro (default: `linux/arm64`) | ✅ Implementado |
 
 ---
 
