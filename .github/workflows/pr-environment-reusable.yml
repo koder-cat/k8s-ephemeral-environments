@@ -57,6 +57,11 @@ on:
         required: false
         type: string
         default: '1.0.0'
+      platforms:
+        description: 'Target platform for container image build (must match cluster architecture)'
+        required: false
+        type: string
+        default: 'linux/arm64'
 
 # Prevent concurrent runs for the same PR
 concurrency:
@@ -242,6 +247,7 @@ jobs:
           pr-number: ${{ inputs.pr-number }}
           commit-sha: ${{ inputs.head-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          platforms: ${{ inputs.platforms }}
 
   # ============================================================================
   # DEPLOY APP
