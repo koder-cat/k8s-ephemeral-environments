@@ -78,6 +78,9 @@ outputs:
   metrics-config:
     description: 'Full metrics configuration as JSON'
     value: ${{ steps.parse.outputs.metrics-config }}
+  trigger:
+    description: 'Environment trigger mode (automatic or on-demand)'
+    value: ${{ steps.parse.outputs.trigger }}
 
 runs:
   using: 'composite'
@@ -376,7 +379,8 @@ runs:
           .ingress = (.ingress // {}) |
           .ingress.enabled = (.ingress.enabled // true) |
           .metrics = (.metrics // {}) |
-          .metrics.enabled = (.metrics.enabled // false)
+          .metrics.enabled = (.metrics.enabled // false) |
+          .trigger = (.trigger // "automatic")
         ')
 
         # Output results using heredoc for multiline JSON
@@ -432,6 +436,9 @@ runs:
 
         # Extract metrics configuration
         echo "metrics-enabled=$(echo "$FINAL_CONFIG" | jq -r '.metrics.enabled // false')" >> "$GITHUB_OUTPUT"
+
+        # Extract trigger mode (default: automatic)
+        echo "trigger=$(echo "$FINAL_CONFIG" | jq -r '.trigger // "automatic"')" >> "$GITHUB_OUTPUT"
         {
           echo "metrics-config<<EOF"
           echo "$FINAL_CONFIG" | jq -c '.metrics // {"enabled": false}'
@@ -448,3 +455,4 @@ runs:
         echo "Image Context: $IMAGE_CONTEXT"
         echo "Dockerfile: $IMAGE_DOCKERFILE"
         echo "Metrics Enabled: $(echo "$FINAL_CONFIG" | jq -r '.metrics.enabled // false')"
+        echo "Trigger Mode: $(echo "$FINAL_CONFIG" | jq -r '.trigger // "automatic"')"
