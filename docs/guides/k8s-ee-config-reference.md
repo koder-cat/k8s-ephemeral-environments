@@ -21,6 +21,7 @@ This creates PR environments at `myapp-pr-{number}.k8s-ee.genesluna.dev` with se
 ```yaml
 # k8s-ee.yaml - Full example with all options
 projectId: myapp
+trigger: automatic    # or "on-demand" for /deploy-preview command
 
 app:
   port: 3000
@@ -96,6 +97,29 @@ projectId: my_app          # Invalid: underscore
 projectId: -myapp          # Invalid: starts with hyphen
 projectId: this-is-a-very-long-project-name  # Invalid: too long
 ```
+
+---
+
+### trigger
+
+Controls how PR environments are created.
+
+| Property | Value |
+|----------|-------|
+| Type | string |
+| Required | No |
+| Default | `automatic` |
+| Values | `automatic`, `on-demand` |
+
+**`automatic`** (default): Environment is created automatically when a PR is opened or updated. This is the standard behavior.
+
+**`on-demand`**: Environment is only created when someone comments `/deploy-preview` on the PR. After creation, subsequent pushes auto-redeploy. Use `/destroy-preview` to tear down the environment early.
+
+```yaml
+trigger: on-demand
+```
+
+> **Note:** On-demand mode requires a different workflow file. See [On-Demand Environments](../../wiki/On-Demand-Environments) for setup instructions.
 
 ---
 
@@ -595,6 +619,24 @@ metrics:
   enabled: true
   interval: 30s
 ```
+
+### On-Demand Environments
+
+Save resources by creating environments only when needed:
+
+```yaml
+projectId: myapp
+trigger: on-demand
+
+app:
+  port: 3000
+  healthPath: /health
+
+databases:
+  postgresql: true
+```
+
+With this configuration, environments are only created when someone comments `/deploy-preview` on the PR. Use `/destroy-preview` to tear down the environment early. See [Onboarding Guide](./onboarding-new-repo.md) for the required workflow file.
 
 ### Monorepo Backend Service
 
