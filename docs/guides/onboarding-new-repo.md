@@ -98,6 +98,8 @@ databases:
 
 **[Full Configuration Reference](./k8s-ee-config-reference.md)** - All available options with examples.
 
+> **On-demand mode:** To create environments only when needed (via `/deploy-preview` comment), add `trigger: on-demand` to your configuration. See Step 2 for the corresponding workflow file.
+
 ### Step 2: Add Workflow File
 
 Create `.github/workflows/pr-environment.yml`:
@@ -130,6 +132,76 @@ jobs:
       repository: ${{ github.repository }}
     secrets: inherit
 ```
+
+#### On-Demand Workflow (Optional)
+
+If you set `trigger: on-demand` in your `k8s-ee.yaml`, use this workflow file instead:
+
+```yaml
+name: PR Environment (On-Demand)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [synchronize, closed]
+
+concurrency:
+  group: deploy-preview-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  deploy-preview:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, '/deploy-preview') ||
+       startsWith(github.event.comment.body, '/destroy-preview'))
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/deploy-preview-reusable.yml@main
+    with:
+      comment-body: ${{ github.event.comment.body }}
+      comment-user: ${{ github.event.comment.user.login }}
+      issue-number: ${{ github.event.issue.number }}
+      repository: ${{ github.repository }}
+    secrets: inherit
+
+  auto-redeploy:
+    if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/deploy-preview-reusable.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-action: synchronize
+      head-sha: ${{ github.event.pull_request.head.sha }}
+      head-ref: ${{ github.head_ref }}
+      repository: ${{ github.repository }}
+    secrets: inherit
+
+  cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-action: closed
+      head-sha: ${{ github.event.pull_request.head.sha }}
+      head-ref: ${{ github.head_ref }}
+      repository: ${{ github.repository }}
+    secrets: inherit
+```
+
+**Available commands:**
+
+| Command | Action |
+|---------|--------|
+| `/deploy-preview` | Creates or redeploys the PR environment |
+| `/destroy-preview` | Destroys the environment (PR stays open) |
+
+After the first `/deploy-preview`, subsequent pushes to the PR automatically redeploy.
 
 ### Step 3: Have a Dockerfile
 
