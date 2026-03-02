@@ -123,11 +123,18 @@ jobs:
       - name: Parse comment or PR event
         id: parse
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_BODY: ${{ inputs.comment-body }}
+          PR_ACTION: ${{ inputs.pr-action }}
+          HEAD_SHA: ${{ inputs.head-sha }}
+          HEAD_REF: ${{ inputs.head-ref }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
         with:
           script: |
-            const commentBody = '${{ inputs.comment-body }}'.trim();
-            const prNumber = ${{ inputs.pr-number }} || ${{ inputs.issue-number }} || 0;
-            const prAction = '${{ inputs.pr-action }}';
+            const commentBody = (process.env.COMMENT_BODY || '').trim();
+            const prNumber = parseInt(process.env.PR_NUMBER, 10) || parseInt(process.env.ISSUE_NUMBER, 10) || 0;
+            const prAction = process.env.PR_ACTION || '';
 
             // Determine action
             let action = 'skip';
@@ -170,15 +177,19 @@ jobs:
               // For PR events, use inputs directly
               core.setOutput('action', action);
               core.setOutput('pr-number', String(prNumber));
-              core.setOutput('head-sha', '${{ inputs.head-sha }}');
-              core.setOutput('head-ref', '${{ inputs.head-ref }}');
+              core.setOutput('head-sha', process.env.HEAD_SHA || '');
+              core.setOutput('head-ref', process.env.HEAD_REF || '');
             }
 
             core.info(`Action: ${action}, PR: #${prNumber}`);
 
       - name: Add eyes reaction to comment
         if: steps.parse.outputs.action != 'skip' && inputs.comment-body != ''
+        continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_BODY: ${{ inputs.comment-body }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
         with:
           script: |
             // We need the comment ID — it's available via the REST API
@@ -186,11 +197,12 @@ jobs:
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ inputs.issue-number }},
+              issue_number: parseInt(process.env.ISSUE_NUMBER, 10),
               per_page: 5,
               direction: 'desc',
             });
-            const comment = comments.find(c => c.body.trim().startsWith('${{ inputs.comment-body }}'.trim().split('\n')[0]));
+            const commentBody = (process.env.COMMENT_BODY || '').trim().split('\n')[0];
+            const comment = comments.find(c => c.body.trim().startsWith(commentBody));
             if (comment) {
               await github.rest.reactions.createForIssueComment({
                 owner: context.repo.owner,
@@ -603,16 +615,19 @@ jobs:
         if: needs.deploy-app.result == 'success' && inputs.comment-body != ''
         continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_BODY: ${{ inputs.comment-body }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
         with:
           script: |
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ inputs.issue-number }},
+              issue_number: parseInt(process.env.ISSUE_NUMBER, 10),
               per_page: 5,
               direction: 'desc',
             });
-            const commentBody = '${{ inputs.comment-body }}'.trim().split('\n')[0];
+            const commentBody = (process.env.COMMENT_BODY || '').trim().split('\n')[0];
             const comment = comments.find(c => c.body.trim().startsWith(commentBody));
             if (comment) {
               await github.rest.reactions.createForIssueComment({
@@ -671,17 +686,21 @@ jobs:
         if: inputs.comment-body != ''
         continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_BODY: ${{ inputs.comment-body }}
+          ISSUE_NUMBER: ${{ inputs.issue-number }}
+          DESTROY_RESULT: ${{ needs.destroy-namespace.result }}
         with:
           script: |
-            const success = '${{ needs.destroy-namespace.result }}' === 'success';
+            const success = process.env.DESTROY_RESULT === 'success';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ inputs.issue-number }},
+              issue_number: parseInt(process.env.ISSUE_NUMBER, 10),
               per_page: 5,
               direction: 'desc',
             });
-            const commentBody = '${{ inputs.comment-body }}'.trim().split('\n')[0];
+            const commentBody = (process.env.COMMENT_BODY || '').trim().split('\n')[0];
             const comment = comments.find(c => c.body.trim().startsWith(commentBody));
             if (comment) {
               await github.rest.reactions.createForIssueComment({
