@@ -98,7 +98,7 @@ databases:
 
 **[Full Configuration Reference](./k8s-ee-config-reference.md)** - All available options with examples.
 
-> **On-demand mode:** To create environments only when needed (via `/deploy-preview` comment), add `trigger: on-demand` to your configuration. See Step 2 for the corresponding workflow file.
+> **On-demand mode:** To create environments only when needed (via `/deploy-preview` comment), just add `trigger: on-demand` to your `k8s-ee.yaml` — no workflow changes needed.
 
 ### Step 2: Add Workflow File
 
@@ -108,11 +108,13 @@ Create `.github/workflows/pr-environment.yml`:
 name: PR Environment
 
 on:
+  issue_comment:
+    types: [created]
   pull_request:
     types: [opened, reopened, synchronize, closed]
 
 concurrency:
-  group: pr-env-${{ github.event.pull_request.number }}
+  group: pr-env-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
 permissions:
@@ -123,78 +125,30 @@ permissions:
 
 jobs:
   pr-environment:
-    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
-    with:
-      pr-number: ${{ github.event.pull_request.number }}
-      pr-action: ${{ github.event.action }}
-      head-sha: ${{ github.event.pull_request.head.sha }}
-      head-ref: ${{ github.head_ref }}
-      repository: ${{ github.repository }}
-    secrets: inherit
-```
-
-#### On-Demand Workflow (Optional)
-
-If you set `trigger: on-demand` in your `k8s-ee.yaml`, use this workflow file instead:
-
-```yaml
-name: PR Environment (On-Demand)
-
-on:
-  issue_comment:
-    types: [created]
-  pull_request:
-    types: [synchronize, closed]
-
-concurrency:
-  group: deploy-preview-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-  packages: write
-  pull-requests: write
-  security-events: write
-
-jobs:
-  deploy-preview:
     if: |
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request &&
-      (startsWith(github.event.comment.body, '/deploy-preview') ||
-       startsWith(github.event.comment.body, '/destroy-preview'))
-    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/deploy-preview-reusable.yml@main
-    with:
-      comment-body: ${{ github.event.comment.body }}
-      comment-user: ${{ github.event.comment.user.login }}
-      issue-number: ${{ github.event.issue.number }}
-      repository: ${{ github.repository }}
-    secrets: inherit
-
-  auto-redeploy:
-    if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
-    uses: koder-cat/k8s-ephemeral-environments/.github/workflows/deploy-preview-reusable.yml@main
-    with:
-      pr-number: ${{ github.event.pull_request.number }}
-      pr-action: synchronize
-      head-sha: ${{ github.event.pull_request.head.sha }}
-      head-ref: ${{ github.head_ref }}
-      repository: ${{ github.repository }}
-    secrets: inherit
-
-  cleanup:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (startsWith(github.event.comment.body, '/deploy-preview') ||
+        startsWith(github.event.comment.body, '/destroy-preview')))
     uses: koder-cat/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
     with:
-      pr-number: ${{ github.event.pull_request.number }}
-      pr-action: closed
-      head-sha: ${{ github.event.pull_request.head.sha }}
-      head-ref: ${{ github.head_ref }}
+      pr-number: ${{ github.event.pull_request.number || 0 }}
+      pr-action: ${{ github.event.action || '' }}
+      head-sha: ${{ github.event.pull_request.head.sha || '' }}
+      head-ref: ${{ github.head_ref || '' }}
       repository: ${{ github.repository }}
+      comment-body: ${{ github.event.comment.body || '' }}
+      comment-id: ${{ github.event.comment.id || 0 }}
+      issue-number: ${{ github.event.issue.number || 0 }}
     secrets: inherit
 ```
 
-**Available commands:**
+This single workflow handles both **automatic** and **on-demand** trigger modes. The reusable workflow reads `trigger` from your `k8s-ee.yaml` and routes events accordingly.
+
+> **Note:** The `issue_comment` trigger causes workflow runs to appear in the Actions tab for all PR comments, but the `if:` filter ensures only `/deploy-preview` and `/destroy-preview` commands are actually processed.
+
+**On-demand commands** (when `trigger: on-demand` is set in `k8s-ee.yaml`):
 
 | Command | Action |
 |---------|--------|
@@ -261,16 +215,21 @@ Customize the reusable workflow with additional inputs:
 
 ```yaml
 with:
-  pr-number: ${{ github.event.pull_request.number }}
-  pr-action: ${{ github.event.action }}
-  head-sha: ${{ github.event.pull_request.head.sha }}
-  head-ref: ${{ github.head_ref }}
+  # Standard inputs (already in the template above)
+  pr-number: ${{ github.event.pull_request.number || 0 }}
+  pr-action: ${{ github.event.action || '' }}
+  head-sha: ${{ github.event.pull_request.head.sha || '' }}
+  head-ref: ${{ github.head_ref || '' }}
   repository: ${{ github.repository }}
+  comment-body: ${{ github.event.comment.body || '' }}
+  comment-id: ${{ github.event.comment.id || 0 }}
+  issue-number: ${{ github.event.issue.number || 0 }}
+  # Optional customization
   config-path: 'k8s-ee.yaml'              # Path to config file
   preview-domain: 'k8s-ee.genesluna.dev'  # Base domain for URLs
   chart-version: '1.1.0'                  # k8s-ee-app chart version
   platforms: 'linux/amd64'               # Build platform (default: linux/arm64)
-  k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee (default: koder-cat/k8s-ephemeral-environments)
+  k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee
 ```
 
 | Input | Default | Description |

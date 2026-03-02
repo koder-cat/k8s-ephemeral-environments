@@ -1,5 +1,6 @@
 # PR Environment Workflow - Dogfooding Edition
 #
+# Universal caller template that handles both automatic and on-demand trigger modes.
 # This workflow uses the reusable workflow from this same repository,
 # demonstrating how external repositories should integrate with k8s-ee.
 # Configuration is read from k8s-ee.yaml in the repository root.
@@ -10,15 +11,15 @@
 name: PR Environment
 
 on:
+  issue_comment:
+    types: [created]
   pull_request:
     types: [opened, reopened, synchronize, closed]
 
-# Prevent concurrent runs for the same PR
 concurrency:
-  group: pr-env-${{ github.event.pull_request.number }}
+  group: pr-env-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
-# Permissions required by the reusable workflow
 permissions:
   contents: read
   packages: write
@@ -27,12 +28,21 @@ permissions:
 
 jobs:
   pr-environment:
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (startsWith(github.event.comment.body, '/deploy-preview') ||
+        startsWith(github.event.comment.body, '/destroy-preview')))
     uses: ./.github/workflows/pr-environment-reusable.yml
     with:
-      pr-number: ${{ github.event.pull_request.number }}
-      pr-action: ${{ github.event.action }}
-      head-sha: ${{ github.event.pull_request.head.sha }}
-      head-ref: ${{ github.head_ref }}
+      pr-number: ${{ github.event.pull_request.number || 0 }}
+      pr-action: ${{ github.event.action || '' }}
+      head-sha: ${{ github.event.pull_request.head.sha || '' }}
+      head-ref: ${{ github.head_ref || '' }}
       repository: ${{ github.repository }}
-      k8s-ee-ref: ${{ github.base_ref }}
+      comment-body: ${{ github.event.comment.body || '' }}
+      comment-id: ${{ github.event.comment.id || 0 }}
+      issue-number: ${{ github.event.issue.number || 0 }}
+      k8s-ee-ref: ${{ github.base_ref || 'main' }}
     secrets: inherit
