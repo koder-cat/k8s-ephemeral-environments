@@ -9,20 +9,24 @@ on:
     inputs:
       pr-number:
         description: 'Pull request number'
-        required: true
+        required: false
         type: number
+        default: 0
       pr-action:
         description: 'PR event action (opened, reopened, synchronize, closed)'
-        required: true
+        required: false
         type: string
+        default: ''
       head-sha:
         description: 'Full commit SHA (40 characters)'
-        required: true
+        required: false
         type: string
+        default: ''
       head-ref:
         description: 'Branch name'
-        required: true
+        required: false
         type: string
+        default: ''
       repository:
         description: 'GitHub repository (owner/repo)'
         required: true
@@ -72,10 +76,25 @@ on:
         required: false
         type: string
         default: ''
+      comment-body:
+        description: 'Comment body text (for on-demand /deploy-preview commands)'
+        required: false
+        type: string
+        default: ''
+      comment-id:
+        description: 'Comment ID (for adding reactions)'
+        required: false
+        type: number
+        default: 0
+      issue-number:
+        description: 'Issue/PR number (for issue_comment events)'
+        required: false
+        type: number
+        default: 0
 
 # Prevent concurrent runs for the same PR
 concurrency:
-  group: pr-env-${{ inputs.repository }}-${{ inputs.pr-number }}
+  group: pr-env-${{ inputs.repository }}-${{ inputs.pr-number || inputs.issue-number }}
   cancel-in-progress: false
 
 # Checkout Strategy:
@@ -97,6 +116,7 @@ jobs:
 
     permissions:
       contents: read
+      pull-requests: read
 
     outputs:
       project-id: ${{ steps.validate.outputs.project-id }}
@@ -121,13 +141,64 @@ jobs:
       metrics-config: ${{ steps.validate.outputs.metrics-config }}
       k8s-ee-ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
       trigger: ${{ steps.validate.outputs.trigger }}
+      resolved-pr-number: ${{ steps.resolve-pr.outputs.pr-number }}
+      resolved-head-sha: ${{ steps.resolve-pr.outputs.head-sha }}
+      resolved-head-ref: ${{ steps.resolve-pr.outputs.head-ref }}
 
     steps:
+      - name: Resolve PR details
+        id: resolve-pr
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+          INPUT_HEAD_SHA: ${{ inputs.head-sha }}
+          INPUT_HEAD_REF: ${{ inputs.head-ref }}
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue-number }}
+          INPUT_REPOSITORY: ${{ inputs.repository }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.INPUT_PR_NUMBER, 10) || 0;
+            const issueNumber = parseInt(process.env.INPUT_ISSUE_NUMBER, 10) || 0;
+            const headSha = process.env.INPUT_HEAD_SHA || '';
+            const headRef = process.env.INPUT_HEAD_REF || '';
+
+            // For pull_request events, inputs are already populated
+            if (prNumber > 0 && headSha) {
+              core.setOutput('pr-number', String(prNumber));
+              core.setOutput('head-sha', headSha);
+              core.setOutput('head-ref', headRef);
+              core.info(`Using PR inputs: #${prNumber} @ ${headSha}`);
+              return;
+            }
+
+            // For issue_comment events, fetch PR details from API
+            if (issueNumber > 0) {
+              const [owner, repo] = process.env.INPUT_REPOSITORY.split('/');
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: issueNumber,
+              });
+
+              if (pr.state !== 'open') {
+                core.setFailed(`PR #${issueNumber} is not open (state: ${pr.state})`);
+                return;
+              }
+
+              core.setOutput('pr-number', String(pr.number));
+              core.setOutput('head-sha', pr.head.sha);
+              core.setOutput('head-ref', pr.head.ref);
+              core.info(`Resolved from API: PR #${pr.number} @ ${pr.head.sha}`);
+              return;
+            }
+
+            core.setFailed('No pr-number or issue-number provided');
+
       - name: Checkout calling repository
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.head-sha }}
+          ref: ${{ steps.resolve-pr.outputs.head-sha }}
 
       - name: Resolve k8s-ee ref
         id: resolve-k8s-ee-ref
@@ -170,20 +241,150 @@ jobs:
         uses: ./_k8s-ee/.github/actions/validate-config
         with:
           config-path: ${{ inputs.config-path }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ steps.resolve-pr.outputs.pr-number }}
           repository: ${{ inputs.repository }}
           preview-domain: ${{ inputs.preview-domain }}
 
   # ============================================================================
+  # RESOLVE ACTION
+  # Runs on: ubuntu-latest
+  # Purpose: Map (trigger mode, event context) to action
+  # ============================================================================
+  resolve-action:
+    name: Resolve Action
+    needs: validate-config
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    outputs:
+      action: ${{ steps.resolve.outputs.action }}
+
+    steps:
+      - name: Determine action from trigger mode and event
+        id: resolve
+        shell: bash
+        env:
+          TRIGGER: ${{ needs.validate-config.outputs.trigger }}
+          COMMENT_BODY: ${{ inputs.comment-body }}
+          PR_ACTION: ${{ inputs.pr-action }}
+        run: |
+          set -euo pipefail
+
+          TRIGGER="${TRIGGER:-automatic}"
+          ACTION="skip"
+
+          if [[ "${TRIGGER}" == "automatic" ]]; then
+            if [[ -n "${COMMENT_BODY}" ]]; then
+              # Comment events are ignored in automatic mode
+              ACTION="skip"
+            elif [[ "${PR_ACTION}" == "opened" || "${PR_ACTION}" == "reopened" ]]; then
+              ACTION="deploy"
+            elif [[ "${PR_ACTION}" == "synchronize" ]]; then
+              ACTION="deploy"
+            elif [[ "${PR_ACTION}" == "closed" ]]; then
+              ACTION="destroy"
+            fi
+          elif [[ "${TRIGGER}" == "on-demand" ]]; then
+            if [[ "${COMMENT_BODY}" == /deploy-preview* ]]; then
+              ACTION="deploy"
+            elif [[ "${COMMENT_BODY}" == /destroy-preview* ]]; then
+              ACTION="destroy"
+            elif [[ "${PR_ACTION}" == "opened" || "${PR_ACTION}" == "reopened" ]]; then
+              # PR open/reopen is ignored in on-demand mode
+              ACTION="skip"
+            elif [[ "${PR_ACTION}" == "synchronize" ]]; then
+              ACTION="check-redeploy"
+            elif [[ "${PR_ACTION}" == "closed" ]]; then
+              ACTION="destroy"
+            fi
+          else
+            echo "::error::Unknown trigger value: ${TRIGGER}"
+            exit 1
+          fi
+
+          echo "action=${ACTION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved action: ${ACTION} (trigger=${TRIGGER}, pr_action=${PR_ACTION}, comment=${COMMENT_BODY:+present})"
+
+      - name: Add eyes reaction to comment
+        if: steps.resolve.outputs.action != 'skip' && inputs.comment-id != 0
+        continue-on-error: true
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_ID: ${{ inputs.comment-id }}
+        with:
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            if (commentId > 0) {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                content: 'eyes',
+              });
+            }
+
+  # ============================================================================
+  # CHECK NAMESPACE
+  # Runs on: arc-runner-set (in-cluster, has kubectl access)
+  # Condition: action is check-redeploy (on-demand mode, push event)
+  # Depends on: validate-config, resolve-action
+  # ============================================================================
+  check-namespace:
+    name: Check Namespace Exists
+    if: needs.resolve-action.outputs.action == 'check-redeploy'
+    needs: [validate-config, resolve-action]
+    runs-on: arc-runner-set
+    timeout-minutes: 2
+
+    permissions:
+      contents: read
+
+    outputs:
+      exists: ${{ steps.check.outputs.exists }}
+
+    steps:
+      - name: Checkout k8s-ee for actions
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
+        with:
+          repository: ${{ inputs.k8s-ee-repo }}
+          ref: ${{ needs.validate-config.outputs.k8s-ee-ref }}
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          kubectl-version: ${{ inputs.kubectl-version }}
+          install-helm: 'false'
+
+      - name: Check if namespace exists
+        id: check
+        env:
+          NAMESPACE: ${{ needs.validate-config.outputs.namespace }}
+        run: |
+          set -euo pipefail
+          if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+            echo "Namespace $NAMESPACE exists, will redeploy"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Namespace $NAMESPACE does not exist, skipping redeploy"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ============================================================================
   # CREATE NAMESPACE
   # Runs on: arc-runner-set (in-cluster, has kubectl access)
-  # Condition: PR not closed
-  # Depends on: validate-config
+  # Condition: action is deploy or check-redeploy with existing namespace
+  # Depends on: validate-config, resolve-action, check-namespace
   # ============================================================================
   create-namespace:
     name: Create Namespace
-    if: inputs.pr-action != 'closed'
-    needs: validate-config
+    if: |
+      always() &&
+      needs.validate-config.result == 'success' &&
+      (needs.resolve-action.outputs.action == 'deploy' ||
+       (needs.resolve-action.outputs.action == 'check-redeploy' && needs.check-namespace.outputs.exists == 'true'))
+    needs: [validate-config, resolve-action, check-namespace]
     runs-on: arc-runner-set
     timeout-minutes: 5
 
@@ -215,9 +416,9 @@ jobs:
         with:
           namespace: ${{ needs.validate-config.outputs.namespace }}
           project-id: ${{ needs.validate-config.outputs.project-id }}
-          pr-number: ${{ inputs.pr-number }}
-          branch-name: ${{ inputs.head-ref }}
-          commit-sha: ${{ inputs.head-sha }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
           repository: ${{ inputs.repository }}
           k8s-api-ip: ${{ inputs.k8s-api-ip }}
           # Database flags for dynamic quota calculation
@@ -232,13 +433,17 @@ jobs:
   # ============================================================================
   # BUILD IMAGE
   # Runs on: ubuntu-latest (has Docker, GHCR access)
-  # Condition: PR not closed
-  # Depends on: validate-config (parallel with create-namespace)
+  # Condition: action is deploy or check-redeploy with existing namespace
+  # Depends on: validate-config, resolve-action, check-namespace
   # ============================================================================
   build-image:
     name: Build Image
-    if: inputs.pr-action != 'closed'
-    needs: validate-config
+    if: |
+      always() &&
+      needs.validate-config.result == 'success' &&
+      (needs.resolve-action.outputs.action == 'deploy' ||
+       (needs.resolve-action.outputs.action == 'check-redeploy' && needs.check-namespace.outputs.exists == 'true'))
+    needs: [validate-config, resolve-action, check-namespace]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -258,7 +463,7 @@ jobs:
         uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v4.3.1
         with:
           repository: ${{ inputs.repository }}
-          ref: ${{ inputs.head-sha }}
+          ref: ${{ needs.validate-config.outputs.resolved-head-sha }}
 
       # Second checkout: k8s-ee repo for action (to separate path)
       # Note: build-image only needs actions, not config (validation already complete)
@@ -278,20 +483,24 @@ jobs:
           context: ${{ needs.validate-config.outputs.image-context }}
           dockerfile: ${{ needs.validate-config.outputs.image-dockerfile }}
           image-name: ${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
-          pr-number: ${{ inputs.pr-number }}
-          commit-sha: ${{ inputs.head-sha }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           platforms: ${{ inputs.platforms }}
 
   # ============================================================================
   # DEPLOY APP
   # Runs on: arc-runner-set (in-cluster, has kubectl/helm access)
-  # Condition: PR not closed
+  # Condition: create-namespace and build-image succeeded
   # Depends on: validate-config, create-namespace, build-image
   # ============================================================================
   deploy-app:
     name: Deploy App
-    if: inputs.pr-action != 'closed'
+    if: |
+      always() &&
+      needs.validate-config.result == 'success' &&
+      needs.create-namespace.result == 'success' &&
+      needs.build-image.result == 'success'
     needs: [validate-config, create-namespace, build-image]
     runs-on: arc-runner-set
     timeout-minutes: 10
@@ -332,12 +541,12 @@ jobs:
         with:
           namespace: ${{ needs.validate-config.outputs.namespace }}
           project-id: ${{ needs.validate-config.outputs.project-id }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
           image-repository: ghcr.io/${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
           image-tag: ${{ needs.build-image.outputs.image-tag }}
           image-digest: ${{ needs.build-image.outputs.image-digest }}
-          commit-sha: ${{ inputs.head-sha }}
-          branch-name: ${{ inputs.head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           preview-domain: ${{ inputs.preview-domain }}
           chart-version: ${{ inputs.chart-version }}
           use-local-charts: 'true'  # Use local charts to test chart changes in PRs
@@ -360,13 +569,17 @@ jobs:
   # ============================================================================
   # PR COMMENT (DEPLOY)
   # Runs on: ubuntu-latest
-  # Condition: Always after deploy-app (success or failure)
+  # Condition: Always after deploy-app (success or failure), when action was deploy
   # Posts deployment status to PR
   # ============================================================================
   pr-comment-deploy:
     name: PR Comment (Deploy)
-    if: always() && inputs.pr-action != 'closed' && needs.validate-config.result == 'success'
-    needs: [validate-config, build-image, deploy-app]
+    if: |
+      always() &&
+      needs.validate-config.result == 'success' &&
+      (needs.resolve-action.outputs.action == 'deploy' ||
+       (needs.resolve-action.outputs.action == 'check-redeploy' && needs.check-namespace.outputs.exists == 'true'))
+    needs: [validate-config, resolve-action, check-namespace, build-image, deploy-app]
     runs-on: ubuntu-latest
     timeout-minutes: 2
 
@@ -389,10 +602,10 @@ jobs:
           status: deployed
           preview-url: ${{ needs.deploy-app.outputs.preview-url }}
           namespace: ${{ needs.validate-config.outputs.namespace }}
-          commit-sha: ${{ inputs.head-sha }}
-          branch-name: ${{ inputs.head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
 
       - name: Comment on PR (failure)
         if: needs.deploy-app.result != 'success'
@@ -400,21 +613,39 @@ jobs:
         with:
           status: failed
           namespace: ${{ needs.validate-config.outputs.namespace }}
-          commit-sha: ${{ inputs.head-sha }}
-          branch-name: ${{ inputs.head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+
+      - name: Add rocket reaction to comment
+        if: needs.deploy-app.result == 'success' && inputs.comment-id != 0
+        continue-on-error: true
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_ID: ${{ inputs.comment-id }}
+        with:
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            if (commentId > 0) {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                content: 'rocket',
+              });
+            }
 
   # ============================================================================
   # DESTROY NAMESPACE
   # Runs on: arc-runner-set (in-cluster, has kubectl access)
-  # Condition: PR closed
-  # Depends on: validate-config only
+  # Condition: action is destroy
+  # Depends on: validate-config, resolve-action
   # ============================================================================
   destroy-namespace:
     name: Destroy Namespace
-    if: inputs.pr-action == 'closed'
-    needs: validate-config
+    if: needs.resolve-action.outputs.action == 'destroy'
+    needs: [validate-config, resolve-action]
     runs-on: arc-runner-set
     timeout-minutes: 5
 
@@ -450,13 +681,13 @@ jobs:
   # ============================================================================
   # PR COMMENT (DESTROY)
   # Runs on: ubuntu-latest
-  # Condition: Always after destroy-namespace
+  # Condition: Always after destroy-namespace, when action was destroy
   # Posts destroy/preserved status to PR
   # ============================================================================
   pr-comment-destroy:
     name: PR Comment (Destroy)
-    if: always() && inputs.pr-action == 'closed' && needs.validate-config.result == 'success'
-    needs: [validate-config, destroy-namespace]
+    if: always() && needs.resolve-action.outputs.action == 'destroy' && needs.validate-config.result == 'success'
+    needs: [validate-config, resolve-action, destroy-namespace]
     runs-on: ubuntu-latest
     timeout-minutes: 2
 
@@ -478,10 +709,10 @@ jobs:
         with:
           status: destroyed
           namespace: ${{ needs.validate-config.outputs.namespace }}
-          commit-sha: ${{ inputs.head-sha }}
-          branch-name: ${{ inputs.head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
 
       - name: Comment on PR (preserved)
         if: needs.destroy-namespace.outputs.preserved == 'true'
@@ -489,7 +720,27 @@ jobs:
         with:
           status: preserved
           namespace: ${{ needs.validate-config.outputs.namespace }}
-          commit-sha: ${{ inputs.head-sha }}
-          branch-name: ${{ inputs.head-ref }}
+          commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
+          branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          pr-number: ${{ inputs.pr-number }}
+          pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+
+      - name: Add reaction to comment
+        if: inputs.comment-id != 0
+        continue-on-error: true
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          COMMENT_ID: ${{ inputs.comment-id }}
+          DESTROY_RESULT: ${{ needs.destroy-namespace.result }}
+        with:
+          script: |
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const success = process.env.DESTROY_RESULT === 'success';
+            if (commentId > 0) {
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                content: success ? '+1' : '-1',
+              });
+            }
