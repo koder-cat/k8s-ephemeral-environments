@@ -260,6 +260,12 @@
         }
       },
       "additionalProperties": false
+    },
+    "trigger": {
+      "type": "string",
+      "description": "Environment trigger mode: 'automatic' creates on every PR, 'on-demand' requires /deploy-preview comment",
+      "enum": ["automatic", "on-demand"],
+      "default": "automatic"
     }
   },
   "additionalProperties": false
