@@ -120,6 +120,7 @@ jobs:
       metrics-enabled: ${{ steps.validate.outputs.metrics-enabled }}
       metrics-config: ${{ steps.validate.outputs.metrics-config }}
       k8s-ee-ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
+      trigger: ${{ steps.validate.outputs.trigger }}
 
     steps:
       - name: Checkout calling repository
