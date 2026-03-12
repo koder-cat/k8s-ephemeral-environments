@@ -1,0 +1,50 @@
+# HelmChartConfig to customize Traefik in k3s
+# This enables ACME (Let's Encrypt) with DNS-01 challenge via AWS Route 53
+# Adapted from traefik-config.yaml (Cloudflare) for edgebr EC2 cluster
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    # Environment variables for AWS Route 53
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: route53-credentials
+            key: AWS_ACCESS_KEY_ID
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: route53-credentials
+            key: AWS_SECRET_ACCESS_KEY
+      - name: AWS_HOSTED_ZONE_ID
+        value: "Z03889642RN8D0YUHQ49W"
+      - name: AWS_REGION
+        value: "us-east-1"
+
+    # Bind ports 80/443 directly to host (servicelb is disabled)
+    ports:
+      web:
+        hostPort: 80
+      websecure:
+        hostPort: 443
+
+    # Persist ACME certificates
+    persistence:
+      enabled: true
+      size: 128Mi
+      path: /data
+
+    # Configure ACME certificate resolver via CLI arguments
+    additionalArguments:
+      - "--log.level=INFO"
+      # Let's Encrypt Production
+      - "--certificatesresolvers.letsencrypt-prod.acme.email=genes.luna@edge.ufal.br"
+      - "--certificatesresolvers.letsencrypt-prod.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.letsencrypt-prod.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge.provider=route53"
+      - "--certificatesresolvers.letsencrypt-prod.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53"

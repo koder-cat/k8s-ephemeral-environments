@@ -1,0 +1,11 @@
+githubConfigUrl: "https://github.com/edgebr"
+githubConfigSecret: github-app-secret-edgebr
+runnerScaleSetName: "arc-runner-set"
+minRunners: 0
+maxRunners: 3
+template:
+  spec:
+    serviceAccountName: arc-runner-sa
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-controller
