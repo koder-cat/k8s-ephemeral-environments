@@ -4,14 +4,12 @@
 
 Setting up a k3s cluster on EC2 (`ubuntu@13.58.99.235`) for the **edgebr** organization, following the edge organization guide (`docs/guides/configuracao-organizacao-edge.md` - Parte 2). This is the first external organization deployment of the k8s-ephemeral-environments platform.
 
-**Current EC2 state:** Ubuntu 24.04, x86_64, 4 vCPUs / 15GB RAM / 96GB disk. k3s v1.34.4 installed. Platform stack running (Steps 0-6 complete).
+**Current EC2 state:** Ubuntu 24.04, x86_64, 4 vCPUs / 15GB RAM / 96GB disk. k3s v1.34.4 installed. Platform stack running (Steps 0-8 complete). ARC runners registered. TLS + Grafana Ingress live at `https://grafana.k8s-ee.edge.net.br`.
 
 **Remaining blockers:**
-- GitHub App credentials (ARC) from edgebr DevOps — blocks Step 7
 - OAuth App credentials (Grafana) from edgebr DevOps — blocks Step 9
-- DNS wildcard + AWS IAM credentials for Route 53 — blocks Step 8
-- edgebr fork on GitHub — blocks Step 10
 - GITHUB_TOKEN for edgebr repos — blocks Step 11
+- Fork workflow adaptation (architecture `arm64` → `amd64`) — blocks end-to-end PR environments
 
 ## Plan
 
@@ -173,103 +171,39 @@ kubectl apply -f ~/k8s/platform/preserve-expiry/
 
 ## Blocked Steps
 
-### Step 7: ARC Runner Scale Set ⏳ (needs GitHub App credentials)
+### Step 7: ARC Runner Scale Set ✅
 
-When App ID, Installation ID, and .pem arrive from edgebr DevOps:
+**Completed 2026-03-12.** Runner scale set registered with GitHub for edgebr org.
 
-```bash
-# Create secret
-kubectl create secret generic github-app-secret-edgebr \
-  --namespace arc-runners \
-  --from-literal=github_app_id="APP_ID" \
-  --from-literal=github_app_installation_id="INSTALLATION_ID" \
-  --from-file=github_app_private_key=/tmp/edgebr-private-key.pem
+**Lessons learned during execution:**
+- GitHub App initially returned 403 "Resource not accessible by integration" — the **Organization: Self-hosted runners: Read and write** permission was set on the App but not yet **approved on the installation**. After approval, registration succeeded immediately.
 
-# Delete .pem immediately
-rm /tmp/edgebr-private-key.pem
-```
+**Files created:**
+- `k8s/arc/values-runner-set-edgebr.yaml` — Runner scale set config (org: edgebr, minRunners: 0, maxRunners: 3)
 
-Create `k8s/arc/values-runner-set-edgebr.yaml`:
+**Secrets created on cluster:**
+- `github-app-secret-edgebr` in `arc-runners` (App ID: 2999114, Installation ID: 113788735, private key)
 
-```yaml
-githubConfigUrl: "https://github.com/edgebr"
-githubConfigSecret: github-app-secret-edgebr
-runnerScaleSetName: "arc-runner-set"
-minRunners: 0
-maxRunners: 3
-template:
-  spec:
-    serviceAccountName: arc-runner-sa
-controllerServiceAccount:
-  namespace: arc-systems
-  name: arc-controller
-```
+**Helm release:** `arc-runner-set-edgebr` (chart: gha-runner-scale-set 0.13.1)
 
-```bash
-scp k8s/arc/values-runner-set-edgebr.yaml ubuntu@13.58.99.235:~/k8s/arc/
-ssh ubuntu@13.58.99.235
+**Verified:** Listener pod running in `arc-systems`, runner scale set registered with GitHub
 
-helm install arc-runner-set-edgebr \
-  --namespace arc-runners \
-  oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
-  -f ~/k8s/arc/values-runner-set-edgebr.yaml
-```
+### Step 8: TLS + Grafana Ingress ✅
 
-Verify: Runners visible at `https://github.com/organizations/edgebr/settings/actions/runners`
+**Completed 2026-03-12.** TLS via Route 53 DNS challenge + Grafana Ingress.
 
-### Step 8: TLS + Grafana Ingress ⏳ (needs DNS configured)
+**Lessons learned during execution:**
+- Route 53 provider requires `AWS_REGION` env var (set to `us-east-1`) — missing this caused `Invalid Configuration: Missing Region` error
+- k3s was installed with `--disable=servicelb`, so Traefik's LoadBalancer service stayed `<pending>` — fixed by adding `hostPort: 80/443` in the Traefik Helm values
 
-**TLS via AWS Route 53 DNS challenge:**
+**Files created:**
+- `k8s/traefik/traefik-config-edgebr.yaml` — HelmChartConfig with Route 53 provider, hostPort bindings
+- `k8s/observability/grafana-ingress-edgebr.yaml` — Grafana Ingress for `grafana.k8s-ee.edge.net.br`
 
-```bash
-kubectl create secret generic route53-credentials \
-  --namespace kube-system \
-  --from-literal=AWS_ACCESS_KEY_ID="<ACCESS_KEY>" \
-  --from-literal=AWS_SECRET_ACCESS_KEY="<SECRET_KEY>"
-```
+**Secrets created on cluster:**
+- `route53-credentials` in `kube-system` (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 
-Create adapted `k8s/traefik/traefik-config-edgebr.yaml` based on `k8s/traefik/traefik-config.yaml` with the `route53` resolver, Hosted Zone ID, and ACME email for edgebr.
-
-```bash
-kubectl apply -f ~/k8s/traefik/traefik-config-edgebr.yaml
-```
-
-**Grafana Ingress** - create `k8s/observability/grafana-ingress-edgebr.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: grafana
-  namespace: observability
-  labels:
-    app.kubernetes.io/name: grafana
-    app.kubernetes.io/component: observability
-  annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt-prod
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - grafana.k8s-ee.edge.net.br
-  rules:
-    - host: grafana.k8s-ee.edge.net.br
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: prometheus-grafana
-                port:
-                  number: 80
-```
-
-```bash
-kubectl apply -f ~/k8s/observability/grafana-ingress-edgebr.yaml
-```
+**Verified:** `curl -I https://grafana.k8s-ee.edge.net.br` → HTTP/2 302 with valid Let's Encrypt TLS
 
 ### Step 9: Grafana OAuth ⏳ (needs OAuth App credentials)
 
@@ -290,18 +224,14 @@ helm upgrade prometheus prometheus-community/kube-prometheus-stack \
 
 Where `values-edgebr-with-oauth.yaml` is the same overlay but with `envFromSecret: "grafana-oauth-secrets"` instead of `null`.
 
-### Step 10: KUBECONFIG for GitHub Actions ⏳ (needs edgebr fork)
+### Step 10: KUBECONFIG for GitHub Actions ✅
 
-After k3s is installed, the edgebr fork needs a `KUBECONFIG` secret for GitHub Actions:
+**Completed 2026-03-12.** KUBECONFIG secret set on `edgebr/k8s-ephemeral-environments` via `gh secret set`.
 
-```bash
-# On EC2: extract kubeconfig and replace localhost with public IP
-sudo cat /etc/rancher/k3s/k3s.yaml | sed 's/127.0.0.1/13.58.99.235/' > /tmp/kubeconfig-edgebr.yaml
-cat /tmp/kubeconfig-edgebr.yaml
-rm /tmp/kubeconfig-edgebr.yaml
-```
-
-Add the output as a repository/organization secret `KUBECONFIG` in the edgebr fork on GitHub.
+**Lessons learned during execution:**
+- KUBECONFIG uses the **internal IP** (`192.168.23.55`) instead of the public IP (`13.58.99.235`), because ARC runners run inside the cluster and can't reach the k3s API via the public IP (EC2 security group blocks port 6443 / hairpin NAT issue).
+- Test PR verified: ARC runner spun up, kubectl connected, listed nodes and namespaces successfully.
+- The fork's existing workflows (`PR Environment`) fail with `Exec format error` because `.github/actions/setup-tools` defaults to `architecture: arm64` (original VPS). **Fork workflows must be adapted to use `architecture: amd64` for the EC2 cluster.**
 
 ### Step 11: Cleanup Job ⏳ (needs GITHUB_TOKEN)
 
