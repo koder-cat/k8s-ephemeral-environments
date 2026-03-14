@@ -13,7 +13,7 @@ The k8s-ephemeral-environments platform is built around GitHub Actions for PR li
 - PR webhooks for lifecycle events (open, sync, close)
 - GitHub API for bot comments with preview URLs
 - Organization allowlist validation
-- GHCR (GitHub Container Registry) for container images
+- Container registry for images (GHCR by default, or ECR for private repos)
 
 If your code is hosted elsewhere (GitLab, Bitbucket, etc.), see [Mirror to GitHub](#mirror-to-github-gitlabbitbucket-repos) for a workaround.
 

@@ -29,15 +29,17 @@ The ARC (Actions Runner Controller) GitHub App must be installed on your organiz
 
 > **Note:** Contact the platform administrator if your organization doesn't have the GitHub App installed.
 
-### 3. Organization Package Settings
+### 3. Organization Package Settings (GHCR only)
 
-Your organization must allow public container packages.
+If using the default GHCR registry, your organization must allow public container packages.
 
 | Setting | Location | Value |
 |---------|----------|-------|
 | **Package visibility** | `https://github.com/organizations/{your-org}/settings/packages` | Enable "Allow members to change container package visibility to public" |
 
-Without this setting, deployments fail with `403 Forbidden` when pulling images.
+Without this setting, GHCR deployments fail with `403 Forbidden` when pulling images.
+
+> **Note:** This requirement does not apply when using ECR (`registry-type: ecr`). ECR uses image pull secrets for authentication.
 
 ### 4. Runner Group Settings (Public Repos)
 
@@ -49,7 +51,9 @@ If using public repositories, the runner group must allow them.
 
 ### 5. Repository Visibility
 
-> **Important:** Currently, only **public repositories** are supported. Private repositories are not supported because container images are made public for Kubernetes to pull without authentication.
+**Public repositories** work out of the box with GHCR (the default registry).
+
+**Private repositories** are supported when using ECR (`registry-type: ecr`). ECR authenticates image pulls via a Kubernetes pull secret, so images don't need to be public. See [ECR Registry Setup](#ecr-registry-setup-private-repos) for configuration.
 
 ---
 
@@ -72,10 +76,14 @@ The platform uses the following authentication:
 
 | Token/Secret | Purpose | Scope | Managed By |
 |--------------|---------|-------|------------|
-| `GITHUB_TOKEN` | Build/push images, post PR comments | Automatic (workflow) | GitHub Actions |
+| `GITHUB_TOKEN` | Build/push images to GHCR, post PR comments | Automatic (workflow) | GitHub Actions |
 | `github-app-secret` | ARC runner authentication | Kubernetes cluster | Platform admin |
+| `ECR_AWS_ACCESS_KEY_ID` | ECR registry authentication (ECR only) | Org secret | Org admin |
+| `ECR_AWS_SECRET_ACCESS_KEY` | ECR registry authentication (ECR only) | Org secret | Org admin |
 
-**No additional secrets are required from onboarding organizations.** The `secrets: inherit` in the workflow file passes the automatic `GITHUB_TOKEN` to the reusable workflow.
+**For GHCR (default):** No additional secrets are required. The `secrets: inherit` in the workflow passes the automatic `GITHUB_TOKEN`.
+
+**For ECR:** The org secrets `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` must be configured. These are passed automatically via `secrets: inherit`.
 
 ## Fork / Multi-Cluster Setup
 
@@ -88,6 +96,8 @@ If you're running your own k8s-ee cluster (not the upstream koder-cat instance),
 | `ORG_NAME` | `koder-cat` | GitHub organization name (used in CLA, issue URLs) |
 
 Set them at **Settings → Secrets and variables → Actions → Variables → New repository variable**.
+
+For ECR registry support, additional configuration is passed as workflow inputs — see [ECR Registry Setup](#ecr-registry-setup-private-repos).
 
 ---
 
@@ -183,7 +193,7 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 
 1. Configuration validated against schema
 2. Namespace created: `{projectId}-pr-{number}`
-3. Container image built for cluster architecture and pushed to GHCR
+3. Container image built for cluster architecture and pushed to registry (GHCR or ECR)
 4. Application deployed with Helm
 5. Preview URL posted as PR comment: `https://{projectId}-pr-{number}.{DOMAIN}`
 6. On PR close: namespace automatically destroyed
@@ -194,10 +204,10 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 
 | Requirement | Description |
 |-------------|-------------|
-| **Public repository** | Private repositories are not currently supported |
+| **Public repository** | Or private with ECR (`registry-type: ecr`) |
 | **Dockerfile** | Build your application as a container |
 | **Health endpoint** | Returns 200 for Kubernetes probes (default: `/health`) |
-| **Package permissions** | GHCR write access (automatic for same org) |
+| **Package permissions** | GHCR write access (automatic) or ECR credentials (org secrets) |
 | **Architecture compatible** | Base images must support the cluster architecture (default: `linux/arm64`, configurable via `ARCHITECTURE` variable) |
 
 ---
@@ -245,6 +255,8 @@ with:
   platforms: 'linux/amd64'               # Build platform (default: linux/arm64)
   architecture: 'amd64'                  # Tool download architecture (default: arm64)
   k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee
+  registry-type: 'ecr'                  # Use ECR instead of GHCR (default: 'ghcr')
+  ecr-region: 'us-east-2'              # AWS region for ECR (required when registry-type is ecr)
 ```
 
 | Input | Default | Description |
@@ -252,8 +264,10 @@ with:
 | `platforms` | `linux/arm64` | Target architecture for the Docker build. Change to `linux/amd64` if your cluster runs x86_64 nodes. |
 | `architecture` | `arm64` | Target architecture for tool downloads (kubectl, Helm, Trivy). Must match `platforms`. |
 | `k8s-ee-repo` | `koder-cat/k8s-ephemeral-environments` | Repository that provides the reusable actions and Helm charts. Override when running a fork of k8s-ee. |
+| `registry-type` | `ghcr` | Container registry: `ghcr` (GitHub Container Registry) or `ecr` (AWS ECR). |
+| `ecr-region` | _(none)_ | AWS region for ECR (required when `registry-type` is `ecr`). |
 
-> **Private images:** The deploy step automatically creates an `imagePullSecrets` entry so Kubernetes can pull from GHCR. No manual secret configuration is required.
+> **Private images:** The deploy step automatically creates an `imagePullSecrets` entry so Kubernetes can pull from the configured registry (GHCR or ECR). No manual secret configuration is required beyond org-level secrets.
 
 ### Version Pinning
 
@@ -300,7 +314,7 @@ Individual containers: max 512Mi memory, 500m CPU. See [Resource Requirements](.
 - Check base image supports ARM64
 - Verify all dependencies are included
 
-### Image pull failed (403 Forbidden)
+### Image pull failed (403 Forbidden) — GHCR
 
 Container images are automatically set to public by the build step. If you see 403 errors:
 
@@ -311,6 +325,14 @@ Container images are automatically set to public by the build step. If you see 4
 **First-time deployment:** The first PR for a new repository creates a new GHCR package. If the org setting wasn't enabled before the first build, you may need to manually make the package public:
 1. Go to `https://github.com/orgs/{org}/packages/container/package/{repo}%2F{app}`
 2. Click "Package settings" → "Change package visibility" → "Public"
+
+### Image pull failed — ECR
+
+If using `registry-type: ecr` and image pulls fail:
+
+1. **Check org secrets:** Ensure `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` are set as org secrets
+2. **Check IAM permissions:** The IAM user needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`, `ecr:CreateRepository`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutLifecyclePolicy`
+3. **Check region:** Ensure `ecr-region` in the workflow matches the region where the ECR repository should exist
 
 ### Deployment failed
 
@@ -347,6 +369,43 @@ For production applications with evolving schemas, use database migrations inste
 - Check ServiceMonitor exists: `kubectl get servicemonitor -n {namespace}`
 - Verify your app exposes a `/metrics` endpoint (or custom path via `app.metricsPath`)
 - The ServiceMonitor automatically adds a `namespace` label for Grafana filtering
+
+---
+
+## ECR Registry Setup (Private Repos)
+
+For private repositories that cannot use GHCR, the platform supports AWS ECR as an alternative container registry.
+
+### 1. Configure Org Secrets
+
+Set these as **organization secrets** (not repo secrets) so all repositories in the org can use them:
+
+| Secret | Description |
+|--------|-------------|
+| `ECR_AWS_ACCESS_KEY_ID` | AWS IAM access key with ECR permissions |
+| `ECR_AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
+
+### 2. Add Workflow Inputs
+
+Add `registry-type` and `ecr-region` to your calling workflow:
+
+```yaml
+uses: your-org/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+with:
+  # ... standard inputs ...
+  registry-type: 'ecr'
+  ecr-region: 'us-east-2'   # Your AWS region
+secrets: inherit             # Passes ECR_AWS_* org secrets
+```
+
+### 3. How It Works
+
+- The `build-image` action automatically creates the ECR repository on first push
+- Images are pushed to `<account-id>.dkr.ecr.<region>.amazonaws.com/<org>/<repo>/<project-id>`
+- The `deploy-app` action creates a Kubernetes `ecr-pull-secret` for authenticated image pulls
+- Untagged images are automatically expired after 7 days via ECR lifecycle policy
+
+No GHCR package visibility settings are needed — ECR handles authentication via IAM credentials.
 
 ---
 
