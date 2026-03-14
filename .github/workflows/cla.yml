@@ -40,10 +40,10 @@ jobs:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_TOKEN }}
         with:
           path-to-signatures: 'signatures/cla.json'
-          path-to-document: 'https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/CLA.md'
+          path-to-document: 'https://github.com/${{ vars.ORG_NAME || 'koder-cat' }}/k8s-ephemeral-environments/blob/main/CLA.md'
           branch: 'main'
           allowlist: 'bot*,dependabot*,dependabot[bot],github-actions[bot],renovate[bot]'
-          remote-organization-name: koder-cat
+          remote-organization-name: ${{ vars.ORG_NAME || 'koder-cat' }}
           remote-repository-name: k8s-ephemeral-environments
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can merge this PR, you need to sign our Contributor License Agreement (CLA).
@@ -57,6 +57,6 @@ jobs:
 
             **Why a CLA?** This project uses dual licensing (AGPL-3.0 + Commercial). The CLA ensures we can maintain both licensing options. You retain all rights to your contributions.
 
-            Read the full [CLA](https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/CLA.md) | [Licensing FAQ](https://github.com/koder-cat/k8s-ephemeral-environments/blob/main/LICENSE-FAQ.md)
+            Read the full [CLA](https://github.com/${{ vars.ORG_NAME || 'koder-cat' }}/k8s-ephemeral-environments/blob/main/CLA.md) | [Licensing FAQ](https://github.com/${{ vars.ORG_NAME || 'koder-cat' }}/k8s-ephemeral-environments/blob/main/LICENSE-FAQ.md)
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           lock-pullrequest-aftermerge: false

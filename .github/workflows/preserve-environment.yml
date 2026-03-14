@@ -61,10 +61,11 @@ jobs:
           set -euo pipefail
 
           # Install kubectl with SHA256 verification
+          ARCH="${{ vars.ARCHITECTURE || 'arm64' }}"
           curl --connect-timeout 10 --max-time 60 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl"
+            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/${ARCH}/kubectl"
           curl --connect-timeout 10 --max-time 30 -fLO \
-            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/arm64/kubectl.sha256"
+            "https://dl.k8s.io/release/${{ env.KUBECTL_VERSION }}/bin/linux/${ARCH}/kubectl.sha256"
           echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check --strict
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/

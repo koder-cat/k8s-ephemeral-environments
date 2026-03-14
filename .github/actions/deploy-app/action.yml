@@ -290,7 +290,7 @@ runs:
         # Now update each repository line that follows a specific name line
         # This uses sed with hold space to match and replace the repository line after each name
         for chart in postgresql mongodb redis minio mariadb; do
-          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/koder-cat/k8s-ephemeral-environments/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
+          sed -i "/name: ${chart}$/,/repository:/{s|repository: \"oci://ghcr.io/[^\"]*/charts\"|repository: \"file://../${chart}\"|}" Chart.yaml
         done
 
         # Remove Chart.lock to avoid sync issues (will be regenerated)

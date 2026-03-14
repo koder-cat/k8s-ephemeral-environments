@@ -77,6 +77,20 @@ The platform uses the following authentication:
 
 **No additional secrets are required from onboarding organizations.** The `secrets: inherit` in the workflow file passes the automatic `GITHUB_TOKEN` to the reusable workflow.
 
+## Fork / Multi-Cluster Setup
+
+If you're running your own k8s-ee cluster (not the upstream koder-cat instance), set these 3 **repository variables** on the fork. No file changes needed — all workflows read these variables with sensible defaults.
+
+| Variable | Default (koder-cat) | Description |
+|----------|---------------------|-------------|
+| `ARCHITECTURE` | `arm64` | Target architecture for tool/image builds (`arm64` or `amd64`) |
+| `DOMAIN` | `k8s-ee.genesluna.dev` | Base domain for preview URLs |
+| `ORG_NAME` | `koder-cat` | GitHub organization name (used in CLA, issue URLs) |
+
+Set them at **Settings → Secrets and variables → Actions → Variables → New repository variable**.
+
+---
+
 ## Quick Start
 
 ### Step 1: Create Configuration File
@@ -159,7 +173,7 @@ After the first `/deploy-preview`, subsequent pushes to the PR automatically red
 
 ### Step 3: Have a Dockerfile
 
-Your repository needs a Dockerfile at the root (or configured path). The platform builds ARM64 images automatically.
+Your repository needs a Dockerfile at the root (or configured path). The platform builds images for the target architecture automatically (ARM64 by default, configurable via the `ARCHITECTURE` repository variable).
 
 **That's it!** Open a PR and get a preview URL within minutes.
 
@@ -169,9 +183,9 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 
 1. Configuration validated against schema
 2. Namespace created: `{projectId}-pr-{number}`
-3. ARM64 image built and pushed to GHCR
+3. Container image built for cluster architecture and pushed to GHCR
 4. Application deployed with Helm
-5. Preview URL posted as PR comment: `https://{projectId}-pr-{number}.k8s-ee.genesluna.dev`
+5. Preview URL posted as PR comment: `https://{projectId}-pr-{number}.{DOMAIN}`
 6. On PR close: namespace automatically destroyed
 
 ---
@@ -184,7 +198,7 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 | **Dockerfile** | Build your application as a container |
 | **Health endpoint** | Returns 200 for Kubernetes probes (default: `/health`) |
 | **Package permissions** | GHCR write access (automatic for same org) |
-| **ARM64 compatible** | Base images must support `linux/arm64` |
+| **Architecture compatible** | Base images must support the cluster architecture (default: `linux/arm64`, configurable via `ARCHITECTURE` variable) |
 
 ---
 
@@ -229,12 +243,14 @@ with:
   preview-domain: 'k8s-ee.genesluna.dev'  # Base domain for URLs
   chart-version: '1.1.0'                  # k8s-ee-app chart version
   platforms: 'linux/amd64'               # Build platform (default: linux/arm64)
+  architecture: 'amd64'                  # Tool download architecture (default: arm64)
   k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee
 ```
 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `platforms` | `linux/arm64` | Target architecture for the Docker build. Change to `linux/amd64` if your cluster runs x86_64 nodes. |
+| `architecture` | `arm64` | Target architecture for tool downloads (kubectl, Helm, Trivy). Must match `platforms`. |
 | `k8s-ee-repo` | `koder-cat/k8s-ephemeral-environments` | Repository that provides the reusable actions and Helm charts. Override when running a fork of k8s-ee. |
 
 > **Private images:** The deploy step automatically creates an `imagePullSecrets` entry so Kubernetes can pull from GHCR. No manual secret configuration is required.

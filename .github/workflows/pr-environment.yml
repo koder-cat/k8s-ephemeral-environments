@@ -45,4 +45,8 @@ jobs:
       comment-id: ${{ github.event.comment.id || 0 }}
       issue-number: ${{ github.event.issue.number || 0 }}
       k8s-ee-ref: ${{ github.base_ref || 'main' }}
+      preview-domain: ${{ vars.DOMAIN || 'k8s-ee.genesluna.dev' }}
+      platforms: linux/${{ vars.ARCHITECTURE || 'arm64' }}
+      k8s-ee-repo: ${{ vars.ORG_NAME || 'koder-cat' }}/k8s-ephemeral-environments
+      architecture: ${{ vars.ARCHITECTURE || 'arm64' }}
     secrets: inherit

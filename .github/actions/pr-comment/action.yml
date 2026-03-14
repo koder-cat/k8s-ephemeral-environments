@@ -40,6 +40,10 @@ inputs:
     description: 'Grafana dashboard URL (optional, auto-generated if not provided)'
     required: false
     default: ''
+  preview-domain:
+    description: 'Base domain for preview URLs (used to construct Grafana URL)'
+    required: false
+    default: 'k8s-ee.genesluna.dev'
 
 outputs:
   comment-id:
@@ -97,6 +101,7 @@ runs:
         RUN_URL: ${{ inputs.run-url }}
         MERGED: ${{ inputs.merged }}
         GRAFANA_URL: ${{ inputs.grafana-url }}
+        PREVIEW_DOMAIN: ${{ inputs.preview-domain }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
@@ -110,7 +115,7 @@ runs:
           const prNumber = parseInt(process.env.PR_NUMBER, 10);
           const runUrl = process.env.RUN_URL || `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
           const merged = process.env.MERGED === 'true';
-          const grafanaUrl = process.env.GRAFANA_URL || `https://grafana.k8s-ee.genesluna.dev/d/pr-environment-overview?var-namespace=${namespace}`;
+          const grafanaUrl = `https://grafana.${process.env.PREVIEW_DOMAIN}/d/pr-environment-overview?var-namespace=${namespace}`;
 
           let body;
 

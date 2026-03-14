@@ -66,6 +66,11 @@ on:
         required: false
         type: string
         default: 'linux/arm64'
+      architecture:
+        description: 'Target architecture for tool downloads (e.g., arm64, amd64)'
+        required: false
+        type: string
+        default: 'arm64'
       k8s-ee-repo:
         description: 'Repository containing k8s-ee reusable actions and Helm charts (change this default in forks)'
         required: false
@@ -356,6 +361,7 @@ jobs:
         with:
           kubectl-version: ${{ inputs.kubectl-version }}
           install-helm: 'false'
+          architecture: ${{ inputs.architecture }}
 
       - name: Check if namespace exists
         id: check
@@ -409,6 +415,7 @@ jobs:
         with:
           kubectl-version: ${{ inputs.kubectl-version }}
           install-helm: 'false'
+          architecture: ${{ inputs.architecture }}
 
       - name: Create namespace
         id: create
@@ -534,6 +541,7 @@ jobs:
         with:
           kubectl-version: ${{ inputs.kubectl-version }}
           helm-version: ${{ inputs.helm-version }}
+          architecture: ${{ inputs.architecture }}
 
       - name: Deploy application
         id: deploy
@@ -606,6 +614,7 @@ jobs:
           branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          preview-domain: ${{ inputs.preview-domain }}
 
       - name: Comment on PR (failure)
         if: needs.deploy-app.result != 'success'
@@ -617,6 +626,7 @@ jobs:
           branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          preview-domain: ${{ inputs.preview-domain }}
 
       - name: Add rocket reaction to comment
         if: needs.deploy-app.result == 'success' && inputs.comment-id != 0
@@ -670,6 +680,7 @@ jobs:
         with:
           kubectl-version: ${{ inputs.kubectl-version }}
           install-helm: 'false'
+          architecture: ${{ inputs.architecture }}
 
       - name: Destroy namespace
         id: destroy
@@ -713,6 +724,7 @@ jobs:
           branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          preview-domain: ${{ inputs.preview-domain }}
 
       - name: Comment on PR (preserved)
         if: needs.destroy-namespace.outputs.preserved == 'true'
@@ -724,6 +736,7 @@ jobs:
           branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
+          preview-domain: ${{ inputs.preview-domain }}
 
       - name: Add reaction to comment
         if: inputs.comment-id != 0
