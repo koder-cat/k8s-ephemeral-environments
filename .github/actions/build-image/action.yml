@@ -241,17 +241,18 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.github-token }}
 
+    - name: Configure AWS credentials for ECR
+      if: inputs.registry-type == 'ecr'
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      with:
+        aws-access-key-id: ${{ inputs.ecr-aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.ecr-aws-secret-access-key }}
+        aws-region: ${{ inputs.ecr-region }}
+
     - name: Log in to ECR
       if: inputs.registry-type == 'ecr'
-      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-      with:
-        registry: ${{ steps.resolve-registry.outputs.url }}
-        username: AWS
-        password: ${{ steps.resolve-registry.outputs.password }}
-      env:
-        AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
-        AWS_REGION: ${{ inputs.ecr-region }}
+      id: ecr-login
+      uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
 
     - name: Extract metadata
       id: meta
