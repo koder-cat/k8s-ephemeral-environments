@@ -46,17 +46,29 @@ Plans:
 - [x] 01-02: x86 architecture support (X86-01 done via input, X86-02 N/A, X86-03 done via input)
 
 ### Phase 2: ECR Registry Integration
-**Goal**: GitHub Actions can push images to AWS ECR using OIDC authentication
+**Goal**: `build-image` and `deploy-app` actions support ECR as an alternative to GHCR, selected by repo variable
 **Depends on**: Phase 1 (x86 images must be buildable)
 **Requirements**: ECR-01, ECR-02, ECR-03
+**Design**: Registry-agnostic — same code supports both GHCR and ECR. Selected via `REGISTRY` repo variable (default: `ghcr`). Fully compatible with upstream, no sync conflicts. Same pattern as `ARCHITECTURE`/`DOMAIN`/`ORG_NAME`.
+
+**Updated approach**: Use existing org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`) instead of OIDC. Simpler, already configured on fork.
+
 **Success Criteria** (what must be TRUE):
-  1. build-image action successfully pushes to ECR with OIDC authentication
-  2. No long-lived AWS credentials stored in GitHub secrets
-  3. PR environments can pull images from ECR without imagePullSecrets
-**Plans**: TBD
+  1. `build-image` action pushes to ECR when `REGISTRY=ecr` (conditional login via `aws ecr get-login-password`)
+  2. `build-image` action still pushes to GHCR when `REGISTRY=ghcr` (default, no behavior change)
+  3. `deploy-app` action creates `imagePullSecret` for ECR when needed
+  4. Fork repo variables: `REGISTRY=ecr`, `ECR_REGION=<region>`
+  5. ECR repository created for pilot project
+
+**Fork repo variables** (in addition to existing ARCHITECTURE/DOMAIN/ORG_NAME):
+
+| Variable | Default (upstream) | Fork value |
+|----------|-------------------|------------|
+| `REGISTRY` | `ghcr` | `ecr` |
+| `ECR_REGION` | _(unused)_ | e.g., `us-east-2` |
 
 Plans:
-- [ ] 02-01: ECR integration (ECR-01, ECR-02, ECR-03)
+- [ ] 02-01: Registry-agnostic build-image + deploy-app (ECR-01, ECR-02, ECR-03)
 
 ### Phase 3: Infrastructure Setup ✅
 **Goal**: Edge organization infrastructure is operational with all platform components

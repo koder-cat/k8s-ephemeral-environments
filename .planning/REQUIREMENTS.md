@@ -19,11 +19,11 @@ Platform adaptation for x86/AWS/ECR and infrastructure deployment.
 - [~] **X86-02**: ~~All Helm chart templates include `nodeSelector: kubernetes.io/arch: amd64`~~ _(not needed: EC2 cluster is single-architecture x86_64, no mixed-arch scheduling risk)_
 - [x] **X86-03**: Tool binaries (kubectl, helm) support amd64 _(configurable via `architecture` workflow input; upstream defaults to arm64, forks override via repo variable `ARCHITECTURE=amd64`)_
 
-### ECR Registry Integration
+### ECR Registry Integration (registry-agnostic approach)
 
-- [ ] **ECR-01**: build-image action supports AWS ECR push (conditional authentication)
-- [ ] **ECR-02**: OIDC configured for GitHub Actions → AWS authentication (IAM role + trust policy)
-- [ ] **ECR-03**: Workflow handles ECR registry type with proper login and push commands
+- [ ] **ECR-01**: `build-image` action supports both GHCR and ECR, selected by `REGISTRY` repo variable (default: `ghcr`)
+- [ ] **ECR-02**: ~~OIDC configured~~ → Use existing org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`) for ECR authentication
+- [ ] **ECR-03**: `deploy-app` action creates `imagePullSecret` for ECR when `REGISTRY=ecr`
 
 ### Infrastructure Setup
 
