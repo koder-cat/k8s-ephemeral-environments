@@ -5,7 +5,11 @@
 
 ## Completed Steps
 
-_(none yet)_
+- [x] **Step 1:** Create branch (`feat/k8s-ee-integration` from `gd-sprint-17`) ✓
+- [x] **Step 2:** AUTH_BYPASS_LDAP — bypass logic + 9 unit tests (added NODE_ENV production guard) ✓
+- [x] **Step 3:** Express static file serving — SPA fallback middleware + 11 unit tests ✓
+- [x] **Step 4:** Dockerfile.k8s-ee + entrypoint + .dockerignore update ✓
+- [x] **Steps 5-7:** k8s-ee.yaml + workflow ✓
 
 ## In Progress
 
@@ -13,22 +17,17 @@ _(none)_
 
 ## Pending (no external blockers)
 
-- [ ] **Step 1:** Create branch (`feat/k8s-ee-integration` from `gd-sprint-17`)
-- [ ] **Step 2:** AUTH_BYPASS_LDAP — bypass logic + 8 unit tests
-- [ ] **Step 3:** Express static file serving — SPA fallback middleware + 9 unit tests
-- [ ] **Step 4:** Dockerfile.k8s-ee + entrypoint + .dockerignore update
-- [ ] **Step 5:** k8s-ee.yaml platform configuration
-- [ ] **Step 6:** GitHub Actions workflow (pr-environment.yml)
-- [ ] **Step 7:** Update .dockerignore (included in Step 4 commit)
+_(none — all steps complete)_
 
 ## Commits
 
 | # | Message | Status |
 |---|---------|--------|
-| 1 | `feat(auth): add AUTH_BYPASS_LDAP for ephemeral environments` | Pending |
-| 2 | `feat(backend): add static file serving for combined image mode` | Pending |
-| 3 | `feat(docker): add Dockerfile.k8s-ee and entrypoint` | Pending |
-| 4 | `feat: add k8s-ee platform configuration and workflow` | Pending |
+| 1 | `feat(auth): add AUTH_BYPASS_LDAP for ephemeral environments` | ✅ Done (00e16287e) |
+| 2 | `feat(backend): add static file serving for combined image mode` | ✅ Done (60c21ca65) |
+| 3 | `feat(docker): add Dockerfile.k8s-ee and entrypoint` | ✅ Done (e1bfcc95b) |
+| 4 | `feat: add k8s-ee platform configuration and workflow` | ✅ Done (ee5dc3d48) |
+| 5 | `fix(config): use NODE_ENV=staging to avoid AUTH_BYPASS_LDAP conflict` | ✅ Done (43a5d6770) |
 
 ## Verification Checklist
 
