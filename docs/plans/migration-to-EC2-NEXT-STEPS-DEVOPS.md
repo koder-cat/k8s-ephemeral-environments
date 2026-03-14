@@ -55,12 +55,21 @@ Verificar que repositórios privados podem usar os self-hosted runners.
 
 ---
 
-### 9. Repositório ECR para o piloto
+### ~~9. Repositório ECR para o piloto~~ — Não necessário
 
-Criar repositório ECR para as imagens do piloto.
+~~Criar repositório ECR para as imagens do piloto.~~
 
-**O que fazer:** Criar o repositório `edgebr/htm-gestor-documentos` no AWS ECR (mesma região do EC2)
-**Por quê:** O repositório `edgebr/htm-gestor-documentos` é privado. As imagens serão publicadas no ECR usando as credenciais já configuradas (`ECR_AWS_ACCESS_KEY_ID` / `ECR_AWS_SECRET_ACCESS_KEY`).
+Não é mais necessário — o workflow cria o repositório ECR automaticamente no primeiro push.
+
+---
+
+### 10. Acesso dos secrets ECR ao repositório do fork
+
+Os org secrets `ECR_AWS_ACCESS_KEY_ID` e `ECR_AWS_SECRET_ACCESS_KEY` precisam estar acessíveis ao repositório `edgebr/k8s-ephemeral-environments`.
+
+**Onde:** `https://github.com/organizations/edgebr/settings/secrets/actions`
+**O que fazer:** Clicar em cada secret (`ECR_AWS_ACCESS_KEY_ID` e `ECR_AWS_SECRET_ACCESS_KEY`) e verificar a seção "Repository access". Se estiver como "Selected repositories", adicionar `edgebr/k8s-ephemeral-environments` à lista.
+**Por quê:** Ao rodar o workflow de PR environment no fork, o erro retornado é "The security token included in the request is invalid", o que indica que os secrets não estão acessíveis a este repositório. Os mesmos secrets funcionam em outros projetos da organização.
 
 ---
 
@@ -76,4 +85,5 @@ Criar repositório ECR para as imagens do piloto.
 | 6 | ~~Token de limpeza~~ | ~~PAT com leitura de PRs~~ | ✅ |
 | 7 | ~~Pacotes da organização~~ | ~~Não necessário (usando ECR)~~ | ✅ N/A |
 | 8 | Grupo de runners | Verificar que repos privados podem usar runners | ❓ Verificar |
-| 9 | Repositório ECR | Criar repo ECR para `htm-gestor-documentos` | ❓ Pendente |
+| 9 | ~~Repositório ECR~~ | ~~Não necessário (criado automaticamente)~~ | ✅ N/A |
+| 10 | Secrets ECR no fork | Dar acesso ao `edgebr/k8s-ephemeral-environments` | ❓ Pendente |
