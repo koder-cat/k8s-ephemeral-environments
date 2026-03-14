@@ -402,11 +402,18 @@ runs:
     # before attempting the upload, or contribute upstream to codeql-action to
     # handle this gracefully.
     - name: Upload Trivy scan results to GitHub Security tab
+      id: sarif-upload
       uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
       if: always()
       continue-on-error: true
       with:
         sarif_file: "trivy-results.sarif"
+
+    - name: SARIF upload status
+      if: always() && steps.sarif-upload.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::warning::Trivy SARIF upload to the Security tab failed. This is expected for private repos without GitHub Advanced Security. You can safely ignore this warning — Trivy scan results are still available as a downloadable artifact in this workflow run."
 
     - name: Upload Trivy scan results as artifact
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
