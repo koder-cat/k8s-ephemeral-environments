@@ -142,7 +142,7 @@ grafana:
     auth.anonymous:
       enabled: false
 
-    # Disable basic auth (password login)
+    # Disable basic auth (only GitHub OAuth allowed)
     auth.basic:
       enabled: false
 
@@ -172,19 +172,26 @@ grafana:
   ingress:
     enabled: false
 
-  # Sidecar for dashboard provisioning
-  # Dashboard sidecar enabled - watches ConfigMaps with grafana_dashboard=1 label
-  # Datasource sidecar DISABLED - use direct provisioning to avoid race conditions
+  # Sidecar for dashboard and datasource provisioning
   sidecar:
     dashboards:
       enabled: true
       searchNamespace: ALL
     datasources:
-      enabled: false
+      enabled: true
+      defaultDatasourceEnabled: true
+      isDefaultDatasource: true
+      uid: prometheus
+      # Run as initContainer to write datasource files before Grafana starts
+      # This avoids the race condition where Grafana provisions before the sidecar writes
+      initDatasources: true
+      # Use LIST method so the init container does a one-shot sync and exits
+      watchMethod: LIST
+      # Disable reload API call — basic auth is off (GitHub OAuth only)
+      skipReload: true
 
-  # Direct datasource provisioning (no sidecar needed - avoids race conditions)
-  # Prometheus is configured by kube-prometheus-stack automatically
-  # Loki added here for log aggregation
+  # Additional datasources provisioned alongside the default Prometheus and Alertmanager
+  # (Prometheus and Alertmanager are auto-provisioned by the chart's datasource sidecar)
   additionalDataSources:
     - name: Loki
       type: loki
@@ -193,13 +200,6 @@ grafana:
       access: proxy
       isDefault: false
       editable: true
-    - name: Alertmanager
-      type: alertmanager
-      uid: alertmanager
-      url: http://prometheus-alertmanager.observability.svc.cluster.local:9093
-      access: proxy
-      jsonData:
-        implementation: prometheus
 
 # =============================================================================
 # Node Exporter Configuration

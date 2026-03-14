@@ -208,7 +208,7 @@ Any dashboard with Loki log panels must include this variable in the `templating
 
 **Cause:** Race condition - Grafana starts before sidecar writes datasource files
 
-**Current Prevention:** The datasource sidecar has been DISABLED (`sidecar.datasources.enabled: false`). All datasources (Prometheus, Loki, Alertmanager) are now configured via `additionalDataSources` in the Helm values, which provisions them directly via ConfigMap without sidecar involvement. This eliminates the race condition.
+**Current Prevention:** The datasource sidecar runs as an **init container** (`initDatasources: true`) with `watchMethod: LIST`, so it writes datasource files and exits before Grafana starts. The `skipReload: true` setting avoids 401 errors since basic auth is disabled (GitHub OAuth only). Prometheus and Alertmanager are auto-provisioned by the chart; Loki is added via `additionalDataSources`.
 
 **If it still occurs:**
 ```bash
