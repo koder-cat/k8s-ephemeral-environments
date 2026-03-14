@@ -9,6 +9,8 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [PR Namespace Issues](#pr-namespace-issues)
   - [ResourceQuota Exceeded During Rolling Updates](#resourcequota-exceeded-during-rolling-updates)
 - [Deployment Failures](#deployment-failures)
+- [Build Image Failures](#build-image-failures)
+  - [Trivy SARIF Upload Fails on Private Repos](#trivy-sarif-upload-fails-on-private-repos)
 - [Database Issues](#database-issues)
   - [MongoDB Authorization Errors](#mongodb-authorization-errors)
 - [Migration Issues](#migration-issues)
@@ -505,6 +507,29 @@ sparse-checkout: |
   charts/mariadb
 sparse-checkout-cone-mode: false
 ```
+
+## Build Image Failures
+
+### Trivy SARIF Upload Fails on Private Repos
+
+**Symptoms:**
+- Build image job shows warning on "Upload Trivy scan results to GitHub Security tab" step
+- Error: `Resource not accessible by integration`
+- Error: `refs/remotes/pull/N/merge: unknown revision or path`
+
+**Cause:**
+
+The `codeql-action/upload-sarif` action uploads Trivy vulnerability scan results to the GitHub Security tab (Code Scanning). This requires **GitHub Advanced Security**, which is not available on private repositories without the paid feature.
+
+**Current behavior:**
+
+The SARIF upload step has `continue-on-error: true`, so it shows a yellow warning but does not fail the build. Trivy scan results are still available as a downloadable artifact in the workflow run.
+
+**Impact:** None — the build and deploy proceed normally. Vulnerability results are accessible via the workflow artifact.
+
+**Future improvement:** Ideally, the action would detect whether Advanced Security is available before attempting the upload. This could be done by querying the GitHub API (`GET /repos/{owner}/{repo}` → `security_and_analysis.advanced_security.status`) or by adding an input parameter to explicitly control SARIF upload.
+
+---
 
 ## Database Issues
 
