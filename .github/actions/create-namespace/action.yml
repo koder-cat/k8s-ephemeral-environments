@@ -20,10 +20,6 @@ inputs:
   repository:
     description: 'GitHub repository (owner/repo)'
     required: true
-  k8s-api-ip:
-    description: 'Kubernetes API server IP for NetworkPolicy egress'
-    required: false
-    default: '10.0.0.39'
   # Database flags for dynamic quota calculation
   postgresql-enabled:
     description: 'Whether PostgreSQL is enabled'
@@ -68,7 +64,6 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         COMMIT_SHA: ${{ inputs.commit-sha }}
         REPOSITORY: ${{ inputs.repository }}
-        K8S_API_IP: ${{ inputs.k8s-api-ip }}
         APP_PORT: ${{ inputs.app-port }}
       run: |
         set -euo pipefail
@@ -105,13 +100,6 @@ runs:
         if ! [[ "$REPOSITORY" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
           echo "ERROR: repository must be in format 'owner/repo'"
           echo "Received: '$REPOSITORY'"
-          exit 1
-        fi
-
-        # Validate K8s API IP format
-        if ! [[ "$K8S_API_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "ERROR: k8s-api-ip must be a valid IPv4 address"
-          echo "Received: '$K8S_API_IP'"
           exit 1
         fi
 
@@ -161,7 +149,6 @@ runs:
         BRANCH_NAME: ${{ steps.sanitize.outputs.branch-name }}
         COMMIT_SHA: ${{ inputs.commit-sha }}
         REPOSITORY: ${{ inputs.repository }}
-        K8S_API_IP: ${{ inputs.k8s-api-ip }}
       run: |
         set -euo pipefail
 
@@ -560,10 +547,13 @@ runs:
       shell: bash
       env:
         NAMESPACE: ${{ inputs.namespace }}
-        K8S_API_IP: ${{ inputs.k8s-api-ip }}
       run: |
         set -euo pipefail
         echo "Applying NetworkPolicy allow-egress to $NAMESPACE..."
+
+        # Dynamically resolve the Kubernetes API server ClusterIP
+        K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+        echo "Resolved Kubernetes API ClusterIP: ${K8S_API_IP}"
 
         cat <<EOF | kubectl apply --timeout=60s -f -
         apiVersion: networking.k8s.io/v1
@@ -590,11 +580,13 @@ runs:
                   port: 53
                 - protocol: TCP
                   port: 53
-            # Allow access to Kubernetes API server
+            # Allow access to Kubernetes API server (ClusterIP)
             - to:
                 - ipBlock:
                     cidr: ${K8S_API_IP}/32
               ports:
+                - protocol: TCP
+                  port: 443
                 - protocol: TCP
                   port: 6443
             # Allow all external (non-cluster) traffic

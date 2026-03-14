@@ -51,11 +51,6 @@ on:
         required: false
         type: string
         default: 'v3.16.0'
-      k8s-api-ip:
-        description: 'Kubernetes API server IP for NetworkPolicy egress'
-        required: false
-        type: string
-        default: '10.0.0.39'
       chart-version:
         description: 'k8s-ee-app chart version'
         required: false
@@ -427,7 +422,6 @@ jobs:
           branch-name: ${{ needs.validate-config.outputs.resolved-head-ref }}
           commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
           repository: ${{ inputs.repository }}
-          k8s-api-ip: ${{ inputs.k8s-api-ip }}
           # Database flags for dynamic quota calculation
           postgresql-enabled: ${{ needs.validate-config.outputs.postgresql-enabled }}
           mongodb-enabled: ${{ needs.validate-config.outputs.mongodb-enabled }}
