@@ -18,11 +18,12 @@ The `k8s-api-ip` input in `create-namespace/action.yml` and `pr-environment-reus
 - The MinIO operator sidecar connects to the K8s API via ClusterIP (`10.43.0.1:443`), which falls in `10.0.0.0/8` and was blocked by the egress NetworkPolicy
 - The hardcoded IP didn't match the EC2 cluster
 
-**Fix:** Removed the `k8s-api-ip` input entirely. The NetworkPolicy step now dynamically resolves the ClusterIP:
+**Fix:** Removed the `k8s-api-ip` input entirely. The NetworkPolicy step now dynamically resolves both the ClusterIP and the endpoint IP:
 ```bash
-K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+K8S_API_CLUSTER_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+K8S_API_ENDPOINT_IP=$(kubectl get endpoints kubernetes -n default -o jsonpath='{.subsets[0].addresses[0].ip}')
 ```
-And allows both ports 443 (ClusterIP) and 6443 (direct API) for that IP.
+Both IPs are needed because kube-proxy DNATs the ClusterIP to the endpoint IP, and NetworkPolicy evaluates after DNAT on some CNIs. Both ports 443 and 6443 are allowed for each IP.
 
 ## Changes
 

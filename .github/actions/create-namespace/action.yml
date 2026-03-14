@@ -551,9 +551,15 @@ runs:
         set -euo pipefail
         echo "Applying NetworkPolicy allow-egress to $NAMESPACE..."
 
-        # Dynamically resolve the Kubernetes API server ClusterIP
-        K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
-        echo "Resolved Kubernetes API ClusterIP: ${K8S_API_IP}"
+        # Dynamically resolve the Kubernetes API server IPs
+        # ClusterIP: virtual IP for the kubernetes service (e.g. 10.43.0.1)
+        # Endpoint IP: actual API server node IP (e.g. 192.168.23.55)
+        # Both must be allowed because kube-proxy DNATs ClusterIP -> Endpoint IP,
+        # and NetworkPolicy evaluates after DNAT on some CNIs.
+        K8S_API_CLUSTER_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+        K8S_API_ENDPOINT_IP=$(kubectl get endpoints kubernetes -n default -o jsonpath='{.subsets[0].addresses[0].ip}')
+        echo "Resolved Kubernetes API ClusterIP: ${K8S_API_CLUSTER_IP}"
+        echo "Resolved Kubernetes API Endpoint IP: ${K8S_API_ENDPOINT_IP}"
 
         cat <<EOF | kubectl apply --timeout=60s -f -
         apiVersion: networking.k8s.io/v1
@@ -580,10 +586,12 @@ runs:
                   port: 53
                 - protocol: TCP
                   port: 53
-            # Allow access to Kubernetes API server (ClusterIP)
+            # Allow access to Kubernetes API server (ClusterIP + Endpoint)
             - to:
                 - ipBlock:
-                    cidr: ${K8S_API_IP}/32
+                    cidr: ${K8S_API_CLUSTER_IP}/32
+                - ipBlock:
+                    cidr: ${K8S_API_ENDPOINT_IP}/32
               ports:
                 - protocol: TCP
                   port: 443

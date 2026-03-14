@@ -17,16 +17,19 @@ This guide documents cluster-specific configurations and considerations for migr
 
 The ephemeral environment NetworkPolicy requires access to the Kubernetes API server for operator sidecars (e.g., MinIO) and CloudNativePG job status reporting.
 
-**Current Configuration**: The `create-namespace` action dynamically resolves the Kubernetes API ClusterIP at deploy time:
+**Current Configuration**: The `create-namespace` action dynamically resolves both the Kubernetes API ClusterIP and endpoint IP at deploy time:
 ```bash
-K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+K8S_API_CLUSTER_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+K8S_API_ENDPOINT_IP=$(kubectl get endpoints kubernetes -n default -o jsonpath='{.subsets[0].addresses[0].ip}')
 ```
 
-This is then used in the NetworkPolicy to allow egress on both ports 443 (ClusterIP) and 6443 (direct API):
+Both IPs are needed because kube-proxy DNATs the ClusterIP to the endpoint IP, and NetworkPolicy evaluates after DNAT on some CNIs. The NetworkPolicy allows egress on both ports 443 and 6443 for each IP:
 ```yaml
 - to:
     - ipBlock:
-        cidr: ${K8S_API_IP}/32
+        cidr: ${K8S_API_CLUSTER_IP}/32
+    - ipBlock:
+        cidr: ${K8S_API_ENDPOINT_IP}/32
   ports:
     - protocol: TCP
       port: 443
@@ -36,7 +39,7 @@ This is then used in the NetworkPolicy to allow egress on both ports 443 (Cluste
 
 #### EKS Migration Notes
 
-This dynamic approach works on any cluster (k3s, EKS, etc.) without configuration. The ClusterIP is always available via the `kubernetes` service in the `default` namespace. No environment variables or workflow inputs needed.
+This dynamic approach works on any cluster (k3s, EKS, etc.) without configuration. Both IPs are always available via the `kubernetes` service and endpoints in the `default` namespace. No environment variables or workflow inputs needed.
 
 ### PriorityClasses
 

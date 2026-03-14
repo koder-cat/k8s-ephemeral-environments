@@ -181,7 +181,7 @@ sudo iptables -L | grep "kube-router netpol"
 3. **Prometheus access** - Limited to pods with `app.kubernetes.io/name: prometheus` label
 4. **Ingress access** - Limited to pods with `app.kubernetes.io/name: traefik` label
 5. **Egress control** - Blocks cluster-internal traffic except DNS, K8s API, and same-namespace
-6. **K8s API access** - Limited to ports 443 and 6443 on the dynamically resolved Kubernetes ClusterIP (required for operator sidecars and CNPG job status)
+6. **K8s API access** - Limited to ports 443 and 6443 on the dynamically resolved Kubernetes ClusterIP and endpoint IP (required for operator sidecars and CNPG job status)
 
 ## References
 
