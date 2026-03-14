@@ -297,12 +297,14 @@ kubectl describe pod -n k8s-ee-pr-{number} <pod-name>
 
 **Symptoms:**
 - Pod stuck in `ImagePullBackOff` or `ErrImagePull`
-- Events show `403 Forbidden` from GHCR
+- Events show `403 Forbidden` from GHCR or `401 Unauthorized` from ECR
 
 **Diagnosis:**
 ```bash
 kubectl describe pod -n {namespace} <pod-name> | grep -A10 Events
 ```
+
+#### GHCR (default)
 
 **Common Causes:**
 
@@ -329,6 +331,29 @@ gh api /orgs/{org}/packages/container/{repo}%2F{image} --jq '.visibility'
 **If org setting was enabled after first build:** You may need to manually make the package public:
 1. Go to `https://github.com/orgs/{org}/packages/container/package/{repo}%2F{image}`
 2. Click "Package settings" → "Change package visibility" → "Public"
+
+#### ECR (`registry-type: ecr`)
+
+**Common Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Missing credentials | Check `ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY` org secrets |
+| Expired token | ECR tokens expire after 12h; re-run the workflow |
+| Wrong region | Verify `ecr-region` matches the ECR repository region |
+| Missing IAM permissions | IAM user needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` |
+
+**Resolution:**
+```bash
+# Verify credentials work
+aws sts get-caller-identity
+
+# Check if repository exists
+aws ecr describe-repositories --repository-names {image-name} --region {region}
+
+# Check pull secret in namespace
+kubectl get secret ecr-pull-secret -n {namespace} -o yaml
+```
 
 ### Init Container Stuck
 

@@ -24,7 +24,7 @@ image:
   pullPolicy: Always
 
 # Image pull secrets for private registry authentication.
-# Set by the workflow using the ghcr-pull-secret created before deployment.
+# Set by the workflow: ghcr-pull-secret (GHCR) or ecr-pull-secret (ECR).
 imagePullSecrets: []
 
 # -----------------------------------------------------------------------------

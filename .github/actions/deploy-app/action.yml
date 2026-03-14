@@ -111,6 +111,26 @@ inputs:
     description: 'GitHub token for authenticating with GHCR image registry (required for private images)'
     required: false
     default: ''
+  registry-type:
+    description: "Registry type: 'ghcr' (default) or 'ecr'"
+    required: false
+    default: 'ghcr'
+  ecr-aws-access-key-id:
+    description: 'AWS access key ID for ECR authentication (required when registry-type is ecr)'
+    required: false
+    default: ''
+  ecr-aws-secret-access-key:
+    description: 'AWS secret access key for ECR authentication (required when registry-type is ecr)'
+    required: false
+    default: ''
+  ecr-region:
+    description: 'AWS ECR region (required when registry-type is ecr)'
+    required: false
+    default: ''
+  ecr-registry-url:
+    description: 'ECR registry URL (passed from build-image output to avoid duplicate STS call)'
+    required: false
+    default: ''
 
 outputs:
   preview-url:
@@ -306,23 +326,75 @@ runs:
 
         echo "Local chart dependencies built successfully"
 
-    - name: Create GHCR image pull secret
-      if: inputs.github-token != ''
+    - name: Install AWS CLI for ECR
+      if: inputs.registry-type == 'ecr'
       shell: bash
-      env:
-        NAMESPACE: ${{ inputs.namespace }}
-        GITHUB_TOKEN_INPUT: ${{ inputs.github-token }}
       run: |
         set -euo pipefail
 
-        echo "Creating GHCR image pull secret in namespace: $NAMESPACE"
-        kubectl create secret docker-registry ghcr-pull-secret \
-          --namespace "$NAMESPACE" \
-          --docker-server=ghcr.io \
-          --docker-username="${GITHUB_ACTOR}" \
-          --docker-password="${GITHUB_TOKEN_INPUT}" \
-          --dry-run=client -o yaml | kubectl apply -f -
-        echo "Pull secret created/updated successfully"
+        if command -v aws &>/dev/null; then
+          echo "AWS CLI already installed: $(aws --version)"
+          exit 0
+        fi
+
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" ;;
+          aarch64) URL="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" ;;
+          *) echo "ERROR: Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        curl -fsSL "$URL" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp/aws-install
+        /tmp/aws-install/aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws-cli"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        rm -rf /tmp/awscliv2.zip /tmp/aws-install
+        "$HOME/.local/bin/aws" --version
+
+    - name: Create image pull secret
+      if: inputs.registry-type == 'ecr' || inputs.github-token != ''
+      shell: bash
+      env:
+        NAMESPACE: ${{ inputs.namespace }}
+        REGISTRY_TYPE: ${{ inputs.registry-type }}
+        GITHUB_TOKEN_INPUT: ${{ inputs.github-token }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
+        ECR_REGION: ${{ inputs.ecr-region }}
+        ECR_REGISTRY_URL: ${{ inputs.ecr-registry-url }}
+      run: |
+        set -euo pipefail
+
+        if [[ "$REGISTRY_TYPE" == "ecr" ]]; then
+          echo "Creating ECR image pull secret in namespace: $NAMESPACE"
+
+          # Use pre-computed registry URL from build-image, or derive if not provided
+          if [[ -n "$ECR_REGISTRY_URL" ]]; then
+            ECR_REGISTRY="$ECR_REGISTRY_URL"
+          else
+            ACCOUNT_ID=$(aws sts get-caller-identity --region "$ECR_REGION" --query Account --output text)
+            ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          fi
+          ECR_PASSWORD=$(aws ecr get-login-password --region "$ECR_REGION")
+          echo "::add-mask::${ECR_PASSWORD}"
+
+          kubectl create secret docker-registry ecr-pull-secret \
+            --namespace "$NAMESPACE" \
+            --docker-server="$ECR_REGISTRY" \
+            --docker-username=AWS \
+            --docker-password="$ECR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "ECR pull secret created/updated successfully"
+        else
+          echo "Creating GHCR image pull secret in namespace: $NAMESPACE"
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --namespace "$NAMESPACE" \
+            --docker-server=ghcr.io \
+            --docker-username="${GITHUB_ACTOR}" \
+            --docker-password="${GITHUB_TOKEN_INPUT}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "GHCR pull secret created/updated successfully"
+        fi
 
     - name: Deploy with Helm
       id: deploy
@@ -356,6 +428,7 @@ runs:
         METRICS_ENABLED: ${{ inputs.metrics-enabled }}
         METRICS_CONFIG: ${{ inputs.metrics-config }}
         USE_LOCAL_CHARTS: ${{ inputs.use-local-charts }}
+        REGISTRY_TYPE: ${{ inputs.registry-type }}
       run: |
         set -euo pipefail
 
@@ -374,6 +447,13 @@ runs:
           echo "Using OCI charts from: $CHART_SOURCE"
         fi
 
+        # Select pull secret name based on registry type
+        if [[ "$REGISTRY_TYPE" == "ecr" ]]; then
+          PULL_SECRET_NAME="ecr-pull-secret"
+        else
+          PULL_SECRET_NAME="ghcr-pull-secret"
+        fi
+
         # Build helm upgrade command using array (safe from injection)
         HELM_ARGS=(
           "upgrade" "--install" "$RELEASE_NAME" "$CHART_SOURCE"
@@ -387,7 +467,7 @@ runs:
           "--set" "previewDomain=$PREVIEW_DOMAIN"
           "--set" "app.port=$APP_PORT"
           "--set" "app.healthPath=$HEALTH_PATH"
-          "--set" "imagePullSecrets[0].name=ghcr-pull-secret"
+          "--set" "imagePullSecrets[0].name=$PULL_SECRET_NAME"
         )
 
         # Add version flag for OCI charts (not needed for local charts)

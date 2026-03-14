@@ -1,5 +1,5 @@
 name: "Build Image"
-description: "Build container image, push to GHCR, run Trivy scan, and generate SBOM"
+description: "Build container image, push to registry (GHCR or ECR), run Trivy scan, and generate SBOM"
 
 inputs:
   context:
@@ -20,9 +20,25 @@ inputs:
     description: "Full commit SHA for tagging"
     required: true
   registry:
-    description: "Container registry"
+    description: "Container registry hostname (used when registry-type is ghcr)"
     required: false
     default: "ghcr.io"
+  registry-type:
+    description: "Registry type: 'ghcr' (default) or 'ecr'"
+    required: false
+    default: "ghcr"
+  ecr-aws-access-key-id:
+    description: "AWS access key ID for ECR authentication (required when registry-type is ecr)"
+    required: false
+    default: ""
+  ecr-aws-secret-access-key:
+    description: "AWS secret access key for ECR authentication (required when registry-type is ecr)"
+    required: false
+    default: ""
+  ecr-region:
+    description: "AWS ECR region (required when registry-type is ecr)"
+    required: false
+    default: ""
   platforms:
     description: "Target platforms (comma-separated)"
     required: false
@@ -32,7 +48,7 @@ inputs:
     required: false
     default: "CRITICAL,HIGH"
   github-token:
-    description: "GitHub token for registry authentication (packages:write) and SARIF upload (security-events:write)"
+    description: "GitHub token for GHCR authentication (packages:write) and SARIF upload (security-events:write)"
     required: true
 
 outputs:
@@ -45,6 +61,9 @@ outputs:
   image-ref:
     description: "Full image reference with digest (registry/name@sha256:...). Note: deploy-app uses image-tag and image-digest separately for Helm chart compatibility."
     value: ${{ steps.image-ref.outputs.image-ref }}
+  registry-url:
+    description: "Effective registry URL used for the image (ghcr.io or <account>.dkr.ecr.<region>.amazonaws.com)"
+    value: ${{ steps.resolve-registry.outputs.url }}
   trivy-sarif:
     description: "Path to Trivy SARIF results file (runner-local path; results already uploaded to the Security tab via codeql-action/upload-sarif)"
     value: ${{ steps.trivy.outputs.sarif-file }}
@@ -64,9 +83,20 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         COMMIT_SHA: ${{ inputs.commit-sha }}
         REGISTRY: ${{ inputs.registry }}
+        REGISTRY_TYPE: ${{ inputs.registry-type }}
+        ECR_REGION: ${{ inputs.ecr-region }}
+        ECR_AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
+        ECR_AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
         PLATFORMS: ${{ inputs.platforms }}
       run: |
         set -euo pipefail
+
+        # Validate registry-type
+        if [[ "$REGISTRY_TYPE" != "ghcr" && "$REGISTRY_TYPE" != "ecr" ]]; then
+          echo "ERROR: registry-type must be 'ghcr' or 'ecr'"
+          echo "Received: '$REGISTRY_TYPE'"
+          exit 1
+        fi
 
         # Validate context path (no path traversal or absolute paths)
         if [[ "$CONTEXT" =~ \.\. ]]; then
@@ -113,11 +143,29 @@ runs:
           exit 1
         fi
 
-        # Validate registry format
-        if ! [[ "$REGISTRY" =~ ^[a-z0-9.-]+$ ]]; then
-          echo "ERROR: registry must be a valid hostname"
-          echo "Received: '$REGISTRY'"
-          exit 1
+        # Validate registry format (only for GHCR; ECR registry URL is computed)
+        if [[ "$REGISTRY_TYPE" != "ecr" ]]; then
+          if ! [[ "$REGISTRY" =~ ^[a-z0-9.-]+$ ]]; then
+            echo "ERROR: registry must be a valid hostname"
+            echo "Received: '$REGISTRY'"
+            exit 1
+          fi
+        fi
+
+        # Validate ECR-specific inputs
+        if [[ "$REGISTRY_TYPE" == "ecr" ]]; then
+          if [[ -z "$ECR_REGION" ]]; then
+            echo "ERROR: ecr-region is required when registry-type is ecr"
+            exit 1
+          fi
+          if [[ -z "$ECR_AWS_ACCESS_KEY_ID" ]]; then
+            echo "ERROR: ecr-aws-access-key-id is required when registry-type is ecr (check org/repo secrets)"
+            exit 1
+          fi
+          if [[ -z "$ECR_AWS_SECRET_ACCESS_KEY" ]]; then
+            echo "ERROR: ecr-aws-secret-access-key is required when registry-type is ecr (check org/repo secrets)"
+            exit 1
+          fi
         fi
 
         # Validate platforms (comma-separated list of known Docker Buildx platform values)
@@ -131,24 +179,81 @@ runs:
 
         echo "Input validation passed"
 
+    # NOTE: This step requires AWS CLI v2 pre-installed on the runner.
+    # GitHub-hosted ubuntu-latest has it; if reusing on self-hosted runners, ensure AWS CLI is available.
+    - name: Resolve registry
+      id: resolve-registry
+      shell: bash
+      env:
+        REGISTRY_TYPE: ${{ inputs.registry-type }}
+        REGISTRY: ${{ inputs.registry }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
+        ECR_REGION: ${{ inputs.ecr-region }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+      run: |
+        set -euo pipefail
+
+        if [[ "$REGISTRY_TYPE" == "ecr" ]]; then
+          # Get AWS account ID
+          ACCOUNT_ID=$(aws sts get-caller-identity --region "$ECR_REGION" --query Account --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+
+          # Ensure ECR repository exists (create if needed, with lifecycle policy)
+          if ! aws ecr describe-repositories --repository-names "$IMAGE_NAME" --region "$ECR_REGION" >/dev/null 2>&1; then
+            echo "Creating ECR repository: $IMAGE_NAME"
+            aws ecr create-repository \
+              --repository-name "$IMAGE_NAME" \
+              --region "$ECR_REGION" \
+              --image-scanning-configuration scanOnPush=false
+
+            # Expire untagged images after 7 days to avoid unbounded accumulation
+            aws ecr put-lifecycle-policy \
+              --repository-name "$IMAGE_NAME" \
+              --region "$ECR_REGION" \
+              --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"Expire untagged images after 7 days","selection":{"tagStatus":"untagged","countType":"sinceImagePushed","countUnit":"days","countNumber":7},"action":{"type":"expire"}}]}'
+          fi
+
+          # Get ECR login password
+          ECR_PASSWORD=$(aws ecr get-login-password --region "$ECR_REGION")
+          echo "::add-mask::${ECR_PASSWORD}"
+          echo "password=${ECR_PASSWORD}" >> "$GITHUB_OUTPUT"
+
+          echo "url=${ECR_REGISTRY}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ECR registry: ${ECR_REGISTRY}"
+        else
+          echo "url=${REGISTRY}" >> "$GITHUB_OUTPUT"
+          echo "password=" >> "$GITHUB_OUTPUT"
+          echo "Resolved GHCR registry: ${REGISTRY}"
+        fi
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-    - name: Log in to registry
+    - name: Log in to GHCR
+      if: inputs.registry-type != 'ecr'
       uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
       with:
-        registry: ${{ inputs.registry }}
+        registry: ${{ steps.resolve-registry.outputs.url }}
         username: ${{ github.actor }}
         password: ${{ inputs.github-token }}
+
+    - name: Log in to ECR
+      if: inputs.registry-type == 'ecr'
+      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      with:
+        registry: ${{ steps.resolve-registry.outputs.url }}
+        username: AWS
+        password: ${{ steps.resolve-registry.outputs.password }}
 
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
       with:
-        images: ${{ inputs.registry }}/${{ inputs.image-name }}
+        images: ${{ steps.resolve-registry.outputs.url }}/${{ inputs.image-name }}
         tags: |
           type=sha,prefix=,format=short
           type=raw,value=pr-${{ inputs.pr-number }}
@@ -170,13 +275,14 @@ runs:
       id: image-ref
       shell: bash
       env:
-        REGISTRY: ${{ inputs.registry }}
+        REGISTRY: ${{ steps.resolve-registry.outputs.url }}
         IMAGE_NAME: ${{ inputs.image-name }}
         DIGEST: ${{ steps.build.outputs.digest }}
       run: |
         echo "image-ref=${REGISTRY}/${IMAGE_NAME}@${DIGEST}" >> "$GITHUB_OUTPUT"
 
     - name: Make package public
+      if: inputs.registry-type != 'ecr'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -226,7 +332,7 @@ runs:
         # runner IPs are heavily rate-limited and return 404 without an auth
         # token or valid User-Agent. GITHUB_TOKEN reads public repos fine.
         GH_TOKEN: ${{ inputs.github-token }}
-        IMAGE_REF: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
+        IMAGE_REF: ${{ steps.resolve-registry.outputs.url }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
         SEVERITY: ${{ inputs.trivy-severity }}
       run: |
         set -euo pipefail
@@ -304,7 +410,7 @@ runs:
         # First platform only — Syft scans one manifest at a time
         SYFT_PLATFORM: ${{ steps.scan-platform.outputs.value }}
       with:
-        image: ${{ inputs.registry }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
+        image: ${{ steps.resolve-registry.outputs.url }}/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}
         format: spdx-json
         output-file: sbom-${{ inputs.pr-number }}.spdx.json
         artifact-name: sbom-pr-${{ inputs.pr-number }}
@@ -323,7 +429,7 @@ runs:
       if: always()
       shell: bash
       env:
-        REGISTRY: ${{ inputs.registry }}
+        REGISTRY: ${{ steps.resolve-registry.outputs.url }}
         IMAGE_NAME: ${{ inputs.image-name }}
         IMAGE_TAG: ${{ steps.meta.outputs.version }}
         IMAGE_DIGEST: ${{ steps.build.outputs.digest }}

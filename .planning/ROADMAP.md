@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Milestone 1: Platform Migration (Days 1-4)
 
 - [~] **Phase 1: Platform Fixes & x86 Support** - Foundation fixes and architecture migration _(5/6 done; only PLAT-02 partial)_
-- [ ] **Phase 2: ECR Registry Integration** - AWS ECR push via OIDC authentication
+- [x] **Phase 2: ECR Registry Integration** - Registry-agnostic build/deploy (GHCR + ECR)
 - [x] **Phase 3: Infrastructure Setup** - Edge cluster deployment and configuration _(completed 2026-03-14)_
 
 ### Milestone 2: Pilot Project Enablement (Days 5-8)
@@ -54,11 +54,11 @@ Plans:
 **Updated approach**: Use existing org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`) instead of OIDC. Simpler, already configured on fork.
 
 **Success Criteria** (what must be TRUE):
-  1. `build-image` action pushes to ECR when `REGISTRY=ecr` (conditional login via `aws ecr get-login-password`)
-  2. `build-image` action still pushes to GHCR when `REGISTRY=ghcr` (default, no behavior change)
-  3. `deploy-app` action creates `imagePullSecret` for ECR when needed
-  4. Fork repo variables: `REGISTRY=ecr`, `ECR_REGION=<region>`
-  5. ECR repository created for pilot project
+  1. ✅ `build-image` action pushes to ECR when `registry-type=ecr` (conditional login via `aws ecr get-login-password`)
+  2. ✅ `build-image` action still pushes to GHCR when `registry-type=ghcr` (default, no behavior change)
+  3. ✅ `deploy-app` action creates `imagePullSecret` for ECR when needed
+  4. Fork repo variables: `REGISTRY=ecr`, `ECR_REGION=<region>` — set via workflow inputs in calling repo
+  5. ECR repository auto-created by `build-image` action on first push
 
 **Fork repo variables** (in addition to existing ARCHITECTURE/DOMAIN/ORG_NAME):
 
@@ -68,7 +68,7 @@ Plans:
 | `ECR_REGION` | _(unused)_ | e.g., `us-east-2` |
 
 Plans:
-- [ ] 02-01: Registry-agnostic build-image + deploy-app (ECR-01, ECR-02, ECR-03)
+- [x] 02-01: Registry-agnostic build-image + deploy-app (ECR-01, ECR-02, ECR-03)
 
 ### Phase 3: Infrastructure Setup ✅
 **Goal**: Edge organization infrastructure is operational with all platform components
@@ -137,7 +137,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Platform Fixes & x86 Support | M1 | 2/2 | **~Done** (PLAT-02 partial, acceptable for pilot) | 2026-03-14 |
-| 2. ECR Registry Integration | M1 | 0/1 | Not started | - |
+| 2. ECR Registry Integration | M1 | 1/1 | **Done** | 2026-03-14 |
 | 3. Infrastructure Setup | M1 | 2/2 | **Done** | 2026-03-14 |
 | 4. Multi-Container Support | M2 | 0/1 | Not started | - |
 | 5. Samba AD Chart | M2 | 0/1 | Not started | - |
@@ -145,5 +145,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 ---
 *Roadmap created: 2026-01-25*
-*Last updated: 2026-03-14 — Phase 3 completed (EC2 cluster fully operational)*
+*Last updated: 2026-03-14 — Phase 2 completed (ECR registry integration), Phase 3 completed (EC2 cluster fully operational)*
 *Coverage: 30/30 requirements mapped*

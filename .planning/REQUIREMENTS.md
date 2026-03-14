@@ -21,9 +21,9 @@ Platform adaptation for x86/AWS/ECR and infrastructure deployment.
 
 ### ECR Registry Integration (registry-agnostic approach)
 
-- [ ] **ECR-01**: `build-image` action supports both GHCR and ECR, selected by `REGISTRY` repo variable (default: `ghcr`)
-- [ ] **ECR-02**: ~~OIDC configured~~ → Use existing org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`) for ECR authentication
-- [ ] **ECR-03**: `deploy-app` action creates `imagePullSecret` for ECR when `REGISTRY=ecr`
+- [x] **ECR-01**: `build-image` action supports both GHCR and ECR, selected by `registry-type` workflow input (default: `ghcr`) _(registry-agnostic via `resolve-registry` step; auto-creates ECR repo)_
+- [x] **ECR-02**: ~~OIDC configured~~ → Use existing org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`) for ECR authentication _(passed through reusable workflow → build-image/deploy-app actions)_
+- [x] **ECR-03**: `deploy-app` action creates `imagePullSecret` for ECR when `registry-type=ecr` _(installs AWS CLI on ARC runner, creates `ecr-pull-secret` via `aws ecr get-login-password`)_
 
 ### Infrastructure Setup
 
@@ -85,9 +85,9 @@ Multi-container support, Samba AD, and htm-gestor-documentos integration.
 | X86-01 | Phase 1 | **Done** (configurable via input/repo variable) |
 | X86-02 | Phase 1 | **N/A** (single-arch cluster, not needed) |
 | X86-03 | Phase 1 | **Done** (configurable via input/repo variable) |
-| ECR-01 | Phase 2 | Pending |
-| ECR-02 | Phase 2 | Pending |
-| ECR-03 | Phase 2 | Pending |
+| ECR-01 | Phase 2 | **Done** (registry-agnostic build-image action) |
+| ECR-02 | Phase 2 | **Done** (org secrets via reusable workflow) |
+| ECR-03 | Phase 2 | **Done** (ECR imagePullSecret in deploy-app) |
 | INFRA-01 | Phase 3 | **Done** (2026-03-05) |
 | INFRA-02 | Phase 3 | **Done** (2026-03-05) |
 | INFRA-03 | Phase 3 | **Done** (2026-03-12) |
@@ -119,4 +119,4 @@ Multi-container support, Samba AD, and htm-gestor-documentos integration.
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-03-14 — Phase 1 nearly complete (only PLAT-02 partial), Phase 3 done*
+*Last updated: 2026-03-14 — Phase 1 nearly complete (only PLAT-02 partial), Phase 2 done, Phase 3 done*

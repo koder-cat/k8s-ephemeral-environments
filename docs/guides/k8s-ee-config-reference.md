@@ -219,7 +219,9 @@ image:
 | Type | string |
 | Default | (auto-generated) |
 
-Custom image repository URL. If not set, auto-generated as `ghcr.io/{owner}/{repo}`.
+Custom image repository URL. If not set, auto-generated based on the registry type:
+- **GHCR (default):** `ghcr.io/{owner}/{repo}/{project-id}`
+- **ECR:** `<account-id>.dkr.ecr.<region>.amazonaws.com/{owner}/{repo}/{project-id}`
 
 ```yaml
 image:
