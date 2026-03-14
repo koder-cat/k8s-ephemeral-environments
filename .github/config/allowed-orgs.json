@@ -3,6 +3,7 @@
   "mode": "allowlist",
   "description": "Organizations and users allowed to use k8s-ephemeral-environments",
   "organizations": [
+    "edgebr",
     "genesluna",
     "koder-cat"
   ],
