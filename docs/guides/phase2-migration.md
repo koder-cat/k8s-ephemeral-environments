@@ -6,7 +6,7 @@ This guide documents cluster-specific configurations and considerations for migr
 
 - **Cluster**: k3s on single VPS (Oracle Cloud, ARM64)
 - **Node**: Ubuntu 24.04 on ARM64 (Ampere A1)
-- **API Server**: Host network at `10.0.0.39:6443`
+- **API Server**: ClusterIP `10.43.0.1:443` (dynamically resolved at deploy time)
 - **Pod CIDR**: `10.42.0.0/16`
 - **Service CIDR**: `10.43.0.0/16`
 - **Ingress**: Traefik (bundled with k3s)
@@ -15,46 +15,28 @@ This guide documents cluster-specific configurations and considerations for migr
 
 ### NetworkPolicy: Kubernetes API Access
 
-The ephemeral environment NetworkPolicy requires access to the Kubernetes API server for CloudNativePG job status reporting.
+The ephemeral environment NetworkPolicy requires access to the Kubernetes API server for operator sidecars (e.g., MinIO) and CloudNativePG job status reporting.
 
-**File**: `k8s/ephemeral/network-policy-allow-egress.yaml`
+**Current Configuration**: The `create-namespace` action dynamically resolves the Kubernetes API ClusterIP at deploy time:
+```bash
+K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+```
 
-**Current Configuration (k3s)**:
+This is then used in the NetworkPolicy to allow egress on both ports 443 (ClusterIP) and 6443 (direct API):
 ```yaml
-# K8S_API_IP environment variable set in GitHub workflow
 - to:
     - ipBlock:
         cidr: ${K8S_API_IP}/32
   ports:
     - protocol: TCP
+      port: 443
+    - protocol: TCP
       port: 6443
-```
-
-**Environment Variable**: Set in `.github/workflows/pr-environment.yml`
-```yaml
-env:
-  K8S_API_IP: "10.0.0.39"  # k3s API server on VPS host network
 ```
 
 #### EKS Migration Notes
 
-For EKS, the API server endpoint differs based on your configuration:
-
-1. **Public Endpoint**: Use the EKS API server public IP (changes on updates)
-2. **Private Endpoint**: Use VPC endpoint IP range
-3. **Recommended**: Use CIDR ranges instead of single IPs
-
-**EKS Example**:
-```yaml
-env:
-  # Option 1: EKS public endpoint (requires periodic updates)
-  K8S_API_IP: "x.x.x.x"
-
-  # Option 2: Use broader CIDR for VPC endpoints
-  # Modify network-policy-allow-egress.yaml to use CIDR range
-```
-
-Consider using the Kubernetes service IP (`kubernetes.default.svc`) which resolves to `10.100.0.1` on EKS (default service CIDR), though DNAT evaluation order issues may apply.
+This dynamic approach works on any cluster (k3s, EKS, etc.) without configuration. The ClusterIP is always available via the `kubernetes` service in the `default` namespace. No environment variables or workflow inputs needed.
 
 ### PriorityClasses
 
@@ -142,7 +124,7 @@ spec:
 - [ ] Provision EKS cluster with appropriate node groups
 - [ ] Configure VPC networking and security groups
 - [ ] Install required operators (CNPG, MongoDB, MinIO)
-- [ ] Update `K8S_API_IP` environment variable in workflow
+- [ ] Verify dynamic K8s API IP resolution works on EKS
 - [ ] Configure ingress controller and TLS
 - [ ] Migrate DNS records
 - [ ] Update storage class references
@@ -155,9 +137,10 @@ spec:
 
 | Variable | Phase 1 (k3s) | Phase 2 (EKS) |
 |----------|---------------|---------------|
-| `K8S_API_IP` | `10.0.0.39` | EKS API endpoint IP |
 | `PREVIEW_DOMAIN` | `k8s-ee.genesluna.dev` | TBD |
 | `PROJECT_ID` | `k8s-ee` | `k8s-ee` (unchanged) |
+
+> **Note**: `K8S_API_IP` was removed as a configurable variable — it is now dynamically resolved from the `kubernetes` service ClusterIP at deploy time.
 
 ## References
 

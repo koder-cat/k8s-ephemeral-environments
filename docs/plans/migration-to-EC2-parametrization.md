@@ -12,6 +12,18 @@ The platform runs on two clusters: Oracle Cloud VPS (ARM64, koder-cat) and EC2 (
 | `DOMAIN` | `k8s-ee.genesluna.dev` | `k8s-ee.edge.net.br` |
 | `ORG_NAME` | `koder-cat` | `edgebr` |
 
+## Additional Fix: Dynamic K8s API IP
+
+The `k8s-api-ip` input in `create-namespace/action.yml` and `pr-environment-reusable.yml` was hardcoded to `10.0.0.39` (Oracle VPS node IP). This broke the EC2 cluster because:
+- The MinIO operator sidecar connects to the K8s API via ClusterIP (`10.43.0.1:443`), which falls in `10.0.0.0/8` and was blocked by the egress NetworkPolicy
+- The hardcoded IP didn't match the EC2 cluster
+
+**Fix:** Removed the `k8s-api-ip` input entirely. The NetworkPolicy step now dynamically resolves the ClusterIP:
+```bash
+K8S_API_IP=$(kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}')
+```
+And allows both ports 443 (ClusterIP) and 6443 (direct API) for that IP.
+
 ## Changes
 
 ### 1. `.github/workflows/pr-environment.yml` (lines 38-48)

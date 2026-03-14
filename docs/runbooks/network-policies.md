@@ -50,7 +50,7 @@ PR namespaces are isolated from each other using Kubernetes NetworkPolicies. The
 ┌───────────────────────┐          ┌─────────────────────────────┐
 │  Prometheus           │          │  External Services          │
 │  (observability ns)   │          │  - DNS (kube-system:53)     │
-│                       │          │  - K8s API (10.0.0.39:6443) │
+│                       │          │  - K8s API (ClusterIP:443/6443) │
 │  app.kubernetes.io/   │          │  - Internet (0.0.0.0/0)     │
 │  name: prometheus     │          └─────────────────────────────┘
 └───────────────────────┘
@@ -181,7 +181,7 @@ sudo iptables -L | grep "kube-router netpol"
 3. **Prometheus access** - Limited to pods with `app.kubernetes.io/name: prometheus` label
 4. **Ingress access** - Limited to pods with `app.kubernetes.io/name: traefik` label
 5. **Egress control** - Blocks cluster-internal traffic except DNS, K8s API, and same-namespace
-6. **K8s API access** - Limited to port 6443 on 10.0.0.39 (k3s host, required for CNPG job status)
+6. **K8s API access** - Limited to ports 443 and 6443 on the dynamically resolved Kubernetes ClusterIP (required for operator sidecars and CNPG job status)
 
 ## References
 
