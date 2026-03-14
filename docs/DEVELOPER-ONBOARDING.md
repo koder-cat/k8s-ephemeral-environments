@@ -230,7 +230,7 @@ Route labels are normalized to prevent high cardinality:
 
 5. **Wait for preview environment:**
    - CI creates namespace `k8s-ee-pr-{number}`
-   - Preview URL: `k8s-ee-pr-{number}.k8s-ee.genesluna.dev`
+   - Preview URL: `k8s-ee-pr-{number}.{DOMAIN}` (default: `k8s-ee.genesluna.dev`)
    - Bot comments on PR with the URL
 
 6. **Verify in preview environment:**
