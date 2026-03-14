@@ -223,9 +223,17 @@ jobs:
         env:
           K8S_EE_REF_INPUT: ${{ inputs.k8s-ee-ref }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
+          REPOSITORY: ${{ inputs.repository }}
+          K8S_EE_REPO: ${{ inputs.k8s-ee-repo }}
+          HEAD_REF: ${{ steps.resolve-pr.outputs.head-ref }}
         run: |
           set -euo pipefail
-          if [[ -n "${K8S_EE_REF_INPUT}" ]]; then
+          # When the calling repo IS the k8s-ee repo (self-testing PRs),
+          # always use the PR's head branch so action changes are tested
+          if [[ "${REPOSITORY}" == "${K8S_EE_REPO}" && -n "${HEAD_REF}" ]]; then
+            echo "::notice::Using PR head branch '${HEAD_REF}' for k8s-ee actions (repo is k8s-ee itself)"
+            echo "value=${HEAD_REF}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${K8S_EE_REF_INPUT}" ]]; then
             echo "value=${K8S_EE_REF_INPUT}" >> "$GITHUB_OUTPUT"
           else
             # Extract ref from "owner/repo/.../file.yml@refs/heads/main"
@@ -566,7 +574,7 @@ jobs:
           namespace: ${{ needs.validate-config.outputs.namespace }}
           project-id: ${{ needs.validate-config.outputs.project-id }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
-          image-repository: ${{ needs.build-image.outputs.registry-url }}/${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
+          image-repository: ${{ needs.build-image.outputs.registry-url || 'ghcr.io' }}/${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
           image-tag: ${{ needs.build-image.outputs.image-tag }}
           image-digest: ${{ needs.build-image.outputs.image-digest }}
           commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
