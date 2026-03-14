@@ -76,6 +76,16 @@ on:
         required: false
         type: string
         default: ''
+      registry-type:
+        description: "Container registry type: 'ghcr' (default) or 'ecr'"
+        required: false
+        type: string
+        default: 'ghcr'
+      ecr-region:
+        description: 'AWS ECR region (required when registry-type is ecr)'
+        required: false
+        type: string
+        default: ''
       comment-body:
         description: 'Comment body text (for on-demand /deploy-preview commands)'
         required: false
@@ -91,6 +101,13 @@ on:
         required: false
         type: number
         default: 0
+    secrets:
+      ECR_AWS_ACCESS_KEY_ID:
+        description: 'AWS access key ID for ECR authentication (required when registry-type is ecr)'
+        required: false
+      ECR_AWS_SECRET_ACCESS_KEY:
+        description: 'AWS secret access key for ECR authentication (required when registry-type is ecr)'
+        required: false
 
 # Prevent concurrent runs for the same PR
 concurrency:
@@ -457,6 +474,7 @@ jobs:
       image-tag: ${{ steps.build.outputs.image-tag }}
       image-digest: ${{ steps.build.outputs.image-digest }}
       image-ref: ${{ steps.build.outputs.image-ref }}
+      registry-url: ${{ steps.build.outputs.registry-url }}
 
     steps:
       # First checkout: calling repo for Dockerfile
@@ -488,6 +506,10 @@ jobs:
           commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           platforms: ${{ inputs.platforms }}
+          registry-type: ${{ inputs.registry-type }}
+          ecr-aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          ecr-aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          ecr-region: ${{ inputs.ecr-region }}
 
   # ============================================================================
   # DEPLOY APP
@@ -544,7 +566,7 @@ jobs:
           namespace: ${{ needs.validate-config.outputs.namespace }}
           project-id: ${{ needs.validate-config.outputs.project-id }}
           pr-number: ${{ needs.validate-config.outputs.resolved-pr-number }}
-          image-repository: ghcr.io/${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
+          image-repository: ${{ needs.build-image.outputs.registry-url }}/${{ inputs.repository }}/${{ needs.validate-config.outputs.project-id }}
           image-tag: ${{ needs.build-image.outputs.image-tag }}
           image-digest: ${{ needs.build-image.outputs.image-digest }}
           commit-sha: ${{ needs.validate-config.outputs.resolved-head-sha }}
@@ -567,6 +589,11 @@ jobs:
           metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
           metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          registry-type: ${{ inputs.registry-type }}
+          ecr-aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          ecr-aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          ecr-region: ${{ inputs.ecr-region }}
+          ecr-registry-url: ${{ needs.build-image.outputs.registry-url }}
 
   # ============================================================================
   # PR COMMENT (DEPLOY)
