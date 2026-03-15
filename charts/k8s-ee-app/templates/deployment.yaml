@@ -33,6 +33,10 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        {{- range $i, $dir := .Values.writableDirs }}
+        - name: writable-{{ $i }}
+          emptyDir: {}
+        {{- end }}
       {{- if or .Values.postgresql.enabled .Values.mongodb.enabled .Values.redis.enabled .Values.minio.enabled .Values.mariadb.enabled }}
       initContainers:
         {{- if .Values.postgresql.enabled }}
@@ -282,3 +286,7 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- range $i, $dir := .Values.writableDirs }}
+            - name: writable-{{ $i }}
+              mountPath: {{ $dir }}
+            {{- end }}

@@ -112,6 +112,14 @@
         "type": "string"
       }
     },
+    "writableDirs": {
+      "type": "array",
+      "description": "Directories that need to be writable at runtime (mounted as emptyDir volumes). Required because containers run with readOnlyRootFilesystem.",
+      "items": {
+        "type": "string",
+        "pattern": "^/[a-zA-Z0-9._/-]+$"
+      }
+    },
     "envFrom": {
       "type": "array",
       "description": "Environment variables from secrets or configmaps",

@@ -62,6 +62,16 @@ env: {}
 #  MY_CUSTOM_VAR: "value"
 
 # -----------------------------------------------------------------------------
+# Writable Directories
+# -----------------------------------------------------------------------------
+# Directories that need to be writable at runtime (mounted as emptyDir volumes).
+# Required because the container runs with readOnlyRootFilesystem: true.
+# /tmp is always writable (mounted automatically).
+writableDirs: []
+#  - /app/upload
+#  - /app/data
+
+# -----------------------------------------------------------------------------
 # Resource Configuration (fits within default LimitRange)
 # -----------------------------------------------------------------------------
 resources:

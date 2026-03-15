@@ -159,6 +159,7 @@ jobs:
       k8s-ee-ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
       trigger: ${{ steps.validate.outputs.trigger }}
       env-json: ${{ steps.validate.outputs.env-json }}
+      writable-dirs-json: ${{ steps.validate.outputs.writable-dirs-json }}
       resolved-pr-number: ${{ steps.resolve-pr.outputs.pr-number }}
       resolved-head-sha: ${{ steps.resolve-pr.outputs.head-sha }}
       resolved-head-ref: ${{ steps.resolve-pr.outputs.head-ref }}
@@ -598,6 +599,7 @@ jobs:
           metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
           metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
           env-json: ${{ needs.validate-config.outputs.env-json }}
+          writable-dirs-json: ${{ needs.validate-config.outputs.writable-dirs-json }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           registry-type: ${{ inputs.registry-type }}
           ecr-aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}

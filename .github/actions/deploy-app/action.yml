@@ -111,6 +111,10 @@ inputs:
     description: 'User-defined environment variables as JSON object'
     required: false
     default: '{}'
+  writable-dirs-json:
+    description: 'Writable directories as JSON array (mounted as emptyDir volumes)'
+    required: false
+    default: '[]'
   github-token:
     description: 'GitHub token for authenticating with GHCR image registry (required for private images)'
     required: false
@@ -434,6 +438,7 @@ runs:
         USE_LOCAL_CHARTS: ${{ inputs.use-local-charts }}
         REGISTRY_TYPE: ${{ inputs.registry-type }}
         ENV_JSON: ${{ inputs.env-json }}
+        WRITABLE_DIRS_JSON: ${{ inputs.writable-dirs-json }}
       run: |
         set -euo pipefail
 
@@ -510,6 +515,11 @@ runs:
         # User-defined environment variables
         if [ "$ENV_JSON" != "{}" ] && [ -n "$ENV_JSON" ]; then
           HELM_ARGS+=("--set-json" "env=$ENV_JSON")
+        fi
+
+        # Writable directories (emptyDir volumes for readOnlyRootFilesystem)
+        if [ "$WRITABLE_DIRS_JSON" != "[]" ] && [ -n "$WRITABLE_DIRS_JSON" ]; then
+          HELM_ARGS+=("--set-json" "writableDirs=$WRITABLE_DIRS_JSON")
         fi
 
         HELM_ARGS+=("--atomic" "--timeout" "$TIMEOUT")

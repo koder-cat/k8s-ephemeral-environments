@@ -84,6 +84,9 @@ outputs:
   env-json:
     description: 'User-defined environment variables as JSON object'
     value: ${{ steps.parse.outputs.env-json }}
+  writable-dirs-json:
+    description: 'Writable directories as JSON array'
+    value: ${{ steps.parse.outputs.writable-dirs-json }}
 
 runs:
   using: 'composite'
@@ -373,6 +376,7 @@ runs:
           .resources.limits.memory = (.resources.limits.memory // "384Mi") |
           .env = (.env // {}) |
           .envFrom = (.envFrom // []) |
+          .writableDirs = (.writableDirs // []) |
           .databases = (.databases // {}) |
           .databases.postgresql = (if .databases.postgresql == null then false else .databases.postgresql end) |
           .databases.mongodb = (if .databases.mongodb == null then false else .databases.mongodb end) |
@@ -452,6 +456,13 @@ runs:
         {
           echo "env-json<<EOF"
           echo "$FINAL_CONFIG" | jq -c '.env // {}'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # Extract writable directories
+        {
+          echo "writable-dirs-json<<EOF"
+          echo "$FINAL_CONFIG" | jq -c '.writableDirs // []'
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 
