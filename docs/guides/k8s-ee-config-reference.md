@@ -596,6 +596,70 @@ When metrics are enabled, the ServiceMonitor automatically adds a `namespace` la
 
 Your application metrics will include `namespace="myapp-pr-42"` automatically, matching the PR environment namespace.
 
+#### Metrics Instrumentation Guide
+
+When `metrics.enabled: true`, the platform deploys a ServiceMonitor that tells Prometheus to scrape `GET /metrics` on your app. **Your app must expose this endpoint** returning Prometheus text format — otherwise the Grafana "PR Developer Insights" dashboard will show App Status = DOWN and DB Connected = NO.
+
+##### Required Metrics
+
+These metrics power the Grafana dashboard panels:
+
+| Metric Name | Type | Labels | Dashboard Panels |
+|-------------|------|--------|-----------------|
+| `http_requests_total` | Counter | `method`, `route`, `status_code` | Request Rate, Error Rate, 5xx by Endpoint, Requests by Status |
+| `http_request_duration_seconds` | Histogram | `method`, `route`, `status_code` | P95 Latency, P95 by Endpoint, Slowest Endpoints |
+| `db_pool_connections_total` | Gauge | — | DB Connected, Connection Pool |
+| `db_pool_connections_idle` | Gauge | — | Connection Pool |
+| `db_pool_connections_waiting` | Gauge | — | Connection Pool |
+| `db_query_duration_seconds` | Histogram | `operation`, `success` | Query Duration, Failed Queries |
+
+**Minimum requirements:** A `/metrics` endpoint returning Prometheus text format, plus `http_requests_total` and `http_request_duration_seconds`. The database metrics are optional but recommended if your app uses a database.
+
+**Automatic metrics:** The `up` metric (App Status panel) and `kube_pod_status_phase` (Pods Running panel) are provided automatically by Prometheus and kube-state-metrics — no app instrumentation needed.
+
+##### Recommended Histogram Buckets
+
+```
+HTTP duration: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10] (seconds)
+DB query duration: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1] (seconds)
+```
+
+##### Node.js/Express Example (prom-client)
+
+```typescript
+import * as client from 'prom-client';
+
+const registry = new client.Registry();
+registry.setDefaultLabels({
+  app: 'my-app',
+  pr: process.env.PR_NUMBER || 'unknown',
+});
+client.collectDefaultMetrics({ register: registry });
+
+const httpRequestTotal = new client.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code'],
+  registers: [registry],
+});
+
+const httpRequestDuration = new client.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  registers: [registry],
+});
+
+// GET /metrics endpoint
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', registry.contentType);
+  res.send(await registry.metrics());
+});
+```
+
+> **Reference implementation:** See `demo-app/apps/api/src/metrics/` for a complete example with HTTP middleware, database metrics, and pool monitoring.
+
 ---
 
 ## Common Scenarios

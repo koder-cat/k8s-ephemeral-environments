@@ -397,6 +397,8 @@ For production applications with evolving schemas, use database migrations inste
 - Verify your app exposes a `/metrics` endpoint (or custom path via `app.metricsPath`)
 - The ServiceMonitor automatically adds a `namespace` label for Grafana filtering
 
+> **Important:** When `metrics.enabled: true`, your app **must** expose a `/metrics` endpoint returning Prometheus text format with the required metrics (`http_requests_total`, `http_request_duration_seconds`, etc.). Without instrumentation, the Grafana "PR Developer Insights" dashboard will show misleading DOWN/NO indicators. See the [Metrics Instrumentation Guide](./k8s-ee-config-reference.md#metrics-instrumentation-guide) for required metric names and example code.
+
 ---
 
 ## ECR Registry Setup (Private Repos)
