@@ -109,6 +109,35 @@ def get_ephemeral_namespaces() -> List[Dict]:
         return []
 
 
+def _github_api_headers() -> Dict[str, str]:
+    """Return standard GitHub API request headers."""
+    return {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "k8s-ee-cleanup-job",
+    }
+
+
+def check_repo_accessible(owner: str, repo: str) -> bool:
+    """
+    Verify the token can access the repository.
+    Returns True if accessible, False if 404/403 (private repo or missing token scope).
+    """
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    try:
+        request = Request(url, headers=_github_api_headers())
+        with urlopen(request, timeout=30):
+            return True
+    except HTTPError as e:
+        if e.code in (404, 403):
+            return False
+        logger.error(f"GitHub API error checking repo {owner}/{repo}: {e.code}")
+        return False
+    except URLError as e:
+        logger.error(f"Network error checking repo {owner}/{repo}: {e}")
+        return False
+
+
 def check_pr_status(owner: str, repo: str, pr_number: int) -> Optional[str]:
     """
     Query GitHub API for PR status.
@@ -119,14 +148,9 @@ def check_pr_status(owner: str, repo: str, pr_number: int) -> Optional[str]:
         return None
 
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}"
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "k8s-ee-cleanup-job"
-    }
 
     try:
-        request = Request(url, headers=headers)
+        request = Request(url, headers=_github_api_headers())
         with urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode())
             state = data.get("state", "unknown")
@@ -137,9 +161,19 @@ def check_pr_status(owner: str, repo: str, pr_number: int) -> Optional[str]:
             return state
     except HTTPError as e:
         if e.code == 404:
-            # PR not found - treat as closed (PR may have been deleted)
-            logger.warning(f"PR {owner}/{repo}#{pr_number} not found (404), treating as closed")
-            return "closed"
+            # 404 can mean the PR doesn't exist OR the repo is inaccessible
+            # (private repo without token scope). Check repo access to distinguish.
+            if check_repo_accessible(owner, repo):
+                logger.warning(f"PR {owner}/{repo}#{pr_number} not found (404), treating as closed")
+                return "closed"
+            else:
+                logger.error(
+                    f"Repository {owner}/{repo} is not accessible with current token — "
+                    f"cannot determine PR #{pr_number} status. "
+                    f"Add this repo to the cleanup token's scope."
+                )
+                metrics["github_api_errors"] += 1
+                return None
         logger.error(f"GitHub API error for {owner}/{repo}#{pr_number}: {e.code}")
         metrics["github_api_errors"] += 1
         return None
