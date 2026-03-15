@@ -162,7 +162,7 @@ All container images are scanned with Trivy before deployment:
 - Scans run after Docker build in CI/CD
 - Reports CRITICAL and HIGH severity vulnerabilities
 - Ignores unfixed vulnerabilities (no available patches)
-- Results uploaded to GitHub Security tab (SARIF format)
+- Results uploaded to GitHub Security tab (SARIF format, public repos only)
 - Findings are informational (don't block PR deployments)
 
 ### SBOM Generation

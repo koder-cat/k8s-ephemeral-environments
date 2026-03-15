@@ -65,7 +65,7 @@ outputs:
     description: "Effective registry URL used for the image (ghcr.io or <account>.dkr.ecr.<region>.amazonaws.com)"
     value: ${{ steps.resolve-registry.outputs.url }}
   trivy-sarif:
-    description: "Path to Trivy SARIF results file (runner-local path; results already uploaded to the Security tab via codeql-action/upload-sarif)"
+    description: "Path to Trivy SARIF results file (runner-local path; uploaded to Security tab for public repos, available as artifact for all repos)"
     value: ${{ steps.trivy.outputs.sarif-file }}
   sbom-file:
     description: "Path to SBOM file (runner-local path; artifact already uploaded via anchore/sbom-action)"
@@ -394,26 +394,27 @@ runs:
 
         echo "sarif-file=trivy-results.sarif" >> "$GITHUB_OUTPUT"
 
-    # KNOWN LIMITATION: SARIF upload to the Security tab requires GitHub Advanced
-    # Security, which is not available on private repos without the paid feature.
-    # continue-on-error prevents this from failing the entire build job.
-    # Trivy results are still available as an artifact (next step).
-    # TODO: Find a better solution — ideally detect Advanced Security availability
-    # before attempting the upload, or contribute upstream to codeql-action to
-    # handle this gracefully.
-    - name: Upload Trivy scan results to GitHub Security tab
-      id: sarif-upload
-      uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
+    - name: Check repo visibility
       if: always()
-      continue-on-error: true
+      id: repo-visibility
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        VISIBILITY=$(gh api "repos/${REPO}" --jq '.visibility')
+        echo "visibility=${VISIBILITY}" >> "$GITHUB_OUTPUT"
+
+    # SARIF upload to the Security tab requires GitHub Advanced Security,
+    # which is only available on public repos (free) or private repos with
+    # the paid Advanced Security feature. Skip for private repos to avoid
+    # noisy errors. Trivy results are still available as an artifact.
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
+      if: always() && steps.repo-visibility.outputs.visibility == 'public'
       with:
         sarif_file: "trivy-results.sarif"
-
-    - name: SARIF upload status
-      if: always() && steps.sarif-upload.outcome == 'failure'
-      shell: bash
-      run: |
-        echo "::warning::Trivy SARIF upload to the Security tab failed. This is expected for private repos without GitHub Advanced Security. You can safely ignore this warning — Trivy scan results are still available as a downloadable artifact in this workflow run."
 
     - name: Upload Trivy scan results as artifact
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

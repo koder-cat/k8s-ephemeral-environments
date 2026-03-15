@@ -543,24 +543,21 @@ sparse-checkout-cone-mode: false
 
 ## Build Image Failures
 
-### Trivy SARIF Upload Fails on Private Repos
+### Trivy SARIF Upload Skipped on Private Repos
 
 **Symptoms:**
-- Build image job shows warning on "Upload Trivy scan results to GitHub Security tab" step
-- Error: `Resource not accessible by integration`
-- Error: `refs/remotes/pull/N/merge: unknown revision or path`
+- The "Upload Trivy scan results to GitHub Security tab" step is skipped for private repos
+- No vulnerability results appear in the GitHub Security tab
 
 **Cause:**
 
-The `codeql-action/upload-sarif` action uploads Trivy vulnerability scan results to the GitHub Security tab (Code Scanning). This requires **GitHub Advanced Security**, which is not available on private repositories without the paid feature.
+The `codeql-action/upload-sarif` action uploads Trivy vulnerability scan results to the GitHub Security tab (Code Scanning). This requires **GitHub Advanced Security**, which is only available for free on public repositories. Private repos require the paid Advanced Security feature.
 
 **Current behavior:**
 
-The SARIF upload step has `continue-on-error: true`, so it shows a yellow warning but does not fail the build. Trivy scan results are still available as a downloadable artifact in the workflow run.
+The build-image action checks repo visibility via the GitHub API before attempting the upload. For private repos, the SARIF upload step is skipped entirely — no warnings or errors. Trivy scan results are still available as a downloadable artifact in the workflow run (30-day retention).
 
 **Impact:** None — the build and deploy proceed normally. Vulnerability results are accessible via the workflow artifact.
-
-**Future improvement:** Ideally, the action would detect whether Advanced Security is available before attempting the upload. This could be done by querying the GitHub API (`GET /repos/{owner}/{repo}` → `security_and_analysis.advanced_security.status`) or by adding an input parameter to explicitly control SARIF upload.
 
 ---
 
