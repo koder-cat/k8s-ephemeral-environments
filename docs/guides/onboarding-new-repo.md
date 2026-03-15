@@ -235,6 +235,26 @@ The platform automatically configures the NetworkPolicy to allow ingress traffic
 
 ---
 
+## Environment Variables
+
+Add custom environment variables in the `env` section of `k8s-ee.yaml`:
+
+```yaml
+env:
+  NODE_ENV: staging
+  LOG_LEVEL: info
+  JWT_SECRET: "ephemeral-preview-secret-not-for-production"
+  FEATURE_FLAG_X: "true"
+```
+
+These are injected into the pod via a Kubernetes ConfigMap. All values must be strings — wrap booleans and numbers in quotes.
+
+> **Database variables are automatic:** Connection details like `DATABASE_URL`, `PGHOST`, `MINIO_ENDPOINT`, etc. are injected by the database charts when you enable databases. You do not need to add them to `env`.
+
+See the [full env reference](./k8s-ee-config-reference.md#env) for details.
+
+---
+
 ## Optional Workflow Inputs
 
 Customize the reusable workflow with additional inputs:
@@ -341,6 +361,9 @@ If using `registry-type: ecr` and image pulls fail:
 - Check pod logs: `kubectl logs -n {namespace} -l k8s-ee/project-id={projectId}`
 - Verify health endpoint returns 200
 - Check resource limits fit within quota
+- If crashing due to missing env vars, verify them in the ConfigMap: `kubectl get configmap {namespace}-app-config -n {namespace} -o yaml`
+
+See [Missing User-Defined Environment Variables](./troubleshooting.md#missing-user-defined-environment-variables) for detailed troubleshooting.
 
 ### Database not deployed
 

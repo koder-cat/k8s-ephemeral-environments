@@ -288,7 +288,7 @@ resources:
 
 ### env
 
-Environment variables as key-value pairs.
+User-defined environment variables injected into the application pod as key-value pairs. These are stored in a Kubernetes ConfigMap (`{namespace}-app-config`) and mounted via `envFrom`.
 
 | Property | Value |
 |----------|-------|
@@ -298,10 +298,25 @@ Environment variables as key-value pairs.
 
 ```yaml
 env:
-  NODE_ENV: production
+  NODE_ENV: staging
   LOG_LEVEL: info
-  API_URL: https://api.example.com
+  JWT_SECRET: "my-ephemeral-secret-not-for-production"
+  AUTH_BYPASS_LDAP: "true"
 ```
+
+**How it works:** The `env` values flow through the deployment pipeline:
+
+1. `validate-config` parses `k8s-ee.yaml` and outputs them as `env-json`
+2. The reusable workflow passes `env-json` to the `deploy-app` action
+3. `deploy-app` passes them to Helm via `--set-json env=...`
+4. The Helm chart injects them into the app ConfigMap alongside platform variables (PORT, PR_NUMBER, etc.)
+
+**Verification:** To confirm your env vars reached the pod:
+```bash
+kubectl get configmap {namespace}-app-config -n {namespace} -o yaml
+```
+
+> **Note:** Database connection variables (DATABASE_URL, PGHOST, MINIO_ENDPOINT, etc.) are injected separately by database charts and do not need to be listed in `env`. Variables like `MINIO_BUCKET` that are configured via `databases.minio.bucket` are also injected automatically.
 
 ---
 
@@ -321,7 +336,7 @@ envFrom:
   - secretRef:
       name: database-credentials
   - configMapRef:
-      name: app-config
+      name: my-shared-config
 ```
 
 ---

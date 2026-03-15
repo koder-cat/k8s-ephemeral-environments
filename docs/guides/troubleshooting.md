@@ -9,6 +9,7 @@ This guide helps diagnose and resolve common issues with PR environments.
 - [PR Namespace Issues](#pr-namespace-issues)
   - [ResourceQuota Exceeded During Rolling Updates](#resourcequota-exceeded-during-rolling-updates)
 - [Deployment Failures](#deployment-failures)
+  - [Missing User-Defined Environment Variables](#missing-user-defined-environment-variables)
 - [Build Image Failures](#build-image-failures)
   - [Trivy SARIF Upload Fails on Private Repos](#trivy-sarif-upload-fails-on-private-repos)
 - [Database Issues](#database-issues)
@@ -290,10 +291,39 @@ kubectl describe pod -n k8s-ee-pr-{number} <pod-name>
 
 | Cause | Log Pattern | Solution |
 |-------|-------------|----------|
-| Missing env var | `undefined` errors | Check ConfigMap/Secret |
+| Missing env var | `undefined` errors, security errors | Check ConfigMap — see [Missing User-Defined Environment Variables](#missing-user-defined-environment-variables) |
 | Database connection | `ECONNREFUSED` | Wait for DB, check service |
 | OOM killed | `OOMKilled` in status | Increase memory limits |
 | Port conflict | `EADDRINUSE` | Check port configuration |
+
+### Missing User-Defined Environment Variables
+
+**Symptoms:**
+- Pod crashes with errors about missing config (e.g., `JWT_SECRET must be set`, `undefined`)
+- Application starts but behaves unexpectedly (wrong NODE_ENV, missing API keys)
+- ConfigMap only contains platform variables (PORT, PR_NUMBER, COMMIT_SHA) but not your custom env vars
+
+**Diagnosis:**
+```bash
+# Check what env vars are in the ConfigMap
+kubectl get configmap {namespace}-app-config -n {namespace} -o yaml
+
+# Check what env vars the pod actually sees
+kubectl exec -n {namespace} <pod-name> -- env | sort
+```
+
+If your `k8s-ee.yaml` `env:` values are missing from the ConfigMap, verify:
+
+1. **Values are strings:** All env values must be strings in `k8s-ee.yaml`. Wrap booleans and numbers in quotes:
+   ```yaml
+   env:
+     AUTH_BYPASS_LDAP: "true"    # Correct (string)
+     PORT_NUMBER: "8080"         # Correct (string)
+   ```
+2. **Indentation is correct:** `env:` must be at the root level of `k8s-ee.yaml`, not nested under `app:` or `databases:`
+3. **Platform version:** Ensure the k8s-ephemeral-environments ref includes the env injection fix (commit `8872a1e` or later)
+
+> **Note:** Database connection variables (DATABASE_URL, PGHOST, MINIO_ENDPOINT, etc.) are injected separately by database charts and do not need to be in the `env:` section. See the [config reference](./k8s-ee-config-reference.md#env) for details.
 
 ### ImagePullBackOff
 
