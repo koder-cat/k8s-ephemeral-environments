@@ -81,6 +81,9 @@ outputs:
   trigger:
     description: 'Environment trigger mode (automatic or on-demand)'
     value: ${{ steps.parse.outputs.trigger }}
+  env-json:
+    description: 'User-defined environment variables as JSON object'
+    value: ${{ steps.parse.outputs.env-json }}
 
 runs:
   using: 'composite'
@@ -442,6 +445,13 @@ runs:
         {
           echo "metrics-config<<EOF"
           echo "$FINAL_CONFIG" | jq -c '.metrics // {"enabled": false}'
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+        # Extract user-defined environment variables
+        {
+          echo "env-json<<EOF"
+          echo "$FINAL_CONFIG" | jq -c '.env // {}'
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 

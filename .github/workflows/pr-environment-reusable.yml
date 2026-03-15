@@ -158,6 +158,7 @@ jobs:
       metrics-config: ${{ steps.validate.outputs.metrics-config }}
       k8s-ee-ref: ${{ steps.resolve-k8s-ee-ref.outputs.value }}
       trigger: ${{ steps.validate.outputs.trigger }}
+      env-json: ${{ steps.validate.outputs.env-json }}
       resolved-pr-number: ${{ steps.resolve-pr.outputs.pr-number }}
       resolved-head-sha: ${{ steps.resolve-pr.outputs.head-sha }}
       resolved-head-ref: ${{ steps.resolve-pr.outputs.head-ref }}
@@ -596,6 +597,7 @@ jobs:
           mariadb-config: ${{ needs.validate-config.outputs.mariadb-config }}
           metrics-enabled: ${{ needs.validate-config.outputs.metrics-enabled }}
           metrics-config: ${{ needs.validate-config.outputs.metrics-config }}
+          env-json: ${{ needs.validate-config.outputs.env-json }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           registry-type: ${{ inputs.registry-type }}
           ecr-aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
