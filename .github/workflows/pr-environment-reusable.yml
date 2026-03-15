@@ -237,14 +237,18 @@ jobs:
             echo "value=${HEAD_REF}" >> "$GITHUB_OUTPUT"
           elif [[ -n "${K8S_EE_REF_INPUT}" ]]; then
             echo "value=${K8S_EE_REF_INPUT}" >> "$GITHUB_OUTPUT"
+          elif [[ "${REPOSITORY}" != "${K8S_EE_REPO}" ]]; then
+            # External repos: always use 'main' from k8s-ee repo
+            # Auto-inference from workflow_ref would give the caller's
+            # default branch (e.g. 'dev'), which doesn't exist in k8s-ee
+            echo "::notice::External repo without k8s-ee-ref input; using 'main'"
+            echo "value=main" >> "$GITHUB_OUTPUT"
           else
+            # Self-testing without HEAD_REF (shouldn't happen, but be safe)
             # Extract ref from "owner/repo/.../file.yml@refs/heads/main"
             REF="${WORKFLOW_REF##*@}"
             REF="${REF#refs/heads/}"
             REF="${REF#refs/tags/}"
-            # workflow_call inherits the caller's github context, so for PR
-            # events the ref is refs/pull/N/merge which doesn't exist in
-            # k8s-ee — fall back to the default branch
             if [[ "${REF}" == refs/* ]]; then
               echo "::warning::k8s-ee-ref auto-inference got '${REF}' (not a branch or tag); falling back to 'main'"
               REF="main"
