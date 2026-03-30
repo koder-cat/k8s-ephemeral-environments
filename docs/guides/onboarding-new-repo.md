@@ -78,12 +78,10 @@ The platform uses the following authentication:
 |--------------|---------|-------|------------|
 | `GITHUB_TOKEN` | Build/push images to GHCR, post PR comments | Automatic (workflow) | GitHub Actions |
 | `github-app-secret` | ARC runner authentication | Kubernetes cluster | Platform admin |
-| `ECR_AWS_ACCESS_KEY_ID` | ECR registry authentication (ECR only) | Org secret | Org admin |
-| `ECR_AWS_SECRET_ACCESS_KEY` | ECR registry authentication (ECR only) | Org secret | Org admin |
 
 **For GHCR (default):** No additional secrets are required. The `secrets: inherit` in the workflow passes the automatic `GITHUB_TOKEN`.
 
-**For ECR:** The org secrets `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` must be configured. These are passed automatically via `secrets: inherit`.
+**For ECR:** Set the `ECR_ROLE_TO_ASSUME` repository variable with the IAM role ARN. The workflow uses OIDC to assume this role — no access keys needed. See [ECR Registry Setup](#ecr-registry-setup-private-repos) for details.
 
 ## Fork / Multi-Cluster Setup
 
@@ -96,10 +94,11 @@ If you're running your own k8s-ee cluster (not the upstream koder-cat instance),
 | `ORG_NAME` | `koder-cat` | GitHub organization name (used in CLA, issue URLs) |
 | `REGISTRY_TYPE` | `ghcr` | Container registry: `ghcr` or `ecr` |
 | `ECR_REGION` | _(none)_ | AWS region for ECR (required when `REGISTRY_TYPE` is `ecr`) |
+| `ECR_ROLE_TO_ASSUME` | _(none)_ | AWS IAM role ARN for OIDC auth (required when `REGISTRY_TYPE` is `ecr`) |
 
 Set them at **Settings → Secrets and variables → Actions → Variables → New repository variable**.
 
-> **Note:** For ECR, also configure org secrets `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY`. See [ECR Registry Setup](#ecr-registry-setup-private-repos) for details.
+> **Note:** For ECR, set the `ECR_ROLE_TO_ASSUME` variable with the IAM role ARN (e.g., `arn:aws:iam::123456789012:role/github-actions-ecr`). See [ECR Registry Setup](#ecr-registry-setup-private-repos) for details.
 
 ---
 
@@ -209,7 +208,7 @@ Your repository needs a Dockerfile at the root (or configured path). The platfor
 | **Public repository** | Or private with ECR (`registry-type: ecr`) |
 | **Dockerfile** | Build your application as a container |
 | **Health endpoint** | Returns 200 for Kubernetes probes (default: `/health`) |
-| **Package permissions** | GHCR write access (automatic) or ECR credentials (org secrets) |
+| **Package permissions** | GHCR write access (automatic) or ECR credentials (via OIDC) |
 | **Architecture compatible** | Base images must support the cluster architecture (default: `linux/arm64`, configurable via `ARCHITECTURE` variable) |
 
 ---
@@ -281,6 +280,7 @@ with:
   k8s-ee-repo: 'my-org/k8s-ee-fork'     # Use a fork of k8s-ee
   registry-type: 'ecr'                  # Use ECR instead of GHCR (default: 'ghcr')
   ecr-region: 'us-east-2'              # AWS region for ECR (required when registry-type is ecr)
+  ecr-role-to-assume: 'arn:aws:iam::123456789012:role/github-actions-ecr'  # IAM role for OIDC (required for ECR)
 ```
 
 | Input | Default | Description |
@@ -290,6 +290,7 @@ with:
 | `k8s-ee-repo` | `koder-cat/k8s-ephemeral-environments` | Repository that provides the reusable actions and Helm charts. Override when running a fork of k8s-ee. |
 | `registry-type` | `ghcr` | Container registry: `ghcr` (GitHub Container Registry) or `ecr` (AWS ECR). |
 | `ecr-region` | _(none)_ | AWS region for ECR (required when `registry-type` is `ecr`). |
+| `ecr-role-to-assume` | _(none)_ | AWS IAM role ARN for OIDC authentication (required when `registry-type` is `ecr`). |
 
 > **Private images:** The deploy step automatically creates an `imagePullSecrets` entry so Kubernetes can pull from the configured registry (GHCR or ECR). No manual secret configuration is required beyond org-level secrets.
 
@@ -354,9 +355,10 @@ Container images are automatically set to public by the build step. If you see 4
 
 If using `registry-type: ecr` and image pulls fail:
 
-1. **Check org secrets:** Ensure `ECR_AWS_ACCESS_KEY_ID` and `ECR_AWS_SECRET_ACCESS_KEY` are set as org secrets
-2. **Check IAM permissions:** The IAM user needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`, `ecr:CreateRepository`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutLifecyclePolicy`
+1. **Check OIDC role:** Ensure `ECR_ROLE_TO_ASSUME` repository variable is set with the correct IAM role ARN
+2. **Check IAM permissions:** The IAM role needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`, `ecr:CreateRepository`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutLifecyclePolicy`
 3. **Check region:** Ensure `ecr-region` in the workflow matches the region where the ECR repository should exist
+4. **Check trust policy:** The IAM role's trust policy must allow `token.actions.githubusercontent.com` as a federated principal for your repository
 
 ### Deployment failed
 
@@ -403,28 +405,41 @@ For production applications with evolving schemas, use database migrations inste
 
 ## ECR Registry Setup (Private Repos)
 
-For private repositories that cannot use GHCR, the platform supports AWS ECR as an alternative container registry.
+For private repositories that cannot use GHCR, the platform supports AWS ECR as an alternative container registry using OIDC (OpenID Connect) for keyless authentication.
 
-### 1. Configure Org Secrets
+### 1. Configure Repository Variables
 
-Set these as **organization secrets** (not repo secrets) so all repositories in the org can use them:
+Set these as **repository variables** (Settings → Secrets and variables → Actions → Variables):
 
-| Secret | Description |
-|--------|-------------|
-| `ECR_AWS_ACCESS_KEY_ID` | AWS IAM access key with ECR permissions |
-| `ECR_AWS_SECRET_ACCESS_KEY` | AWS IAM secret key |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `REGISTRY_TYPE` | Must be `ecr` | `ecr` |
+| `ECR_REGION` | AWS region for ECR | `us-east-2` |
+| `ECR_ROLE_TO_ASSUME` | IAM role ARN for OIDC auth | `arn:aws:iam::123456789012:role/github-actions-ecr` |
+
+The IAM role must have a trust policy that allows GitHub Actions OIDC for your repository. See [AWS docs on configuring OIDC](https://docs.github.com/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services).
 
 ### 2. Add Workflow Inputs
 
-Add `registry-type` and `ecr-region` to your calling workflow:
+Add `registry-type`, `ecr-region`, and `ecr-role-to-assume` to your calling workflow. The caller **must** include `id-token: write` in its `permissions:` block for OIDC authentication:
 
 ```yaml
-uses: your-org/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
-with:
-  # ... standard inputs ...
-  registry-type: 'ecr'
-  ecr-region: 'us-east-2'   # Your AWS region
-secrets: inherit             # Passes ECR_AWS_* org secrets
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+  security-events: write
+  id-token: write    # Required for OIDC authentication with AWS ECR
+
+jobs:
+  pr-environment:
+    uses: your-org/k8s-ephemeral-environments/.github/workflows/pr-environment-reusable.yml@main
+    with:
+      # ... standard inputs ...
+      registry-type: 'ecr'
+      ecr-region: 'us-east-2'   # Your AWS region
+      ecr-role-to-assume: 'arn:aws:iam::123456789012:role/github-actions-ecr'  # Your IAM role
+    secrets: inherit             # Passes GITHUB_TOKEN
 ```
 
 ### 3. How It Works
@@ -434,7 +449,7 @@ secrets: inherit             # Passes ECR_AWS_* org secrets
 - The `deploy-app` action creates a Kubernetes `ecr-pull-secret` for authenticated image pulls
 - Untagged images are automatically expired after 7 days via ECR lifecycle policy
 
-No GHCR package visibility settings are needed — ECR handles authentication via IAM credentials.
+No GHCR package visibility settings or long-lived access keys are needed — ECR authentication uses short-lived OIDC tokens.
 
 ---
 

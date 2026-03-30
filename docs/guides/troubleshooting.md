@@ -373,10 +373,10 @@ gh api /orgs/{org}/packages/container/{repo}%2F{image} --jq '.visibility'
 
 | Cause | Solution |
 |-------|----------|
-| Missing credentials | Check `ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY` org secrets |
+| Missing credentials | Check `ECR_ROLE_TO_ASSUME` repository variable and IAM role trust policy |
 | Expired token | ECR tokens expire after 12h; re-run the workflow |
 | Wrong region | Verify `ecr-region` matches the ECR repository region |
-| Missing IAM permissions | IAM user needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` |
+| Missing IAM permissions | IAM role needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` |
 
 **Resolution:**
 ```bash
