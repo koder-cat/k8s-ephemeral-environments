@@ -27,12 +27,8 @@ inputs:
     description: "Registry type: 'ghcr' (default) or 'ecr'"
     required: false
     default: "ghcr"
-  ecr-aws-access-key-id:
-    description: "AWS access key ID for ECR authentication (required when registry-type is ecr)"
-    required: false
-    default: ""
-  ecr-aws-secret-access-key:
-    description: "AWS secret access key for ECR authentication (required when registry-type is ecr)"
+  ecr-role-to-assume:
+    description: "AWS IAM role ARN for OIDC authentication with ECR (required when registry-type is ecr)"
     required: false
     default: ""
   ecr-region:
@@ -85,8 +81,7 @@ runs:
         REGISTRY: ${{ inputs.registry }}
         REGISTRY_TYPE: ${{ inputs.registry-type }}
         ECR_REGION: ${{ inputs.ecr-region }}
-        ECR_AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
-        ECR_AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
+        ECR_ROLE_TO_ASSUME: ${{ inputs.ecr-role-to-assume }}
         PLATFORMS: ${{ inputs.platforms }}
       run: |
         set -euo pipefail
@@ -158,12 +153,8 @@ runs:
             echo "ERROR: ecr-region is required when registry-type is ecr"
             exit 1
           fi
-          if [[ -z "$ECR_AWS_ACCESS_KEY_ID" ]]; then
-            echo "ERROR: ecr-aws-access-key-id is required when registry-type is ecr (check org/repo secrets)"
-            exit 1
-          fi
-          if [[ -z "$ECR_AWS_SECRET_ACCESS_KEY" ]]; then
-            echo "ERROR: ecr-aws-secret-access-key is required when registry-type is ecr (check org/repo secrets)"
+          if [[ -z "$ECR_ROLE_TO_ASSUME" ]]; then
+            echo "ERROR: ecr-role-to-assume is required when registry-type is ecr (set ECR_ROLE_TO_ASSUME repository variable)"
             exit 1
           fi
         fi
@@ -210,14 +201,19 @@ runs:
           echo "AWS CLI installed: $(aws --version)"
         fi
 
+    - name: Configure AWS credentials for ECR
+      if: inputs.registry-type == 'ecr'
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      with:
+        role-to-assume: ${{ inputs.ecr-role-to-assume }}
+        aws-region: ${{ inputs.ecr-region }}
+
     - name: Resolve registry
       id: resolve-registry
       shell: bash
       env:
         REGISTRY_TYPE: ${{ inputs.registry-type }}
         REGISTRY: ${{ inputs.registry }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
         ECR_REGION: ${{ inputs.ecr-region }}
         IMAGE_NAME: ${{ inputs.image-name }}
       run: |
@@ -269,14 +265,6 @@ runs:
         registry: ${{ steps.resolve-registry.outputs.url }}
         username: ${{ github.actor }}
         password: ${{ inputs.github-token }}
-
-    - name: Configure AWS credentials for ECR
-      if: inputs.registry-type == 'ecr'
-      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
-      with:
-        aws-access-key-id: ${{ inputs.ecr-aws-access-key-id }}
-        aws-secret-access-key: ${{ inputs.ecr-aws-secret-access-key }}
-        aws-region: ${{ inputs.ecr-region }}
 
     - name: Log in to ECR
       if: inputs.registry-type == 'ecr'

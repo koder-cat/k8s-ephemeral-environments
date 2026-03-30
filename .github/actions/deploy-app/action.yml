@@ -123,12 +123,8 @@ inputs:
     description: "Registry type: 'ghcr' (default) or 'ecr'"
     required: false
     default: 'ghcr'
-  ecr-aws-access-key-id:
-    description: 'AWS access key ID for ECR authentication (required when registry-type is ecr)'
-    required: false
-    default: ''
-  ecr-aws-secret-access-key:
-    description: 'AWS secret access key for ECR authentication (required when registry-type is ecr)'
+  ecr-role-to-assume:
+    description: 'AWS IAM role ARN for OIDC authentication with ECR (required when registry-type is ecr)'
     required: false
     default: ''
   ecr-region:
@@ -359,6 +355,13 @@ runs:
         rm -rf /tmp/awscliv2.zip /tmp/aws-install
         "$HOME/.local/bin/aws" --version
 
+    - name: Configure AWS credentials for ECR
+      if: inputs.registry-type == 'ecr'
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      with:
+        role-to-assume: ${{ inputs.ecr-role-to-assume }}
+        aws-region: ${{ inputs.ecr-region }}
+
     - name: Create image pull secret
       if: inputs.registry-type == 'ecr' || inputs.github-token != ''
       shell: bash
@@ -366,14 +369,18 @@ runs:
         NAMESPACE: ${{ inputs.namespace }}
         REGISTRY_TYPE: ${{ inputs.registry-type }}
         GITHUB_TOKEN_INPUT: ${{ inputs.github-token }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.ecr-aws-access-key-id }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.ecr-aws-secret-access-key }}
         ECR_REGION: ${{ inputs.ecr-region }}
         ECR_REGISTRY_URL: ${{ inputs.ecr-registry-url }}
       run: |
         set -euo pipefail
 
         if [[ "$REGISTRY_TYPE" == "ecr" ]]; then
+          # Defense-in-depth: verify AWS credentials are available
+          if ! aws sts get-caller-identity --region "$ECR_REGION" >/dev/null 2>&1; then
+            echo "ERROR: AWS credentials not configured. Ensure ECR_ROLE_TO_ASSUME repository variable is set."
+            exit 1
+          fi
+
           echo "Creating ECR image pull secret in namespace: $NAMESPACE"
 
           # Use pre-computed registry URL from build-image, or derive if not provided
