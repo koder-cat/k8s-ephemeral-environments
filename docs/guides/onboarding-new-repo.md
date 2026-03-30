@@ -452,6 +452,20 @@ jobs:
 
 No GHCR package visibility settings or long-lived access keys are needed — ECR authentication uses short-lived OIDC tokens.
 
+### Migrating from Access Keys to OIDC
+
+If your repository was previously using ECR with org secrets (`ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY`), update your caller workflow:
+
+1. **Add `id-token: write`** to the `permissions:` block (required for all callers, even GHCR-only)
+2. **Add `ecr-role-to-assume`** to the `with:` block:
+   ```yaml
+   ecr-role-to-assume: ${{ vars.ECR_ROLE_TO_ASSUME || '' }}
+   ```
+3. **Set the `ECR_ROLE_TO_ASSUME` repository variable** with your IAM role ARN
+4. **Remove `ECR_AWS_ACCESS_KEY_ID`/`ECR_AWS_SECRET_ACCESS_KEY` org secrets** (after verifying OIDC works)
+
+> **Important:** The `ecr-role-to-assume` input must be explicitly passed in your caller workflow's `with:` block. The reusable workflow defaults to an empty string, so omitting it will cause the build to fail with a validation error.
+
 ---
 
 ## See Also
