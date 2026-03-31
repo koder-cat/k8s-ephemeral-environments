@@ -357,7 +357,7 @@ Container images are automatically set to public by the build step. If you see 4
 If using `registry-type: ecr` and image pulls fail:
 
 1. **Check OIDC role:** Ensure `ECR_ROLE_TO_ASSUME` repository variable is set with the correct IAM role ARN
-2. **Check IAM permissions:** The IAM role needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`, `ecr:CreateRepository`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutLifecyclePolicy`
+2. **Check IAM permissions:** The IAM role needs `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`, `ecr:CreateRepository`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutLifecyclePolicy`, `ecr:BatchDeleteImage`
 3. **Check region:** Ensure `ecr-region` in the workflow matches the region where the ECR repository should exist
 4. **Check trust policy:** The IAM role's trust policy must allow `token.actions.githubusercontent.com` as a federated principal for your repository
 
@@ -446,9 +446,13 @@ jobs:
 ### 3. How It Works
 
 - The `build-image` action automatically creates the ECR repository on first push
+- Images are tagged with `pr-<number>` only (one tag per PR, overwritten on each push)
 - Images are pushed to `<account-id>.dkr.ecr.<region>.amazonaws.com/<org>/<repo>/<project-id>`
 - The `deploy-app` action creates a Kubernetes `ecr-pull-secret` for authenticated image pulls
-- Untagged images are automatically expired after 7 days via ECR lifecycle policy
+- Deployments use the immutable image digest, not the tag, for container image resolution
+- When a PR is closed/merged, the `pr-<number>` image tag is automatically deleted from ECR
+- Overwriting the `pr-<number>` tag on each push makes the previous manifest untagged; these are cleaned by the 7-day lifecycle policy
+- Organization-wide ECR lifecycle policies take precedence when configured
 
 No GHCR package visibility settings or long-lived access keys are needed — ECR authentication uses short-lived OIDC tokens.
 

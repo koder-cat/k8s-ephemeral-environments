@@ -260,7 +260,7 @@ The project was developed in phases: **Phase 1** (VPS infrastructure), **Phase 1
 1. Dev creates branch `feat/new-feature` and opens PR
 2. GitHub Actions detects `pull_request: opened` event
 3. Pipeline creates namespace `{project-id}-pr-{number}` with ResourceQuota
-4. Deploys application with image `:<sha>` + database
+4. Deploys application with image `:pr-<number>` + database
 5. Ingress created; URL `{project-id}-pr-{number}.preview.domain.com` active
 6. Bot comments on PR with preview URL and Grafana link
 7. Dev/QA/Reviewer test and give feedback

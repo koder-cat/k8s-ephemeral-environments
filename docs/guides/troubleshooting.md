@@ -347,7 +347,7 @@ kubectl describe pod -n {namespace} <pod-name> | grep -A10 Events
 |-------|----------|
 | Image doesn't exist | Check GHCR for the tag |
 | Package is private | Check org settings allow public packages |
-| Wrong tag | Check commit SHA matches |
+| Wrong tag | Check PR tag matches (`pr-N` format) |
 
 **Resolution:**
 ```bash
@@ -389,6 +389,8 @@ aws ecr describe-repositories --repository-names {image-name} --region {region}
 # Check pull secret in namespace
 kubectl get secret ecr-pull-secret -n {namespace} -o yaml
 ```
+
+> **Note:** ECR image tags (`pr-N`) are automatically deleted when the PR environment is destroyed. If you see `ImagePullBackOff` on a restarted pod after the PR was closed and reopened, the image may have been cleaned up — push a new commit to trigger a fresh build.
 
 ### Init Container Stuck
 

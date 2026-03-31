@@ -6,7 +6,7 @@
 - **Description:** Add workflow step to build and push Docker image
 - **Acceptance Criteria:**
   - Dockerfile exists or is created
-  - Image built with tag: `<registry>/<app>:<sha>`
+  - Image built with tag: `<registry>/<app>:pr-<number>`
   - Image pushed to container registry (GHCR or DockerHub)
   - Build uses caching for speed
 - **Estimate:** M

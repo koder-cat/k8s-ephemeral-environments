@@ -17,6 +17,8 @@
 - [x] Health checks pass before marking deploy complete
 - [x] Total deploy time < 10 minutes (including build)
 
+> **Note (2026-03-30):** Image tagging changed from commit SHA to `pr-N` format for ECR cost optimization. Deployments use image digest (immutable) regardless of tag format.
+
 ## Priority
 
 **Must** - Critical for MVP
