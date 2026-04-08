@@ -30,7 +30,7 @@
     "@nestjs/serve-static": "^5.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.2",
     "drizzle-seed": "^0.3.0",
     "file-type": "^21.3.2",
     "helmet": "^8.0.0",
